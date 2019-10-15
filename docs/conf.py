@@ -20,8 +20,8 @@ sys.path.insert(0, os.path.abspath('..'))
 # -- Project information -----------------------------------------------------
 
 project = u'CASA Next Generation Infrastructure'
-copyright = u'2019, Ryan Raba'
-author = u'Ryan Raba'
+copyright = u'2019, National Radio Astronomy Observatory'
+author = u'National Radio Astronomy Observatory'
 
 # The short X.Y version
 version = u''
