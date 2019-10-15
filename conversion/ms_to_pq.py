@@ -11,7 +11,8 @@ def ms_to_pq(infile, outfile=None):
 
     Returns
     -------
-    None
+    bool
+        Success status
     """
     return True
 
