@@ -1,4 +1,4 @@
-def ms_to_pq(infile, outfile=None)
+def ms_to_pq(infile, outfile=None):
     """
     Convert Legacy MS to Apache Parquet format
 
@@ -13,5 +13,5 @@ def ms_to_pq(infile, outfile=None)
     -------
     None
     """
-    tmp = infile
+    return True
 
