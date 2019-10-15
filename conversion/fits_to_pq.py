@@ -1,14 +1,14 @@
-def ms_to_pq(infile, outfile=None):
+def fits_to_pq(infile, outfile=None):
     """
     .. todo::
         This function is not yet implemented
     
-    Convert Legacy MS to Apache Parquet format
+    Convert FITS format MS to Apache Parquet format (future)
 
     Parameters
     ----------
     infile : str
-        Input MS filename
+        Input FITS filename
     outfile : str
         Output Parquet filename. If None, will use infile name with .pq extension
 
