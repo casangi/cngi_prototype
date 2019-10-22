@@ -40,15 +40,31 @@ release = u'0.1b'
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx.ext.autosummary',
     'sphinx.ext.todo',
     'sphinx.ext.viewcode',
     'sphinx.ext.coverage',
     'sphinx.ext.githubpages',
-    'sphinx.ext.napoleon'
+    'sphinx.ext.napoleon',
+    'sphinx_automodapi.automodapi'
 ]
 
 todo_include_todos = True
 add_module_names = False
+numpy_show_class_members = False
+
+# Napoleon settings
+#napoleon_google_docstring = True
+#napoleon_numpy_docstring = True
+#napoleon_include_private_with_doc = False
+#napoleon_include_special_with_doc = False
+#napoleon_use_admonition_for_examples = False
+#napoleon_use_admonition_for_notes = False
+#napoleon_use_admonition_for_references = False
+#napoleon_use_ivar = True
+#napoleon_use_param = True
+#napoleon_use_rtype = True
+
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -183,3 +199,10 @@ epub_exclude_files = ['search.html']
 
 
 # -- Extension configuration -------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# Autosummary
+# -----------------------------------------------------------------------------
+
+#autosummary_generate = True
+#autodoc_default_flags = ['members', 'inherited-members']

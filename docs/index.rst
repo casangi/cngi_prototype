@@ -1,17 +1,10 @@
 CASA Next Generation Infrastructure
-===============================================================
-       
+===============================================================      
 .. toctree::
-   :maxdepth: 2
-   :caption: Content:
+   :maxdepth: 100
 
-   measurementsets
+   conversion
+   dio
+   ms
    images
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+   direct

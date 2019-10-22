@@ -1,9 +1,9 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
-   name='conversion',
-   version='0.1',
-   description='convert between data formats',
-   packages=['conversion'],
-   install_requires=['numpy'],
+    name='cngi',
+    version='0.1',
+    description='casa next generation infrastructure',
+    packages=find_packages(),
+    install_requires=['numpy'],
 )
