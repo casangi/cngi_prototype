@@ -1,7 +1,6 @@
 alabaster==0.7.12
 Babel==2.7.0
 bokeh==1.3.4
-casatools==2019.214
 certifi==2019.9.11
 chardet==3.0.4
 Click==7.0
