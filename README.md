@@ -1,1 +1,1 @@
-# cngi_prototype
+# CASA Next Generation Infrastructure Prototype

@@ -6,3 +6,4 @@ These functions allow direct access to the underlying Dataframe model and Dask p
 .. automodsumm:: direct
    :toctree: api
    :nosignatures:
+   :functions-only:

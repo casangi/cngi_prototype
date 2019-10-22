@@ -1,10 +1,10 @@
 ########################
 def chanaverage(df, width=1):
     """
-    Average data across channels
-
     .. todo::
         This function is not yet implemented
+
+    Average data across channels
     
     Parameters
     ----------
@@ -25,10 +25,10 @@ def chanaverage(df, width=1):
 ########################
 def joinspw(df1, df2):
     """
-    Set the metadata contents of an MS Dataframe
-
     .. todo::
         This function is not yet implemented
+
+    Set the metadata contents of an MS Dataframe
     
     Parameters
     ----------
@@ -49,10 +49,10 @@ def joinspw(df1, df2):
 ##########################
 def hanningsmooth(df, field=None, spw=None, timerange=None, uvrange=None, antenna=None, scan=None):
     """
-    Perform a running mean across the spectral axis with a triangle as a smoothing kernel
-
     .. todo::
         This function is not yet implemented
+
+    Perform a running mean across the spectral axis with a triangle as a smoothing kernel
     
     Parameters
     ----------
@@ -83,10 +83,10 @@ def hanningsmooth(df, field=None, spw=None, timerange=None, uvrange=None, antenn
 #############################################
 def recalculateUVW(df, field=None, refcode=None, reuse=True, phasecenter=None):
     """
-    Recalulate UVW and shift data to new phase center
-
     .. todo::
         This function is not yet implemented
+
+    Recalulate UVW and shift data to new phase center
     
     Parameters
     ----------
@@ -113,11 +113,11 @@ def recalculateUVW(df, field=None, refcode=None, reuse=True, phasecenter=None):
 ###############################################
 def regridSPW(df, field=None, spw=None, timerange=None, uvrange=None, antenna=None, scan=None, mode='channel', nchan=None, start=0, width=1, interpolation='linear', phasecenter=None, restfreq=None, outframe=None, veltype='radio'):
     """
-    Transform channel labels and visibilities to a spectral reference frame which is appropriate for analysis, e.g. from TOPO to LSRK or to correct for doppler shifts throughout the time of observation
-    
     .. todo::
         This function is not yet implemented
-    
+
+    Transform channel labels and visibilities to a spectral reference frame which is appropriate for analysis, e.g. from TOPO to LSRK or to correct for doppler shifts throughout the time of observation
+        
     Parameters
     ----------
     df : Dask Dataframe
@@ -165,10 +165,10 @@ def regridSPW(df, field=None, spw=None, timerange=None, uvrange=None, antenna=No
 ################################################
 def timeaverage(df, timebin=0.0, timespan=None, maxuvdistance=0.0):
     """
-    Average data across time axis
-
     .. todo::
         This function is not yet implemented
+
+    Average data across time axis
     
     Parameters
     ----------
@@ -192,10 +192,10 @@ def timeaverage(df, timebin=0.0, timespan=None, maxuvdistance=0.0):
 ##################################################
 def uvcontsub(df, field=None, fitspw=None, combine=None, solint='int', fitorder=0):
     """
-    Estimate continuum emission and subtract it from visibilities
-
     .. todo::
         This function is not yet implemented
+
+    Estimate continuum emission and subtract it from visibilities
     
     Parameters
     ----------
@@ -225,10 +225,10 @@ def uvcontsub(df, field=None, fitspw=None, combine=None, solint='int', fitorder=
 #####################################################
 def uvmodelfit(df, field=None, spw=None, timerange=None, uvrange=None, antenna=None, scan=None, niter=5, comptype='p', sourcepar=[1,0,0], varypar=[]):
     """
-    Fit simple analytic source component models directly to visibility data
-
     .. todo::
         This function is not yet implemented
+
+    Fit simple analytic source component models directly to visibility data
     
     Parameters
     ----------

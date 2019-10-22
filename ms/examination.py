@@ -1,10 +1,10 @@
 ###############
 def setmeta(df, fields={}):
     """
-    Set the metadata contents of an MS Dataframe
-
     .. todo::
         This function is not yet implemented
+
+    Set the metadata contents of an MS Dataframe
     
     Parameters
     ----------
@@ -24,10 +24,10 @@ def setmeta(df, fields={}):
 #############
 def viewmeta(df):
     """
-    View the metadata of an MS Dataframe
-
     .. todo::
         This function is not yet implemented
+
+    View the metadata of an MS Dataframe
     
     Parameters
     ----------
@@ -45,10 +45,10 @@ def viewmeta(df):
 #############
 def summarizeDF(df, field=None, spw=None, timerange=None, uvrange=None, antenna=None, scan=None):
     """
-    Summarize the contents of an MS Dataframe
-
     .. todo::
         This function is not yet implemented
+
+    Summarize the contents of an MS Dataframe
     
     Parameters
     ----------
@@ -76,17 +76,19 @@ def summarizeDF(df, field=None, spw=None, timerange=None, uvrange=None, antenna=
 
 
 ###################
-def summarizeFile(infile):
+def summarizeFile(infile, ddi=None):
     """
-    Summarize the contents of an Apache Parquet MS
-
     .. todo::
         This function is not yet implemented
+
+    Summarize the contents of an Apache Parquet MS
     
     Parameters
     ----------
     infile : Dask Dataframe
         input filename of Parquet MS 
+    ddi : int
+        Data Description ID in MS to inspect. Defaults to None, which will summarize all
 
     Returns
     -------
