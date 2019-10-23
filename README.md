@@ -1,4 +1,8 @@
 # CASA Next Generation Infrastructure
+
+### Documentation
+API and User Manual: https://cngi-prototype.readthedocs.io
+
 ### Installation
 - (maybe) apt-get install libgfortran3
 - pip install --extra-index-url https://casa-pip.nrao.edu/repository/pypi-group/simple casatools

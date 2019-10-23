@@ -17,7 +17,7 @@ from dask.distributed import Client
 global_framework_client = None
 
 ########################
-def InitializeFramework(workers=2, memory='8GB'):
+def InitializeFramework(workers=2, memory='8GB', processes=True):
     """
     Initialize the CNGI framework
 
@@ -31,6 +31,8 @@ def InitializeFramework(workers=2, memory='8GB'):
         Number of processor cores to use
     memory : str
         Max memory per core to use. String format eg '8GB'
+    processes : bool
+        Whether to use processes (True) or threads (False), Default=True
 
     Returns
     -------
@@ -42,7 +44,8 @@ def InitializeFramework(workers=2, memory='8GB'):
     if global_framework_client != None:
         global_framework_client.close()
     
-    global_framework_client = Client(n_workers=workers, threads_per_worker=1, memory_limit=memory)
+    global_framework_client = Client(processes=processes, n_workers=workers, 
+                                     threads_per_worker=1, memory_limit=memory)
     
     return(global_framework_client)
 
