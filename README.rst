@@ -15,14 +15,11 @@ CNGI is organized in to modules as described below. Each module is
 responsible for a different functional area, such as file conversion,
 input / output, MS operations, and Image operations.  
 
-.. toctree::
-   :maxdepth: 1
-
-   conversion
-   dio
-   ms
-   images
-   direct
+- conversion
+- dio
+- ms
+- images
+- direct
 
 
 Usage

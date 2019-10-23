@@ -11,6 +11,9 @@ This package has a dependency on legacy CASA / casacore and will be
 separated in the future to its own distribution apart from the rest of
 the CNGI package.
 
-.. automodsumm:: conversion
+To access these functions, use your favorite variation of:
+``import cngi.conversion``
+
+.. automodsumm:: cngi.conversion
    :toctree: api
    :nosignatures:

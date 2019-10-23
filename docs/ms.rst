@@ -8,7 +8,10 @@ disk.
 
 The input DF is never modified.
 
-.. automodsumm:: ms
+To access these functions, use your favorite variation of:
+``import cngi.ms``
+
+.. automodsumm:: cngi.ms
    :toctree: api
    :nosignatures:
 

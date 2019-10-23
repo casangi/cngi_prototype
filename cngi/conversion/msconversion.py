@@ -1,3 +1,17 @@
+#   Copyright 2019 AUI, Inc. Washington DC, USA
+#
+#   Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
+
 #########################################
 def read_ms(infile, ddi=None):
     """
@@ -36,7 +50,7 @@ def ms_to_pq(infile, outfile=None, membudget=4e9, maxchunksize=1000000):
     outfile : str
         Output Parquet filename. If None, will use infile name with .pq extension
     membudget : float
-        Target in-memory byte size of a chunk, Default = 4e9 ~ 4GB
+        Target in-memory byte size of a chunk, Default = 4e9 (~= 4GB)
     maxchunksize : int
         Maximum number of rows allowed per chunk        
 
@@ -49,7 +63,7 @@ def ms_to_pq(infile, outfile=None, membudget=4e9, maxchunksize=1000000):
     import numpy as np
     import pyarrow as pa
     import pyarrow.parquet as pq
-    from direct import GetFrameworkClient
+    from cngi.direct import GetFrameworkClient
     
     # parse filename to use
     prefix = infile[:infile.rindex('.')]
@@ -130,16 +144,19 @@ def ms_to_pq(infile, outfile=None, membudget=4e9, maxchunksize=1000000):
     
     # parallelize with direct interface
     client = GetFrameworkClient()
-    jobs = client.map(processDDI, ddis, 
-                      np.repeat(infile, len(ddis)), 
-                      np.repeat(outfile, len(ddis)), 
-                      np.repeat(membudget, len(ddis)),
-                      np.repeat(maxchunksize, len(ddis)))
-    
-    # block until complete
-    for job in jobs: job.result()
+    if client == None:
+        for ddi in ddis:
+            processDDI(ddi,infile,outfile,membudget,maxchunksize)
+    else:
+        jobs = client.map(processDDI, ddis, 
+                          np.repeat(infile, len(ddis)), 
+                          np.repeat(outfile, len(ddis)), 
+                          np.repeat(membudget, len(ddis)),
+                          np.repeat(maxchunksize, len(ddis)))
+        
+        # block until complete
+        for job in jobs: job.result()
     print('Complete.')
-
 
 
 
