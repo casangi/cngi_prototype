@@ -97,9 +97,6 @@ def summarizeDF(df, field=None, spw=None, timerange=None, uvrange=None, antenna=
 ###################
 def summarizeFile(infile, ddis=None):
     """
-    .. todo::
-        This function is not yet implemented
-    
     Summarize the contents of an Apache Parquet MS
     
     Parameters
