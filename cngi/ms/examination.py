@@ -12,6 +12,11 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+import os
+import numpy as np
+import pandas as pd
+import pyarrow.parquet as pq
+
 ###############
 def setmeta(df, fields={}):
     """
@@ -90,23 +95,41 @@ def summarizeDF(df, field=None, spw=None, timerange=None, uvrange=None, antenna=
 
 
 ###################
-def summarizeFile(infile, ddi=None):
+def summarizeFile(infile, ddis=None):
     """
     .. todo::
         This function is not yet implemented
-
+    
     Summarize the contents of an Apache Parquet MS
     
     Parameters
     ----------
     infile : Dask Dataframe
         input filename of Parquet MS 
-    ddi : int
-        Data Description ID in MS to inspect. Defaults to None, which will summarize all
-
+    ddis : int or list
+        Data Description IDs in MS to inspect. Default = None, summarizes all
+    
     Returns
     -------
-    dict
+    Pandas Dataframe
         Summary information
     """
-    return {}
+    
+    if ddis == None:
+        ddis = list(np.array(os.listdir(infile), dtype=int))
+    elif type(ddis) != list:
+        ddis = [ddis]
+    
+    summary = pd.DataFrame([])
+    for ddi in ddis:
+      dpath = os.path.join(infile, str(ddi))
+      chunks = os.listdir(dpath)
+      dsize = np.sum([os.path.getsize(os.path.join(dpath,ff)) for ff in chunks])/1024**3
+      pqf = pq.ParquetFile(os.path.join(dpath,chunks[0]))
+      sdf = [{'ddi':ddi, 'chunks':len(chunks), 'size_GB':np.around(dsize,2), 
+              'row_count_estimate':pqf.metadata.num_rows*len(chunks),
+              'col_count':pqf.metadata.num_columns, 'col_names':pqf.schema.names}]
+      summary = pd.concat([summary,pd.DataFrame(sdf)], axis=0, sort=False)
+    
+    summary = summary.reset_index().drop(columns=['index'])
+    return summary
