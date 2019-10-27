@@ -39,7 +39,7 @@ def read_ms(infile, ddi=None):
 ##########################################
 def ms_to_pq(infile, outfile=None, ddi=None, membudget=1e9, maxchunksize=1000000):
     """
-    Convert Legacy MS to Apache Parquet format
+    Convert legacy format MS to Apache Parquet format MS
 
     This function requires CASA6 casatools module. 
 
