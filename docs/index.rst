@@ -24,7 +24,6 @@ input / output, MS operations, and Image operations.
    images
    direct
 
-
 Usage
 ^^^^^^^^^^^^^^^^^^^^^
 
@@ -45,3 +44,16 @@ or
 ``import cngi.dio as cdio``
 
 ``df = cdio.read_pq(...)``
+
+Coding Standards
+^^^^^^^^^^^^^^^^^^^^^
+
+The CNGI project has not yet formally adopted a set of enforceable coding standards.
+
+Some alternatives under consideration are:
+
+* Google's `style guide <https://google.github.io/styleguide/pyguide.html>`_
+* Python Software Foundation's `style guide <https://www.python.org/dev/peps/pep-008/>`_
+* Something like a PyData project (`two <https://docs.dask.org/en/latest/develop/html>`_ `examples <xarray.pydata.org/en/stable/contributing.html#code-standards>`_)
+
+We're thinking about using flake8, mypy, pysort, lint, etc. for checking and enforcement.
