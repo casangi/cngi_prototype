@@ -33,7 +33,7 @@ def read_pq(infile, ddi=0, columns=None):
     """
     import dask.dataframe as dd
     
-    ddf = dd.read_parquet(infile+'/'+str(ddi), engine='pyarrow', columns=columns)
+    ddf = dd.read_parquet(infile+'/'+str(ddi), engine='pyarrow', columns=columns, gather_statistics=False)
     return ddf
 
 
