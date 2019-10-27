@@ -37,7 +37,7 @@ def read_ms(infile, ddi=None):
 
 
 ##########################################
-def ms_to_pq(infile, outfile=None, membudget=4e9, maxchunksize=1000000):
+def ms_to_pq(infile, outfile=None, ddi=None, membudget=1e9, maxchunksize=1000000):
     """
     Convert Legacy MS to Apache Parquet format
 
@@ -49,8 +49,10 @@ def ms_to_pq(infile, outfile=None, membudget=4e9, maxchunksize=1000000):
         Input MS filename
     outfile : str
         Output Parquet filename. If None, will use infile name with .pq extension
+    ddi : int
+        specific ddi to convert. Leave as None to convert entire MS
     membudget : float
-        Target in-memory byte size of a chunk, Default = 4e9 (~= 4GB)
+        Target in-memory byte size of a chunk, Default = 1e9 (~= 1GB)
     maxchunksize : int
         Maximum number of rows allowed per chunk        
 
@@ -114,29 +116,26 @@ def ms_to_pq(infile, outfile=None, membudget=4e9, maxchunksize=1000000):
         if cc==0: print('processing ddi %s: chunks=%s, size=%s' % (str(ddi),str(nrows//chunksize),str(chunksize)))
         
         # build python dictionary one MS column at a time
-        mdf = pd.DataFrame([])  # master dataframe
+        mdi = {}
         for col in cols:
           try: # every column should be a fixed size within a given ddi
             marr = MSDDI.getcol(col, rr, len(chunk))
             ncs = [col]
             if marr.ndim > 1:
-              marr = marr.transpose()
-              mdims = np.mgrid[[range(ii) for ii in marr.shape[1:]]].reshape(marr.ndim-1,-1).T.astype(str)
-              ncs = [col+'_'.join(ii) for ii in mdims]
-              marr = marr.reshape(len(marr), -1)
+              marr = marr.reshape(-1, marr.shape[-1])
+              ncs = [col+str(ii) for ii in range(marr.shape[0])]
             if marr.dtype == 'complex128':
-              mdf = pd.concat([mdf,pd.DataFrame(np.real(marr), columns=['R'+cc for cc in ncs])],axis=1,sort=False)
-              mdf = pd.concat([mdf,pd.DataFrame(np.imag(marr),columns=['I'+cc for cc in ncs])],axis=1,sort=False)
+              mdi.update(dict(zip(['R'+cc for cc in ncs], np.real(marr))))
+              mdi.update(dict(zip(['I'+cc for cc in ncs], np.imag(marr))))
             else:
-              mdf = pd.concat([mdf,pd.DataFrame(list(marr), columns=ncs)], axis=1, sort=False)
+              mdi.update(dict(zip(ncs, np.atleast_2d(marr))))
           except Exception:  # sometimes bad columns break the table tool (??)
             print("WARNING: can't process column %s"%(col))
             cols = [_ for _ in cols if _ != col]    
         
         # write to your favorite ots format
-        pq.write_to_dataset(pa.Table.from_pandas(mdf), root_path=outfile+'/'+str(ddi),
-                            version='2.0',
-                            compression='snappy')
+        pq.write_to_dataset(pa.Table.from_pydict(mdi), root_path=outfile+'/'+str(ddi),
+                            version='2.0', compression='snappy')
       
       MS.close()
       print("completed ddi " + str(ddi))
@@ -144,7 +143,9 @@ def ms_to_pq(infile, outfile=None, membudget=4e9, maxchunksize=1000000):
     
     # parallelize with direct interface
     client = GetFrameworkClient()
-    if client == None:
+    if ddi != None:
+        processDDI(ddi,infile,outfile,membudget,maxchunksize)
+    elif client == None:
         for ddi in ddis:
             processDDI(ddi,infile,outfile,membudget,maxchunksize)
     else:
