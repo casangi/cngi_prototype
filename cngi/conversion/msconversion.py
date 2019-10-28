@@ -19,7 +19,6 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from xarray import Dataset as xd
 from xarray import DataArray as xa
-from cngi.direct import GetFrameworkClient
 
 
 #########################################
@@ -70,7 +69,8 @@ def ms_to_pq(infile, outfile=None, ddi=None, membudget=1e9, maxchunksize=1000000
     -------
     """    
     from casatools import table as tb
-    
+    from cngi.direct import GetFrameworkClient
+        
     # parse filename to use
     prefix = infile[:infile.rindex('.')]
     if outfile == None: outfile = prefix + '.pq'
@@ -191,6 +191,7 @@ def ms_to_ncdf(infile, outfile=None, ddi=None, membudget=1e9, maxchunksize=10000
     -------
     """    
     from casatools import table as tb
+    from cngi.direct import GetFrameworkClient
     
     # parse filename to use
     prefix = infile[:infile.rindex('.')]

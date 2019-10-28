@@ -12,8 +12,6 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-from cngi.direct import GetFrameworkClient
-
 
 #############################################
 def read_pq(infile, ddi=0, columns=None):
@@ -35,6 +33,7 @@ def read_pq(infile, ddi=0, columns=None):
         New Dataframe of MS contents
     """
     import dask.dataframe as dd
+    from cngi.direct import GetFrameworkClient
     
     if GetFrameworkClient() == None:
       print("*****Processing Framework is not initialized, call cngi.direct.InitializeFramework first!")
@@ -66,6 +65,7 @@ def write_pq(df, outfile='ms.pq', ddi=0, append=False):
     """
     import os
     import dask.dataframe as dd
+    from cngi.direct import GetFrameworkClient
     
     if GetFrameworkClient() == None:
       print("*****Processing Framework is not initialized, call cngi.direct.InitializeFramework first!")
@@ -101,6 +101,7 @@ def read_ncdf(infile, ddi=0):
         New xarray Dataset of MS contents
     """
     from xarray import open_mfdataset
+    from cngi.direct import GetFrameworkClient
     
     if GetFrameworkClient() == None:
       print("*****Processing Framework is not initialized, call cngi.direct.InitializeFramework first!")
