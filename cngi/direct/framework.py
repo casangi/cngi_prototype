@@ -12,7 +12,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-from dask.distributed import Client
+from dask.distributed import Client, LocalCluster
 
 global_framework_client = None
 
@@ -44,8 +44,12 @@ def InitializeFramework(workers=2, memory='8GB', processes=True):
     if global_framework_client != None:
         global_framework_client.close()
     
-    global_framework_client = Client(processes=processes, n_workers=workers, 
-                                     threads_per_worker=1, memory_limit=memory)
+    # set up a cluster object to pass into Client
+    # for now, only supporting single machine
+    cluster = LocalCluster(n_workers=workers, threads_per_worker=1,
+                           processes=processes, memory_limit=memory)
+
+    global_framework_client = Client(cluster)
     
     return(global_framework_client)
 
