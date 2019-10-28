@@ -14,4 +14,4 @@ To access these functions, use your favorite variation of:
 .. automodsumm:: cngi.ms
    :toctree: api
    :nosignatures:
-
+   :functions-only:

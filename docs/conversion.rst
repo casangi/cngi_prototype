@@ -17,3 +17,4 @@ To access these functions, use your favorite variation of:
 .. automodsumm:: cngi.conversion
    :toctree: api
    :nosignatures:
+   :functions-only:

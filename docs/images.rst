@@ -9,3 +9,4 @@ To access these functions, use your favorite variation of:
 .. automodsumm:: cngi.image
    :toctree: api
    :nosignatures:
+   :functions-only:
