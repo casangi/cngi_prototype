@@ -20,5 +20,6 @@ setup(
                       'distributed==2.6.0',
                       'pyarrow==0.15.0',
                       'bokeh==1.3.4',
-                      'pandas==0.25.2'],
+                      'pandas==0.25.2',
+                      'xarray==0.14.0'],
 )

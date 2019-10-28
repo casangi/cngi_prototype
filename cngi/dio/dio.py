@@ -12,6 +12,9 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+from cngi.direct import GetFrameworkClient
+
+
 #############################################
 def read_pq(infile, ddi=0, columns=None):
     """
@@ -32,6 +35,10 @@ def read_pq(infile, ddi=0, columns=None):
         New Dataframe of MS contents
     """
     import dask.dataframe as dd
+    
+    if GetFrameworkClient() == None:
+      print("*****Processing Framework is not initialized, call cngi.direct.InitializeFramework first!")
+      return None
     
     ddf = dd.read_parquet(infile+'/'+str(ddi), engine='pyarrow', columns=columns, gather_statistics=False)
     return ddf
@@ -60,6 +67,10 @@ def write_pq(df, outfile='ms.pq', ddi=0, append=False):
     import os
     import dask.dataframe as dd
     
+    if GetFrameworkClient() == None:
+      print("*****Processing Framework is not initialized, call cngi.direct.InitializeFramework first!")
+      return None
+    
     # need to manually remove existing parquet file (if any)
     if not append:
         tmp = os.system("rm -fr " + outfile)
@@ -68,3 +79,34 @@ def write_pq(df, outfile='ms.pq', ddi=0, append=False):
     
     dd.to_parquet(df, outfile+'/'+str(ddi), engine='pyarrow', compression='snappy', 
                   write_metadata_file=True, compute=True)
+
+
+
+
+#############################################
+def read_ncdf(infile, ddi=0):
+    """
+    Read xarray NetCDF format MS from disk
+    
+    Parameters
+    ----------
+    infile : str
+        input MS filename
+    ddi : int
+        Data Description ID in MS to read. Defaults to 0
+    
+    Returns
+    -------
+    xarray Dataset
+        New xarray Dataset of MS contents
+    """
+    from xarray import open_mfdataset
+    
+    if GetFrameworkClient() == None:
+      print("*****Processing Framework is not initialized, call cngi.direct.InitializeFramework first!")
+      return None
+    
+    xdf = open_mfdataset(infile+'/'+str(ddi)+'/*.nc', combine='by_coords', parallel=True)
+    return xdf
+
+
