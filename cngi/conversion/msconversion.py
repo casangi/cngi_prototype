@@ -243,32 +243,40 @@ def ms_to_ncdf(infile, outfile=None, ddi=None, membudget=1e9, maxchunksize=10000
         if cc==0: print('processing ddi %s: chunks=%s, size=%s' % (str(ddi),str(nrows//chunksize),str(chunksize)))
         
         # build python dictionary one MS column at a time
-        vals, coords, xdas = {}, {}, {}
+        coords, xdas = {'rows':chunk}, {}
         for col in cols:
           try: # every column should be a fixed size within a given ddi
             marr = MSDDI.getcol(col, rr, len(chunk))
             if col == 'UVW': 
-              coords.update({'U':('rows', marr[0,:]), 'V':('rows', marr[1,:]), 'W':('rows', marr[2,:])})
+              xdas[col] = xa(marr, dims=['uvw','rows'])
+              coords['uvw'] = np.arange(3)
             elif marr.ndim == 1:
-              coords[col] = ('rows', marr)
-            elif marr.dtype == 'complex128':
-              vals['R'+col], vals['I'+col] = np.real(marr), np.imag(marr)
-            else:
-              vals[col] = marr
+              xdas[col] = xa(marr, dims=['rows'])
+            elif marr.ndim == 2:  # determine if (pol x row) or (chan x row)
+              if col in ['WEIGHT', 'SIGMA']:
+                coords['pols'] = np.arange(marr.shape[0])
+              if ('pols' in coords) and (marr.shape[0] == coords['pols'].shape[0]):
+                xdas[col] = xa(marr, dims=['pols','rows'])
+              elif ('chans' in coords) and (marr.shape[0] == coords['chans'].shape[0]):
+                xdas[col] = xa(marr, dims=['chans','rows'])
+              else:
+                print("WARNING: unknown dimension in column %s"%(col))
+                cols = [_ for _ in cols if _ != col]
+            elif marr.ndim == 3:
+              if marr.dtype == 'complex128':
+                xdas['R'+col] = xa(np.real(marr), dims=['pols','chans','rows'])
+                xdas['I'+col] = xa(np.imag(marr), dims=['pols','chans','rows'])
+              else:
+                xdas[col] = xa(marr, dims=['pols','chans','rows'])
+              coords['chans'] = np.arange(marr.shape[1])
+            else: # ndim > 3
+              print("WARNING: can't process shape of column %s"%(col))
+              cols = [_ for _ in cols if _ != col]
           except Exception:  # sometimes bad columns break the table tool (??)
             print("WARNING: can't process column %s"%(col))
-            cols = [_ for _ in cols if _ != col]    
+            cols = [_ for _ in cols if _ != col]
         
-        for key in vals.keys():
-          if vals[key].ndim == 2:
-            xdas[key] = xa(vals[key], dims=['pols','rows'])
-          elif vals[key].ndim == 3:
-            xdas[key] = xa(vals[key], dims=['pols','chans','rows'])
-            coords.update({'pols':np.arange(vals[key].shape[0]),'chans':np.arange(vals[key].shape[1]),'rows':chunk})
-          else:
-            print("WARNING: unexpected dimensions, can't process column %s"%(col))
-        
-        xd(xdas, coords=coords).to_netcdf(outfile+'/'+str(ddi)+'/chunk'+str(cc)+'.nc')
+        xd(xdas, coords=coords).to_netcdf(prefix+'.ncdf/'+str(ddi)+'/chunk'+str(cc)+'.nc')
       
       MS.close()
       print("completed ddi " + str(ddi))
