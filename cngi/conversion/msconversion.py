@@ -12,7 +12,6 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-from casatools import table as tb
 import pandas as pd
 import os
 import numpy as np
@@ -70,6 +69,8 @@ def ms_to_pq(infile, outfile=None, ddi=None, membudget=1e9, maxchunksize=1000000
     Returns
     -------
     """    
+    from casatools import table as tb
+    
     # parse filename to use
     prefix = infile[:infile.rindex('.')]
     if outfile == None: outfile = prefix + '.pq'
@@ -189,6 +190,8 @@ def ms_to_ncdf(infile, outfile=None, ddi=None, membudget=1e9, maxchunksize=10000
     Returns
     -------
     """    
+    from casatools import table as tb
+    
     # parse filename to use
     prefix = infile[:infile.rindex('.')]
     if outfile == None: outfile = prefix + '.ncdf'
