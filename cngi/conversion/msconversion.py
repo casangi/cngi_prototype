@@ -98,19 +98,20 @@ def ms_to_pq(infile, outfile=None, ddi=None, membudget=1e9, maxchunksize=1000000
       cols = MS.colnames()
       
       # compute the size of first row to estimate the number or rows that will fit in mem
-      row_size = 0
+      col_count, channels = 0, 0
       for col in cols:
-        row_size += 8
+        col_count += 1
         if MSDDI.isvarcol(col):
           try:
-            row_size += 8*np.array(eval(MSDDI.getcolshapestring(col,nrow=1)[0])).prod()-8
-            if MSDDI.coldatatype(col) == 'complex': # twice the size
-              row_size += 8*np.array(eval(MSDDI.getcolshapestring(col,nrow=1)[0])).prod()
+            col_shape = np.array(eval(MSDDI.getcolshapestring(col,nrow=1)[0]))
+            if col_shape[0] != channels: col_count += col_shape[0]-1
+            if (len(col_shape) > 1) and (channels == 0): channels = col_shape[1]
+            if MSDDI.coldatatype(col) == 'complex': col_count += 1
           except Exception:  # sometimes bad columns break the table tool (??)
             cols = [_ for _ in cols if _ != col]
       
       # adjust chunksize to fit in memory
-      chunksize = np.min((maxchunksize, int(membudget/row_size)))
+      chunksize = np.min((maxchunksize, int(membudget/(col_count*channels*8))))
       
       # process MS data_desc_id in chunks of computed size
       for cc,rr in enumerate(range(0,nrows,chunksize)):
@@ -118,22 +119,40 @@ def ms_to_pq(infile, outfile=None, ddi=None, membudget=1e9, maxchunksize=1000000
         if cc==0: print('processing ddi %s: chunks=%s, size=%s' % (str(ddi),str(nrows//chunksize),str(chunksize)))
         
         # build python dictionary one MS column at a time
-        mdi = {}
+        mdi, chancount = {}, 1
         for col in cols:
+          if col == 'DATA_DESC_ID': continue
           try: # every column should be a fixed size within a given ddi
             marr = MSDDI.getcol(col, rr, len(chunk))
-            ncs = [col]
-            if marr.ndim > 1:
-              marr = marr.reshape(-1, marr.shape[-1])
+            if col == 'UVW':
+              mdi['U'], mdi['V'], mdi['W'] = marr[0,:], marr[1,:], marr[2,:]
+            elif marr.ndim == 1:
+              mdi[col] = marr
+            elif marr.ndim == 2:
+              if (chancount > 1) and (len(marr) == chancount):
+                mdi[col] = marr.reshape(-1)
+              else:
+                mdi.update(dict(zip([col+str(ii) for ii in range(marr.shape[0])], marr)))
+            elif marr.ndim == 3: 
+              mdi['CHAN'] = np.repeat(np.arange(marr.shape[1]), marr.shape[-1])
+              chancount = marr.shape[1]
+              marr = marr.reshape(marr.shape[0], -1)
               ncs = [col+str(ii) for ii in range(marr.shape[0])]
-            if marr.dtype == 'complex128':
-              mdi.update(dict(zip(['R'+cc for cc in ncs], np.real(marr))))
-              mdi.update(dict(zip(['I'+cc for cc in ncs], np.imag(marr))))
-            else:
-              mdi.update(dict(zip(ncs, np.atleast_2d(marr))))
+              if marr.dtype == 'complex128':
+                mdi.update(dict(zip(['R'+cc for cc in ncs], np.real(marr))))
+                mdi.update(dict(zip(['I'+cc for cc in ncs], np.imag(marr))))
+              else:
+                mdi.update(dict(zip(ncs, marr)))
+            else: #ndim > 3
+              print("WARNING: can't process shape of column %s"%(col))
+              cols = [_ for _ in cols if _ != col]
           except Exception:  # sometimes bad columns break the table tool (??)
             print("WARNING: can't process column %s"%(col))
-            cols = [_ for _ in cols if _ != col]    
+            cols = [_ for _ in cols if _ != col]
+        
+        for key in mdi.keys():
+          if len(mdi[key]) == len(chunk):
+            mdi[key] = np.tile(mdi[key], chancount)
         
         # write to your favorite ots format
         pq.write_to_dataset(pa.Table.from_pydict(mdi), root_path=outfile+'/'+str(ddi),
