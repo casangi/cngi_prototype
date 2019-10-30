@@ -7,7 +7,7 @@ with open('README.rst', encoding='utf-8') as fid:
 
 setup(
     name='cngi_prototype',
-    version='0.0.8',
+    version='0.0.9',
     description='CASA Next Generation Infrastructure Prototype',
     long_description=long_description,
     author='National Radio Astronomy Observatory',
@@ -21,5 +21,6 @@ setup(
                       'pyarrow==0.15.0',
                       'bokeh==1.3.4',
                       'pandas==0.25.2',
-                      'xarray==0.14.0'],
+                      'xarray==0.14.0',
+                      'zarr==2.3.2'],
 )

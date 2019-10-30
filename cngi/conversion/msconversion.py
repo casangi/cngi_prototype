@@ -17,8 +17,6 @@ import os
 import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
-from xarray import Dataset as xd
-from xarray import DataArray as xa
 
 
 #########################################
@@ -168,9 +166,9 @@ def ms_to_pq(infile, outfile=None, ddi=None, membudget=1e9, maxchunksize=1000000
 
 
 ##########################################
-def ms_to_ncdf(infile, outfile=None, ddi=None, membudget=1e9, maxchunksize=1000000):
+def ms_to_zarr(infile, outfile=None, ddi=None, membudget=1e9, maxchunksize=1000000):
     """
-    Convert legacy format MS to xarray Dataset NetCDF format MS
+    Convert legacy format MS to a zarr xarray Dataset format MS 
 
     This function requires CASA6 casatools module. 
 
@@ -179,7 +177,7 @@ def ms_to_ncdf(infile, outfile=None, ddi=None, membudget=1e9, maxchunksize=10000
     infile : str
         Input MS filename
     outfile : str
-        Output NetCDF filename. If None, will use infile name with .ncdf extension
+        Output zarr filename. If None, will use infile name with .zarr extension
     ddi : int
         specific ddi to convert. Leave as None to convert entire MS
     membudget : float
@@ -192,10 +190,12 @@ def ms_to_ncdf(infile, outfile=None, ddi=None, membudget=1e9, maxchunksize=10000
     """    
     from casatools import table as tb
     from cngi.direct import GetFrameworkClient
+    from xarray import Dataset as xd
+    from xarray import DataArray as xa
     
     # parse filename to use
     prefix = infile[:infile.rindex('.')]
-    if outfile == None: outfile = prefix + '.ncdf'
+    if outfile == None: outfile = prefix + '.zarr'
     
     # need to manually remove existing directory (if any)
     tmp = os.system("rm -fr " + outfile)
@@ -245,29 +245,27 @@ def ms_to_ncdf(infile, outfile=None, ddi=None, membudget=1e9, maxchunksize=10000
         # build python dictionary one MS column at a time
         coords, xdas = {'rows':chunk}, {}
         for col in cols:
+          if col=='DATA_DESC_ID': continue
           try: # every column should be a fixed size within a given ddi
-            marr = MSDDI.getcol(col, rr, len(chunk))
+            marr = MSDDI.getcol(col, rr, len(chunk)).transpose()
+            if marr.dtype == 'bool': marr = marr.astype(int)
             if col == 'UVW': 
-              xdas[col] = xa(marr, dims=['uvw','rows'])
+              xdas[col] = xa(marr, dims=['rows','uvw'])
               coords['uvw'] = np.arange(3)
             elif marr.ndim == 1:
-              xdas[col] = xa(marr, dims=['rows'])
+              coords[col] = ('rows', marr)
             elif marr.ndim == 2:  # determine if (pol x row) or (chan x row)
               if col in ['WEIGHT', 'SIGMA']:
-                coords['pols'] = np.arange(marr.shape[0])
-              if ('pols' in coords) and (marr.shape[0] == coords['pols'].shape[0]):
-                xdas[col] = xa(marr, dims=['pols','rows'])
-              elif ('chans' in coords) and (marr.shape[0] == coords['chans'].shape[0]):
-                xdas[col] = xa(marr, dims=['chans','rows'])
+                coords['pols'] = np.arange(marr.shape[-1])
+              if ('pols' in coords) and (marr.shape[-1] == coords['pols'].shape[0]):
+                xdas[col] = xa(marr, dims=['rows','pols'])
+              elif ('chans' in coords) and (marr.shape[-1] == coords['chans'].shape[0]):
+                xdas[col] = xa(marr, dims=['rows','chans'])
               else:
                 print("WARNING: unknown dimension in column %s"%(col))
                 cols = [_ for _ in cols if _ != col]
             elif marr.ndim == 3:
-              if marr.dtype == 'complex128':
-                xdas['R'+col] = xa(np.real(marr), dims=['pols','chans','rows'])
-                xdas['I'+col] = xa(np.imag(marr), dims=['pols','chans','rows'])
-              else:
-                xdas[col] = xa(marr, dims=['pols','chans','rows'])
+              xdas[col] = xa(marr, dims=['rows','chans','pols'])
               coords['chans'] = np.arange(marr.shape[1])
             else: # ndim > 3
               print("WARNING: can't process shape of column %s"%(col))
@@ -276,7 +274,9 @@ def ms_to_ncdf(infile, outfile=None, ddi=None, membudget=1e9, maxchunksize=10000
             print("WARNING: can't process column %s"%(col))
             cols = [_ for _ in cols if _ != col]
         
-        xd(xdas, coords=coords).to_netcdf(prefix+'.ncdf/'+str(ddi)+'/chunk'+str(cc)+'.nc')
+        xds = xd(xdas, coords=coords).chunk({'rows':len(coords['rows']), 'chans':len(coords['chans']),
+                                             'pols':len(coords['pols']), 'uvw':3})
+        xds.to_zarr(outfile+'/'+str(ddi), mode='a', append_dim='rows')
       
       MS.close()
       print("completed ddi " + str(ddi))

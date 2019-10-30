@@ -84,9 +84,9 @@ def write_pq(df, outfile='ms.pq', ddi=0, append=False):
 
 
 #############################################
-def read_ncdf(infile, ddi=0):
+def read_zarr(infile, ddi=0):
     """
-    Read xarray NetCDF format MS from disk
+    Read xarray zarr format MS from disk
     
     Parameters
     ----------
@@ -100,14 +100,14 @@ def read_ncdf(infile, ddi=0):
     xarray Dataset
         New xarray Dataset of MS contents
     """
-    from xarray import open_mfdataset
+    from xarray import open_zarr
     from cngi.direct import GetFrameworkClient
     
     if GetFrameworkClient() == None:
       print("*****Processing Framework is not initialized, call cngi.direct.InitializeFramework first!")
       return None
     
-    xdf = open_mfdataset(infile+'/'+str(ddi)+'/*.nc', combine='by_coords', parallel=True)
+    xdf = open_zarr(infile+'/'+str(ddi))
     return xdf
 
 
