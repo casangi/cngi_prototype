@@ -20,12 +20,12 @@ import pyarrow.parquet as pq
 
 
 #########################################
-def read_ms(infile, ddi=None):
+def read_legacy_ms(infile, ddi=None):
     """
     .. todo::
         This function is not yet implemented
 
-    Read MS format data in to Dask Dataframe
+    Read legacy CASA MS format data directly to a Dask Dataframe
 
     Parameters
     ----------

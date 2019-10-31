@@ -7,3 +7,4 @@
 #
 ##################################
 from .msconversion import *
+from .imageconversion import *

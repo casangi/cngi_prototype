@@ -14,7 +14,7 @@
 
 
 #############################################
-def read_pq(infile, ddi=0, columns=None):
+def read_ms(infile, ddi=0, columns=None):
     """
     Read Apache Parquet format MS from disk
 
@@ -45,7 +45,7 @@ def read_pq(infile, ddi=0, columns=None):
 
 
 #############################################
-def write_pq(df, outfile='ms.pq', ddi=0, append=False):
+def write_ms(df, outfile='ms.pq', ddi=0, append=False):
     """
     Write MS dataframe to Apache Parquet format on disk
     
@@ -84,7 +84,7 @@ def write_pq(df, outfile='ms.pq', ddi=0, append=False):
 
 
 #############################################
-def read_zarr(infile, ddi=0):
+def read_zarr_ms(infile, ddi=0):
     """
     Read xarray zarr format MS from disk
     
@@ -107,7 +107,61 @@ def read_zarr(infile, ddi=0):
       print("*****Processing Framework is not initialized, call cngi.direct.InitializeFramework first!")
       return None
     
-    xdf = open_zarr(infile+'/'+str(ddi))
-    return xdf
+    xds = open_zarr(infile+'/'+str(ddi))
+    return xds
+
+
+
+
+#############################################
+def read_image(infile):
+    """
+    Read xarray zarr format image from disk
+    
+    Parameters
+    ----------
+    infile : str
+        input zarr image filename
+    
+    Returns
+    -------
+    xarray Dataset
+        New xarray Dataset of image contents
+    """
+    from xarray import open_zarr
+    from cngi.direct import GetFrameworkClient
+    
+    if GetFrameworkClient() == None:
+      print("*****Processing Framework is not initialized, call cngi.direct.InitializeFramework first!")
+      return None
+    
+    xds = open_zarr(infile)
+    return xds
+
+
+
+
+#############################################
+def write_image(ds, outfile='image.zarr'):
+    """
+    Write image dataset to xarray zarr format on disk
+    
+    Parameters
+    ----------
+    ds : xarray Dataset
+        image Dataset to write to disk
+    outfile : str
+        output filename, generally ends in .zarr
+    
+    Returns
+    -------
+    """
+    from cngi.direct import GetFrameworkClient
+    
+    if GetFrameworkClient() == None:
+      print("*****Processing Framework is not initialized, call cngi.direct.InitializeFramework first!")
+      return None
+    
+    ds.to_zarr(prefix+'.zarr', mode='w')
 
 
