@@ -15,8 +15,6 @@
 import pandas as pd
 import os
 import numpy as np
-import pyarrow as pa
-import pyarrow.parquet as pq
 
 
 #########################################
@@ -44,7 +42,7 @@ def read_legacy_ms(infile, ddi=None):
 
 
 ##########################################
-def ms_to_pq(infile, outfile=None, ddi=None, membudget=1e9, maxchunksize=1000000):
+def ms_to_pq(infile, outfile=None, ddi=None, membudget=500e6, maxchunksize=1000000):
     """
     Convert legacy format MS to Apache Parquet format MS
 
@@ -59,7 +57,7 @@ def ms_to_pq(infile, outfile=None, ddi=None, membudget=1e9, maxchunksize=1000000
     ddi : int
         specific ddi to convert. Leave as None to convert entire MS
     membudget : float
-        Target in-memory byte size of a chunk, Default = 1e9 (~= 1GB)
+        Target in-memory byte size of a chunk, Default = 500e6 (~= 500MB)
     maxchunksize : int
         Maximum number of rows allowed per chunk        
 
@@ -68,6 +66,8 @@ def ms_to_pq(infile, outfile=None, ddi=None, membudget=1e9, maxchunksize=1000000
     """    
     from casatools import table as tb
     from cngi.direct import GetFrameworkClient
+    import pyarrow as pa
+    import pyarrow.parquet as pq
         
     # parse filename to use
     prefix = infile[:infile.rindex('.')]
@@ -156,7 +156,7 @@ def ms_to_pq(infile, outfile=None, ddi=None, membudget=1e9, maxchunksize=1000000
         
         # write to your favorite ots format
         pq.write_to_dataset(pa.Table.from_pydict(mdi), root_path=outfile+'/'+str(ddi),
-                            version='2.0', compression='snappy')
+                            version='2.0', compression='ZSTD')
       
       MS.close()
       print("completed ddi " + str(ddi))
@@ -185,7 +185,7 @@ def ms_to_pq(infile, outfile=None, ddi=None, membudget=1e9, maxchunksize=1000000
 
 
 ##########################################
-def ms_to_zarr(infile, outfile=None, ddi=None, membudget=1e9, maxchunksize=1000000):
+def ms_to_zarr(infile, outfile=None, ddi=None, membudget=500e6, maxchunksize=1000):
     """
     Convert legacy format MS to a zarr xarray Dataset format MS 
 
@@ -200,17 +200,19 @@ def ms_to_zarr(infile, outfile=None, ddi=None, membudget=1e9, maxchunksize=10000
     ddi : int
         specific ddi to convert. Leave as None to convert entire MS
     membudget : float
-        Target in-memory byte size of a chunk, Default = 1e9 (~= 1GB)
+        Target in-memory byte size of a chunk, Default = 500e6 (~= 500MB)
     maxchunksize : int
         Maximum number of rows allowed per chunk        
 
     Returns
     -------
     """    
+    from itertools import cycle
     from casatools import table as tb
     from cngi.direct import GetFrameworkClient
     from xarray import Dataset as xd
     from xarray import DataArray as xa
+    from numcodecs import Blosc
     
     # parse filename to use
     prefix = infile[:infile.rindex('.')]
@@ -240,6 +242,7 @@ def ms_to_zarr(infile, outfile=None, ddi=None, membudget=1e9, maxchunksize=10000
       MSDDI = MS.taql('select * from %s where DATA_DESC_ID = %s' % (infile,str(ddi))) # subselect this ddi
       nrows = MSDDI.nrows()
       cols = MS.colnames()
+      compressor = Blosc(cname='zstd', clevel=2, shuffle=0)
       
       # compute the size of first row to estimate the number or rows that will fit in mem
       row_size = 0
@@ -293,9 +296,11 @@ def ms_to_zarr(infile, outfile=None, ddi=None, membudget=1e9, maxchunksize=10000
             print("WARNING: can't process column %s"%(col))
             cols = [_ for _ in cols if _ != col]
         
-        xds = xd(xdas, coords=coords).chunk({'rows':len(coords['rows']), 'chans':len(coords['chans']),
-                                             'pols':len(coords['pols']), 'uvw':3})
-        xds.to_zarr(outfile+'/'+str(ddi), mode='a', append_dim='rows')
+        xds = xd(xdas, coords=coords).chunk({'rows':len(coords['rows']),'chans':None,'pols':None,'uvw':None})
+        encoding = None
+        if cc==0: encoding = dict(zip(list(xds.data_vars), cycle([{'compressor':compressor}])))
+        
+        xds.to_zarr(outfile+'/'+str(ddi), mode='a', append_dim='rows', encoding=encoding)
       
       MS.close()
       print("completed ddi " + str(ddi))
@@ -317,7 +322,7 @@ def ms_to_zarr(infile, outfile=None, ddi=None, membudget=1e9, maxchunksize=10000
         
         # block until complete
         for job in jobs: job.result()
-    print('Complete.')
+        print('Complete.')
 
 
 
