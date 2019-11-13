@@ -297,10 +297,11 @@ def ms_to_zarr(infile, outfile=None, ddi=None, membudget=500e6, maxchunksize=100
             cols = [_ for _ in cols if _ != col]
         
         xds = xd(xdas, coords=coords).chunk({'rows':len(coords['rows']),'chans':None,'pols':None,'uvw':None})
-        encoding = None
-        if cc==0: encoding = dict(zip(list(xds.data_vars), cycle([{'compressor':compressor}])))
-        
-        xds.to_zarr(outfile+'/'+str(ddi), mode='a', append_dim='rows', encoding=encoding)
+        if cc==0: 
+            encoding = dict(zip(list(xds.data_vars), cycle([{'compressor':compressor}])))
+            xds.to_zarr(outfile+'/'+str(ddi), mode='w', encoding=encoding)
+        else:
+            xds.to_zarr(outfile+'/'+str(ddi), mode='a', append_dim='rows')
       
       MS.close()
       print("completed ddi " + str(ddi))
