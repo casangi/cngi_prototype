@@ -120,6 +120,7 @@ def ms_to_pq(infile, outfile=None, ddi=None, membudget=500e6, maxchunksize=10000
         
         # build python dictionary one MS column at a time
         mdi, chancount = {}, 1
+        mdi['SAMPLE'] = chunk
         for col in cols:
           if col == 'DATA_DESC_ID': continue
           try: # every column should be a fixed size within a given ddi
