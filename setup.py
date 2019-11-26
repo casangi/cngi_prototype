@@ -7,7 +7,7 @@ with open('README.rst', encoding='utf-8') as fid:
 
 setup(
     name='cngi_prototype',
-    version='0.0.13',
+    version='0.0.14',
     description='CASA Next Generation Infrastructure Prototype',
     long_description=long_description,
     author='National Radio Astronomy Observatory',
