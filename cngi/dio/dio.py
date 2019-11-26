@@ -32,13 +32,10 @@ def read_ms(infile, ddi=0, columns=None):
     Dask Dataframe
         New Dataframe of MS contents
     """
+    import os
     import dask.dataframe as dd
-    from cngi.direct import GetFrameworkClient
     
-    if GetFrameworkClient() == None:
-      print("*****Processing Framework is not initialized, call cngi.direct.InitializeFramework first!")
-      return None
-    
+    infile = os.path.expanduser(infile)
     ddf = dd.read_parquet(infile+'/'+str(ddi), engine='pyarrow', columns=columns, gather_statistics=False)
     return ddf
 
@@ -65,11 +62,8 @@ def write_ms(df, outfile='ms.pq', ddi=0, append=False):
     """
     import os
     import dask.dataframe as dd
-    from cngi.direct import GetFrameworkClient
     
-    if GetFrameworkClient() == None:
-      print("*****Processing Framework is not initialized, call cngi.direct.InitializeFramework first!")
-      return None
+    outfile = os.path.expanduser(outfile)
     
     # need to manually remove existing parquet file (if any)
     if not append:
@@ -100,13 +94,10 @@ def read_zarr_ms(infile, ddi=0):
     xarray Dataset
         New xarray Dataset of MS contents
     """
+    import os
     from xarray import open_zarr
-    from cngi.direct import GetFrameworkClient
     
-    if GetFrameworkClient() == None:
-      print("*****Processing Framework is not initialized, call cngi.direct.InitializeFramework first!")
-      return None
-    
+    infile = os.path.expanduser(infile)
     xds = open_zarr(infile+'/'+str(ddi))
     return xds
 
@@ -128,13 +119,10 @@ def read_image(infile):
     xarray Dataset
         New xarray Dataset of image contents
     """
+    import os
     from xarray import open_zarr
-    from cngi.direct import GetFrameworkClient
     
-    if GetFrameworkClient() == None:
-      print("*****Processing Framework is not initialized, call cngi.direct.InitializeFramework first!")
-      return None
-    
+    infile = os.path.expanduser(infile)
     xds = open_zarr(infile)
     return xds
 
@@ -156,12 +144,13 @@ def write_image(ds, outfile='image.zarr'):
     Returns
     -------
     """
-    from cngi.direct import GetFrameworkClient
+    from numcodecs import Blosc
+    from itertools import cycle
     
-    if GetFrameworkClient() == None:
-      print("*****Processing Framework is not initialized, call cngi.direct.InitializeFramework first!")
-      return None
+    outfile = os.path.expanduser(outfile)
+    compressor = Blosc(cname='zstd', clevel=2, shuffle=0)
+    encoding = dict(zip(list(ds.data_vars), cycle([{'compressor':compressor}])))
     
-    ds.to_zarr(prefix+'.zarr', mode='w')
+    ds.to_zarr(outfile, mode='w', encoding=encoding)
 
 

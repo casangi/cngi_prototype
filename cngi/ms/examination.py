@@ -12,10 +12,6 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-import os
-import numpy as np
-import pandas as pd
-import pyarrow.parquet as pq
 
 ###############
 def setmeta(df, fields={}):
@@ -111,7 +107,12 @@ def summarizeFile(infile, ddis=None):
     Pandas Dataframe
         Summary information
     """
+    import os
+    import numpy as np
+    import pandas as pd
+    import pyarrow.parquet as pq
     
+    infile = os.path.expanduser(infile)
     if ddis == None:
         ddis = list(np.array(os.listdir(infile), dtype=int))
     elif type(ddis) != list:

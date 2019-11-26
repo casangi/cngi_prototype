@@ -70,6 +70,7 @@ def ms_to_pq(infile, outfile=None, ddi=None, membudget=500e6, maxchunksize=10000
     import pyarrow.parquet as pq
         
     # parse filename to use
+    infile = os.path.expanduser(infile)
     prefix = infile[:infile.rindex('.')]
     if outfile == None: outfile = prefix + '.pq'
     
@@ -210,12 +211,12 @@ def ms_to_zarr(infile, outfile=None, ddi=None, membudget=500e6, maxchunksize=100
     """    
     from itertools import cycle
     from casatools import table as tb
-    from cngi.direct import GetFrameworkClient
     from xarray import Dataset as xd
     from xarray import DataArray as xa
     from numcodecs import Blosc
     
     # parse filename to use
+    infile = os.path.expanduser(infile)
     prefix = infile[:infile.rindex('.')]
     if outfile == None: outfile = prefix + '.zarr'
     
@@ -308,24 +309,11 @@ def ms_to_zarr(infile, outfile=None, ddi=None, membudget=500e6, maxchunksize=100
       print("completed ddi " + str(ddi))
     #############################
     
-    # parallelize with direct interface
-    client = GetFrameworkClient()
     if ddi != None:
         processDDI(ddi,infile,outfile,membudget,maxchunksize)
-    elif client == None:
+    else:
         for ddi in ddis:
             processDDI(ddi,infile,outfile,membudget,maxchunksize)
-    else:
-        jobs = client.map(processDDI, ddis, 
-                          np.repeat(infile, len(ddis)), 
-                          np.repeat(outfile, len(ddis)), 
-                          np.repeat(membudget, len(ddis)),
-                          np.repeat(maxchunksize, len(ddis)))
-        
-        # block until complete
-        for job in jobs: job.result()
-        print('Complete.')
-
 
 
 
