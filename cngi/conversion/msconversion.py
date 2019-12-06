@@ -12,10 +12,6 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-import pandas as pd
-import os
-import numpy as np
-
 
 #########################################
 def read_legacy_ms(infile, ddi=None):
@@ -64,6 +60,8 @@ def ms_to_pq(infile, outfile=None, ddi=None, membudget=500e6, maxchunksize=10000
     Returns
     -------
     """    
+    import os
+    import numpy as np
     from casatools import table as tb
     from cngi.direct import GetFrameworkClient
     import pyarrow as pa
@@ -72,7 +70,10 @@ def ms_to_pq(infile, outfile=None, ddi=None, membudget=500e6, maxchunksize=10000
     # parse filename to use
     infile = os.path.expanduser(infile)
     prefix = infile[:infile.rindex('.')]
-    if outfile == None: outfile = prefix + '.pq'
+    if outfile == None: 
+      outfile = prefix + '.pq'
+    else:
+      outfile = os.path.expanduser(outfile)
     
     # need to manually remove existing parquet file (if any)
     tmp = os.system("rm -fr " + outfile)
@@ -209,6 +210,8 @@ def ms_to_zarr(infile, outfile=None, ddi=None, membudget=500e6, maxchunksize=100
     Returns
     -------
     """    
+    import os
+    import numpy as np
     from itertools import cycle
     from casatools import table as tb
     from xarray import Dataset as xd
@@ -218,7 +221,10 @@ def ms_to_zarr(infile, outfile=None, ddi=None, membudget=500e6, maxchunksize=100
     # parse filename to use
     infile = os.path.expanduser(infile)
     prefix = infile[:infile.rindex('.')]
-    if outfile == None: outfile = prefix + '.zarr'
+    if outfile == None: 
+      outfile = prefix + '.zarr'
+    else:
+      outfile = os.path.expanduser(outfile)
     
     # need to manually remove existing directory (if any)
     tmp = os.system("rm -fr " + outfile)
