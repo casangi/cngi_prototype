@@ -74,9 +74,10 @@ def image_to_zarr(infile, outfile=None, artifacts=None):
       tm['start'] = np.array(summary['refval'] - summary['refpix']*summary['incr'])
       tm['stop'] = np.array(tm['start'] + summary['shape']*summary['incr'])
       tm['dsize'] = np.array(summary['shape'])
+      coord_names = [ss.replace(' ','_') for ss in summary['axisnames']]
       coords = [np.linspace(tm['start'][xx], tm['stop'][xx], tm['dsize'][xx], endpoint=False) 
                 for xx in range(len(tm['dsize']))]
-      coords = dict(zip(summary['axisnames'], coords))
+      coords = dict(zip(coord_names, coords))
       tm['freq_coords'] = coords.pop('Frequency', None)
       tm['coords'] = coords
       if len(np.where(summary['axisnames'] == 'Frequency')[0]) != 1:

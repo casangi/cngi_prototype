@@ -16,7 +16,7 @@
 
 
 ########################
-def preview(xds, variable='image', stokes=0, channel=0):
+def preview(xds, variable='image', stokes=0, channel=0, tsize=250):
     """
     Preview the selected image component
     
@@ -30,18 +30,22 @@ def preview(xds, variable='image', stokes=0, channel=0):
         stokes dimension index to plot.  Defualt is 0
     channel : int
         channel dimension index to plot.  Default is 0
+    tsize : int
+        target size of the preview image (might be smaller). Default is 250 pixels
         
     Returns
     -------
       Open matplotlib window
     """
     import matplotlib.pyplot as plt
+    import numpy as np
     
     if xds[variable].ndim > 4:
         print("ERROR: expecting 4d image component")
         return
     
     plt.clf()
-    thinfactor = np.max(np.array(np.ceil(np.array(xds[variable].shape[:2])/500), dtype=int))
-    xds[variable][:,:,0,0].thin(int(thinfactor)).plot.imshow()
+    thinfactor = np.max(np.array(np.ceil(np.array(xds[variable].shape[:2])/tsize), dtype=int))
+    xds[variable][dict(Stokes=stokes, Frequency=channel)].thin(int(thinfactor)).plot.imshow()
+    plt.title('stokes = ' + str(stokes) + '   channel = ' + str(channel))
     plt.show(block=False)
