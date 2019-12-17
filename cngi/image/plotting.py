@@ -27,7 +27,7 @@ def preview(xds, variable='image', stokes=0, channel=0, tsize=250):
     variable : str
         dataset variable to plot.  Default is image
     stokes : int
-        stokes dimension index to plot.  Defualt is 0
+        stokes dimension index to plot.  Default is 0
     channel : int
         channel dimension index to plot.  Default is 0
     tsize : int
