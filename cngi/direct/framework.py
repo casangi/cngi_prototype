@@ -51,6 +51,9 @@ def InitializeFramework(workers=2, memory='8GB', processes=True):
 
     global_framework_client = Client(cluster)
     
+    print("Dask dashboard now running at",
+          global_framework_client.cluster.dashboard_link)
+    
     return(global_framework_client)
 
 
@@ -67,4 +70,6 @@ def GetFrameworkClient():
     Dask Distributed Client
         Client from Dask Distributed for use by Dask objects
     """
+    print("Dask dashboard running at",
+          global_framework_client.cluster.dashboard_link)
     return (global_framework_client)
