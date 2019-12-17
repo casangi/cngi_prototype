@@ -112,9 +112,13 @@ def summarizeFile(infile, ddis=None):
     import pandas as pd
     import pyarrow.parquet as pq
     
-    infile = os.path.expanduser(infile)
+    infile = os.path.expanduser(infile) # does nothing if $HOME is unknown
     if ddis == None:
-        ddis = list(np.array(os.listdir(infile), dtype=int))
+        try:
+            ddis = list(np.array(os.listdir(infile), dtype=int))
+        except ValueError: 
+            # relative paths include basename in listdir
+            ddis = list(np.array(os.listdir(infile)[1:], dtype=int))
     elif type(ddis) != list:
         ddis = [ddis]
     
