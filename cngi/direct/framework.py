@@ -17,7 +17,7 @@ from dask.distributed import Client, LocalCluster
 global_framework_client = None
 
 ########################
-def InitializeFramework(workers=2, memory='8GB', processes=True):
+def InitializeFramework(workers=2, memory='8GB', processes=True, **kwargs):
     """
     Initialize the CNGI framework
 
@@ -33,12 +33,20 @@ def InitializeFramework(workers=2, memory='8GB', processes=True):
         Max memory per core to use. String format eg '8GB'
     processes : bool
         Whether to use processes (True) or threads (False), Default=True
+    threads_per_worker : int
+        Only used if processes = True. Number of threads per python worker process, Default=1
 
     Returns
     -------
     Dask Distributed Client
         Client from Dask Distributed for use by Dask objects
     """
+
+    if 'threads_per_worker' in kwargs.keys():
+        tpw = kwargs['threads_per_worker']
+    else: # enforce default of 1 thread per process
+        tpw = 1
+    
     global global_framework_client
     
     if global_framework_client != None:
@@ -46,7 +54,7 @@ def InitializeFramework(workers=2, memory='8GB', processes=True):
     
     # set up a cluster object to pass into Client
     # for now, only supporting single machine
-    cluster = LocalCluster(n_workers=workers, threads_per_worker=1,
+    cluster = LocalCluster(n_workers=workers, threads_per_worker=tpw,
                            processes=processes, memory_limit=memory)
 
     global_framework_client = Client(cluster)
