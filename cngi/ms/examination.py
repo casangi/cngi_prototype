@@ -61,9 +61,9 @@ def viewmeta(df):
 def summarizeDF(df, field=None, spw=None, timerange=None, uvrange=None, antenna=None, scan=None):
     """
     .. todo::
-        This function is not yet implemented
+        Define output dict format, improve response time <interminable
 
-    Summarize the contents of an MS Dataframe
+    Calculate and return descriptive statistics summarizing the contents of an MS Dataframe
     
     Parameters
     ----------
@@ -87,6 +87,11 @@ def summarizeDF(df, field=None, spw=None, timerange=None, uvrange=None, antenna=
     dict
         Summary information
     """
+    try:
+        description = df.describe()
+    except ValueError: # https://github.com/dask/dask/issues/2326
+        result = {}
+        raise(e, "Encountered a non-numeric column in input DataFrame")
     return {}
 
 
