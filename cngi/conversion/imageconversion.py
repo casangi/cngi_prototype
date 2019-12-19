@@ -48,6 +48,11 @@ def image_to_zarr(infile, outfile=None, artifacts=None):
   infile = os.path.expanduser(infile)
   prefix = infile[:infile.rindex('.')]
   suffix = infile[infile.rindex('.')+1:]
+  
+  # santize to avoid KeyError when calling imtypes later
+  while suffix.endswith('/'):
+    suffix = suffix[:-1]
+
   if outfile == None: 
     outfile = prefix + '.zarr'
   else:
