@@ -281,26 +281,3 @@ def mask(ds):
     """
     return True
 
-
-
-
-########################
-def region(ds):
-    """
-    .. todo::
-        This function is not yet implemented
-    
-    Create an n-dim region in the image
-    
-    Parameters
-    ----------
-    ds : xarray Dataset
-        input Image
-    
-    Returns
-    -------
-    xarray Dataset
-        New Dataset
-    """
-    return True
-

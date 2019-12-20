@@ -1,3 +1,4 @@
 #__init__.py
 from .image import *
-from .plotting import *
+from .region import *
+from .preview import *

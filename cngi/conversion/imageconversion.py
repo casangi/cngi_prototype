@@ -17,14 +17,14 @@
 ##########################################
 def image_to_zarr(infile, outfile=None, artifacts=None):
   """
-  Convert legacy format Image to xarray compatible zarr format image
+  Convert legacy format Image or FITS format image to xarray compatible zarr format image
   
   This function requires CASA6 casatools module. 
   
   Parameters
   ----------
   infile : str
-      Input image filename
+      Input image filename (.image or .fits format)
   outfile : str
       Output zarr filename. If None, will use infile name with .zarr extension
   artifacts : list of strings
@@ -189,7 +189,7 @@ def zarr_to_image(infile, outfile=None):
     .. todo::
         This function is not yet implemented
 
-    Convert xarray compatible zarr format to legacy CASA Image format
+    Convert xarray compatible zarr format to legacy CASA Image format or FITS format
 
     Parameters
     ----------
@@ -203,47 +203,3 @@ def zarr_to_image(infile, outfile=None):
     """
     return True
 
-
-
-
-###########################################
-def fits_to_zarr(infile, outfile=None):
-    """
-    .. todo::
-        This function is not yet implemented
-
-    Convert FITS format Image to xarray compatible zarr format image (future)
-    
-    Parameters
-    ----------
-    infile : str
-        Input FITS filename
-    outfile : str
-        Output zarr filename. If None, will use infile name with .zarr extension
-
-    Returns
-    -------
-    """
-    return True
-
-
-
-############################################
-def zarr_to_fits(infile, outfile=None):
-    """
-    .. todo::
-        This function is not yet implemented
-
-    Convert xarray compatible zarr image to FITS format image (future)
-    
-    Parameters
-    ----------
-    infile : str
-        Input zarr filename
-    outfile : str
-        Output FITS filename. If None, will use infile name with .fits extension
-
-    Returns
-    -------
-    """
-    return True
