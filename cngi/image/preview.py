@@ -25,7 +25,7 @@ def preview(xds, variable='image', region=None, stokes=0, channels=0, tsize=250)
     region : str
         dataset variable to use as a region/mask.
     stokes : int
-        stokes dimension index to plot.  Defualt is 0
+        stokes dimension index to plot.  Default is 0
     channels : int or list
         channel dimension index or indices to plot.  Default is 0
     tsize : int

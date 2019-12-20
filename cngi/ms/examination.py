@@ -61,9 +61,9 @@ def viewmeta(df):
 def summarizeDF(df, field=None, spw=None, timerange=None, uvrange=None, antenna=None, scan=None):
     """
     .. todo::
-        This function is not yet implemented
+        Define output dict format, improve response time <interminable
 
-    Summarize the contents of an MS Dataframe
+    Calculate and return descriptive statistics summarizing the contents of an MS Dataframe
     
     Parameters
     ----------
@@ -87,6 +87,11 @@ def summarizeDF(df, field=None, spw=None, timerange=None, uvrange=None, antenna=
     dict
         Summary information
     """
+    try:
+        description = df.describe()
+    except ValueError: # https://github.com/dask/dask/issues/2326
+        result = {}
+        raise(e, "Encountered a non-numeric column in input DataFrame")
     return {}
 
 
@@ -112,9 +117,13 @@ def summarizeFile(infile, ddis=None):
     import pandas as pd
     import pyarrow.parquet as pq
     
-    infile = os.path.expanduser(infile)
+    infile = os.path.expanduser(infile) # does nothing if $HOME is unknown
     if ddis == None:
-        ddis = list(np.array(os.listdir(infile), dtype=int))
+        try:
+            ddis = list(np.array(os.listdir(infile), dtype=int))
+        except ValueError: 
+            # relative paths include basename in listdir
+            ddis = list(np.array(os.listdir(infile)[1:], dtype=int))
     elif type(ddis) != list:
         ddis = [ddis]
     

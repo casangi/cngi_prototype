@@ -61,10 +61,12 @@ def reframe(ds):
 
 
 ########################
-def rebin(ds):
+def rebin(ds, **kwargs):
+
     """
     .. todo::
-        This function is not yet implemented
+        Accept arguments that control which DataArray is binned
+        Improve performance when framework client has processes=True
     
     Re-bin an image in any spatial or spectral direction
     
@@ -72,13 +74,37 @@ def rebin(ds):
     ----------
     ds : xarray Dataset
         input Image
+    factor : int
+        scaling factor for binning, Default=1
+    axis : string
+        dataset dimension upon which to rebin, Default='frequency'
     
     Returns
     -------
     xarray Dataset
         New Dataset
     """
-    return True
+    from xarray import Dataset, DataArray
+    
+    if 'factor' in kwargs.keys():
+        factor = kwargs['factor']
+    else:
+        factor = 1
+        
+    if 'axis' in  kwargs.keys():
+        axis = kwargs['axis']
+        if axis in ds.dims:
+            pass
+        else:
+            print("Requested axis not a dimension of input dataset.")
+    else:
+        print("Defaulting to rebinning dataset by frequency dimension")
+        axis = 'frequency'
+
+    # works best with threads
+    new_ds = ds.groupby_bins(axis, factor).mean(keep_attrs=True)
+
+    return new_ds
 
 
 
