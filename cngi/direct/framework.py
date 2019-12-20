@@ -28,9 +28,9 @@ def InitializeFramework(workers=2, memory='8GB', processes=True, **kwargs):
     Parameters
     ----------
     workers : int
-        Number of processor cores to use
+        Number of processor cores to use, Default=2
     memory : str
-        Max memory per core to use. String format eg '8GB'
+        Max memory allocated to each worker in string format. Default='8GB'
     processes : bool
         Whether to use processes (True) or threads (False), Default=True
     threads_per_worker : int
