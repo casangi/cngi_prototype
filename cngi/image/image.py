@@ -84,7 +84,6 @@ def rebin(ds, **kwargs):
     xarray Dataset
         New Dataset
     """
-    from xarray import Dataset, DataArray
     
     if 'factor' in kwargs.keys():
         factor = kwargs['factor']
@@ -133,24 +132,74 @@ def contsub(ds):
 
 
 ########################
-def moment(ds):
+def moment(ds, **kwargs):
     """
     .. todo::
-        This function is not yet implemented
+        Verify implemented moment codes
+        Implement additional moment codes
     
-    Collapse the cube in to a moment by taking a linear combination of the individual planes
+    Collapse the cube into a moment by taking a linear combination of the individual planes
     
     Parameters
     ----------
     ds : xarray Dataset
         input Image
-    
+    axis : string
+        specified axis along which to reduce for moment generation, Default='frequency'
+    code : int
+        number that selects which moment to calculate from the following list, Default=-1
+
+        code=-1 - mean value of the spectrum  
+        code=0  - integrated value of the spectrum  
+        code=1  - intensity weighted coordinate; traditionally used to get ’velocity fields’
+        code=2  - intensity weighted dispersion of the coordinate; traditionally used to get ’velocity dispersion’  
+        code=3  - median of I  
+        code=4  - median coordinate  
+        code=5  - standard deviation about the mean of the spectrum  
+        code=6  - root mean square of the spectrum  
+        code=7  - absolute mean deviation of the spectrum  
+        code=8  - maximum value of the spectrum  
+        code=9  - coordinate of the maximum value of the spectrum  
+        code=10 - minimum value of the spectrum  
+        code=11 - coordinate of the minimum value of the spectrum
+
     Returns
     -------
     xarray Dataset
         New Dataset
     """
-    return True
+
+    # input parameter checking
+    if 'axis' in kwargs.keys():
+        axis = kwargs['axis']
+    else:
+        print("No axis specified."
+              "Defaulting to reducing along frequency dimension")
+        axis = 'frequency'
+
+    if 'code' in kwargs.keys():
+        code = int(kwargs['code'])
+        assert code in range(-1,12), "Input to 'code' parameter must be between -1 and 11"
+    else:
+        print("No valid input code detected, assuming default (-1)")
+        code = -1
+
+    # moment calculation
+    if code == -1:
+        new_ds = ds.mean(dim=axis, keep_attrs=True)
+    if code == 0:
+        new_ds = ds.integrate(dim=axis, keep_attrs=True)
+    if code == 1:
+        new_ds = (ds.sum('frequency', keep_attrs=True) / 
+                  (ds.integrate(dim=axis, keep_attrs=True)))
+    if code == 8:
+        new_ds = ds.max(dim=axis, keep_atrs=True)
+    if code == 10:
+        new_ds = ds.reduce(func=min, dim='frequency', keepdims=True)
+    else:
+        raise NotImplementedError(f"Moment code={code} is not yet supported")
+
+    return new_ds
 
 
 
