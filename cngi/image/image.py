@@ -66,7 +66,6 @@ def rebin(ds, **kwargs):
     """
     .. todo::
         Accept arguments that control which DataArray is binned
-        Accept arguments that control which dimension is binned
         Improve performance when framework client has processes=True
     
     Re-bin an image in any spatial or spectral direction
@@ -76,7 +75,9 @@ def rebin(ds, **kwargs):
     ds : xarray Dataset
         input Image
     factor : int
-        scaling factor for binning 
+        scaling factor for binning, Default=1
+    axis : string
+        dataset dimension upon which to rebin, Default='frequency'
     
     Returns
     -------
@@ -86,12 +87,22 @@ def rebin(ds, **kwargs):
     from xarray import Dataset, DataArray
     
     if 'factor' in kwargs.keys():
-        binning = kwargs['factor']
+        factor = kwargs['factor']
     else:
-        binning = ds.image.frequency.shape[0]//2
+        factor = 1
+        
+    if 'axis' in  kwargs.keys():
+        axis = kwargs['axis']
+        if axis in ds.dims:
+            pass
+        else:
+            print("Requested axis not a dimension of input dataset.")
+    else:
+        print("Defaulting to rebinning dataset by frequency dimension")
+        axis = 'frequency'
 
     # works best with threads
-    new_ds = ds.groupby_bins('frequency', binning).mean()
+    new_ds = ds.groupby_bins(axis, factor).mean(keep_attrs=True)
 
     return new_ds
 
