@@ -8,3 +8,4 @@
 ##################################
 from .msconversion import *
 from .imageconversion import *
+from .ms_to_xarray import *
