@@ -206,3 +206,6 @@ epub_exclude_files = ['search.html']
 
 #autosummary_generate = True
 #autodoc_default_flags = ['members', 'inherited-members']
+
+#List of imports to mock (this ensures readthedocs works)
+autodoc_mock_imports = ['numcodecs','os','numpy','time','xarray','numba','itertools','zarr']
