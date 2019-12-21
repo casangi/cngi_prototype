@@ -14,9 +14,6 @@
 
 import os
 import numpy as np
-from casatools import table as tb
-from casatools import ms
-from casatools import msmetadata as msmd
 from numcodecs import Blosc
 import time
 from .xarray_conversion_tools import *
@@ -43,6 +40,10 @@ def ms_to_xarray(infile, outfile=None, ddi=None, maxchunksize=1000, compressor =
     Returns
     -------
     """
+    
+    from casatools import table as tb
+    from casatools import ms
+    from casatools import msmetadata as msmd
 
     # Parse filename to use
     prefix = infile[:infile.rindex('.')]

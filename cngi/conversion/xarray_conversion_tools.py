@@ -19,9 +19,6 @@
 
 import os
 import numpy as np
-from casatools import table as tb
-from casatools import ms
-from casatools import msmetadata as msmd
 import xarray
 import zarr
 from numcodecs import Blosc
@@ -88,6 +85,7 @@ def create_baseline_mat(ant_id_list,auto_corr_flag):
 ####################################################################
 
 def time_baseline_info(ms_ddi,n_row):
+    
     time_col = np.array(ms_ddi.getcol('TIME'))
     time_step, time_step_indx = no_repeat_array(time_col)
     n_time = len(time_step_indx)
@@ -143,6 +141,9 @@ def time_baseline_info(ms_ddi,n_row):
 
 ####################################################################
 def freq_pol_info(ms_ddi,infile,ddi,col_names):
+    
+    from casatools import table as tb
+    
     tb_tool_meta = tb()
     tb_tool_meta.open(infile + "/DATA_DESCRIPTION", nomodify=True, lockoptions={'option':'usernoread'}) 
     spectral_window_id = tb_tool_meta.getcol("SPECTRAL_WINDOW_ID")
@@ -312,6 +313,9 @@ def convert_ms_data_ndim(col_name,selected_col,chunksize,n_baseline,chunk_time_c
 # each DDI is written to its own subdirectory under the parent folder
 # consequently, different DDI's may be processed in parallel if the MS is opened with no locks
 def processDDI(ddi, infile, outfile, compressor):
+
+    from casatools import table as tb
+
     print('**********************************')
     print('Processing ddi',ddi)
     start_ddi = time.time()
