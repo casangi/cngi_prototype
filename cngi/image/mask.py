@@ -23,7 +23,7 @@ def mask(xds, name='mask1', ra=None, dec=None, pixels=None, stokes=-1, channels=
     xds : xarray Dataset
         input image dataset
     name : str
-        dataset variable name for region, overwrites if already present
+        dataset variable name for mask, overwrites if already present
     ra : list
         right ascension coordinate range in the form of [min, max]. Default None means all
     dec : list
