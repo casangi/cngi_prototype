@@ -39,7 +39,6 @@ def preview(xds, variable='image', region=None, stokes=0, channels=0, tsize=250)
     import matplotlib.pyplot as plt
     from matplotlib import colors
     import numpy as np
-    import xarray.ufuncs as xu
     
     #plt.clf()
     channels = np.atleast_1d(channels)
@@ -52,8 +51,7 @@ def preview(xds, variable='image', region=None, stokes=0, channels=0, tsize=250)
     if region is None:
         txds = xds[variable].thin({'d0':thinfactor,'d1':thinfactor,'stokes':1,'frequency':1})
     else:
-        txds = xds[variable].where(xds[region]).thin({'d0':thinfactor,'d1':thinfactor,'stokes':1,'frequency':1})
-        txds = txds.where(~xu.isnan(txds), 0)  # would have thought this could be done in the above line
+        txds = (xds[variable] * xds[region]).thin({'d0':thinfactor,'d1':thinfactor,'stokes':1,'frequency':1})
 
     vmin = txds.values.min()
     vmax = txds.values.max()
