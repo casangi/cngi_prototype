@@ -335,24 +335,3 @@ def ellipsefit(ds):
 
 
 
-
-########################
-def mask(ds):
-    """
-    .. todo::
-        This function is not yet implemented
-    
-    Create an n-dim mask in the image
-    
-    Parameters
-    ----------
-    ds : xarray Dataset
-        input Image
-    
-    Returns
-    -------
-    xarray Dataset
-        New Dataset
-    """
-    return True
-

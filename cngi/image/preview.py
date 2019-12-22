@@ -12,6 +12,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+
 def preview(xds, variable='image', region=None, stokes=0, channels=0, tsize=250):
     """
     Preview the selected image component
@@ -42,23 +43,31 @@ def preview(xds, variable='image', region=None, stokes=0, channels=0, tsize=250)
     
     #plt.clf()
     channels = np.atleast_1d(channels)
-    fig, axes = plt.subplots(int(np.ceil(len(channels)/4.0)), min(len(channels),4))
+    rows, cols = [int(np.ceil(len(channels)/4.0)), min(len(channels),4)]
+    fig, axes = plt.subplots(rows, cols, figsize=(4*cols, 3*rows), constrained_layout=True)
     axes = np.atleast_2d(axes)
     
     # fast decimate to roughly the desired size
+    thinfactor = int(np.max(np.array(np.ceil(np.array(xds[variable].shape[:2]) / tsize), dtype=int)))
+    if region is None:
+        txds = xds[variable].thin({'d0':thinfactor,'d1':thinfactor,'stokes':1,'frequency':1})
+    else:
+        txds = xds[variable].where(xds[region]).thin({'d0':thinfactor,'d1':thinfactor,'stokes':1,'frequency':1})
+        txds = txds.where(~xu.isnan(txds), 0)  # would have thought this could be done in the above line
+
+    vmin = txds.values.min()
+    vmax = txds.values.max()
+
     for ii,ch in enumerate(channels):
-      thinfactor = np.max(np.array(np.ceil(np.array(xds[variable].shape[:2])/tsize), dtype=int))
-      if region is None:
-        txds = xds[variable][dict(stokes=stokes, frequency=ch)].thin(int(thinfactor))
-      else:
-        txds = xds[variable].where(xds[region])[dict(stokes=stokes, frequency=ch)].thin(int(thinfactor))
-        txds = txds.where(~xu.isnan(txds),0)  # would have thought this could be done in the above line
-        
       # plot as a colormesh
-      txds.plot.pcolormesh(ax=axes[ii//4,ii%4], x='right_ascension', y='declination', norm=colors.PowerNorm(1))
-      axes[ii//4,ii%4].set_title('stokes = ' + str(stokes) + '   channel = ' + str(ch))
+      ixds = txds[dict(stokes=stokes, frequency=ch)]
+      im = ixds.plot.pcolormesh(ax=axes[ii//4,ii%4], x='right_ascension', y='declination', add_colorbar=False,
+                                vmin=vmin, vmax=vmax, norm=colors.PowerNorm(1))
+      axes[ii//4,ii%4].set_title(variable + ' (' + str(stokes) + ', ' + str(ch) +')')
       axes[ii//4,ii%4].invert_xaxis()
-    
+
+    fig.colorbar(im, ax=axes, shrink=0.6)
+
     # TODO
     # convert axes from radians to hr:minute:second format
     #ra_ticks = np.array(plt.gca().get_xticks().tolist())
@@ -68,5 +77,5 @@ def preview(xds, variable='image', region=None, stokes=0, channels=0, tsize=250)
     #ra_str = ['{:02.0f}:{:02.0f}:{:06.3f}'.format(np.floor(ra_hrs[0]),np.floor(ra_min[0]),ra_sec[0])]
     #ra_str += ['{:06.3f}'.format(ra_sec[ii]) for ii in range(1,len(ra_hrs))]
     #plt.gca().set_xticklabels(ra_str)
-    
+
     plt.show(block=False)

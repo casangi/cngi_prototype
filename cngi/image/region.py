@@ -15,7 +15,7 @@
 
 def region(xds, name='region1', ra=None, dec=None, pixels=None, stokes=-1, channels=-1):
     """
-    Create a new region Data variable in the Dataset
+    Create a new region Data variable in the Dataset \n
     NOTE: currently only supports rectangles and integer pixel boundaries
     
     Parameters
@@ -64,8 +64,8 @@ def region(xds, name='region1', ra=None, dec=None, pixels=None, stokes=-1, chann
     #region = xds.image[ind_x, ind_y]
     
     # TESTING only
-    # ra = [0.5014, 0.50153]
-    # dec = [-0.36091, -0.36078]
+    # ra = [2.88788, 2.88793]
+    # dec = [-0.60573, -0.60568]
     # pixels = np.array([[20,40],[80,500]])
     
     # define region within ra/dec range
