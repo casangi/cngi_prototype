@@ -7,7 +7,7 @@ with open('README.rst', encoding='utf-8') as fid:
 
 setup(
     name='cngi_prototype',
-    version='0.0.22',
+    version='0.0.23',
     description='CASA Next Generation Infrastructure Prototype',
     long_description=long_description,
     author='National Radio Astronomy Observatory',
@@ -16,12 +16,11 @@ setup(
     license='Apache-2.0',
     packages=find_packages(),
     install_requires=['numpy==1.17.3',
-                      'dask==2.6.0',
-                      'distributed==2.6.0',
+                      'dask==2.9.0',
                       'pyarrow==0.15.0',
                       'bokeh==1.3.4',
                       'pandas==0.25.2',
-                      'xarray==0.14.0',
+                      'xarray==0.14.1',
                       'zarr==2.3.2',
                       'numcodecs==0.6.3',
                       'matplotlib==3.1.2'],
