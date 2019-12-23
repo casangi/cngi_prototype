@@ -47,25 +47,26 @@ def preview(xds, variable='image', region=None, stokes=0, channels=0, tsize=250)
     axes = np.atleast_2d(axes)
     
     # fast decimate to roughly the desired size
-    thinfactor = int(np.max(np.array(np.ceil(np.array(xds[variable].shape[:2]) / tsize), dtype=int)))
+    thinf = int(np.max(np.array(np.ceil(np.array(xds[variable].shape[:2]) / tsize), dtype=int)))
     if region is None:
-        txds = xds[variable].thin({'d0':thinfactor,'d1':thinfactor,'stokes':1,'frequency':1})
+        txds = xds[variable][{'frequency':channels}].thin({'d0':thinf,'d1':thinf,'stokes':1,'frequency':1})
     else:
-        txds = (xds[variable] * xds[region]).thin({'d0':thinfactor,'d1':thinfactor,'stokes':1,'frequency':1})
-
+        txds = (xds[variable][{'frequency':channels}] * xds[region][{'frequency':channels}]).thin(
+                                                          {'d0':thinf,'d1':thinf,'stokes':1,'frequency':1})
+    
     vmin = txds.values.min()
     vmax = txds.values.max()
-
+    
     for ii,ch in enumerate(channels):
       # plot as a colormesh
-      ixds = txds[dict(stokes=stokes, frequency=ch)]
+      ixds = txds[dict(stokes=stokes, frequency=ii)]
       im = ixds.plot.pcolormesh(ax=axes[ii//4,ii%4], x='right_ascension', y='declination', add_colorbar=False,
                                 vmin=vmin, vmax=vmax, norm=colors.PowerNorm(1))
       axes[ii//4,ii%4].set_title(variable + ' (' + str(stokes) + ', ' + str(ch) +')')
       axes[ii//4,ii%4].invert_xaxis()
-
+    
     fig.colorbar(im, ax=axes, shrink=0.6)
-
+    
     # TODO
     # convert axes from radians to hr:minute:second format
     #ra_ticks = np.array(plt.gca().get_xticks().tolist())
@@ -75,5 +76,5 @@ def preview(xds, variable='image', region=None, stokes=0, channels=0, tsize=250)
     #ra_str = ['{:02.0f}:{:02.0f}:{:06.3f}'.format(np.floor(ra_hrs[0]),np.floor(ra_min[0]),ra_sec[0])]
     #ra_str += ['{:06.3f}'.format(ra_sec[ii]) for ii in range(1,len(ra_hrs))]
     #plt.gca().set_xticklabels(ra_str)
-
+    
     plt.show(block=False)

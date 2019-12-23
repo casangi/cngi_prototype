@@ -27,7 +27,7 @@ def image_to_zarr(infile, outfile=None, artifacts=None):
     outfile : str
         Output zarr filename. If None, will use infile name with .zarr extension
     artifacts : list of strings
-        List of other image artifacts to include if present with infile. Default None = ['mask','model','pb','psf','residual','sumwt']
+        List of other image artifacts to include if present with infile. Default None = ['mask','model','pb','psf','residual','sumwt','weight']
 
     Returns
     -------
@@ -66,7 +66,8 @@ def image_to_zarr(infile, outfile=None, artifacts=None):
     # check for meta data compatibility
     # store necessary coordinate conversion data
     if artifacts == None:
-        imtypes = [suffix] + ['mask', 'model', 'pb', 'psf', 'residual', 'sumwt']
+        imtypes = ['image.pbcor','mask','model','pb','psf','residual','sumwt','weight']
+        if suffix not in imtypes: imtypes = [suffix] + imtypes
     else:
         imtypes = [suffix] + artifacts
     meta, tm, diftypes, difmeta = {}, {}, [], []
@@ -103,28 +104,33 @@ def image_to_zarr(infile, outfile=None, artifacts=None):
             tm['dims'] = [coord_names[di] if di in cart_dims else 'd' + str(di) for di in range(len(ims))]
 
             # store rest of image meta data as attributes
-            omits = ['axisnames', 'incr', 'ndim', 'refpix', 'refval', 'shape', 'tileshape', 'messages']
+            omits = ['axisnames','incr','hasmask','masks','defaultmask','ndim','refpix','refval','shape',
+                     'tileshape','messages']
             nested = [kk for kk in summary.keys() if isinstance(summary[kk], dict)]
-            tm['attrs'] = dict([(kk.lower(), summary[kk]) for kk in summary.keys() if kk not in omits + nested])
+            tm['attrs'] = dict([(kk.lower(), summary[kk]) for kk in summary.keys() if kk not in omits+nested])
             tm['attrs'].update(dict([(kk, list(nested_to_record(summary[kk], sep='.').items())) for kk in nested]))
-
+            
+            # parse messages for additional keys, drop duplicate info
+            omits = ['image_name','image_type','image_quantity','pixel_mask(s)','region(s)','image_units'] 
             for msg in summary['messages']:
-                line = [tuple(kk.split(':')) for kk in msg.lower().split('\n') if ': ' in kk]
-                tm['attrs'].update(dict([(kk[0].strip().replace(' ', '_'), kk[1].strip()) for kk in line]))
-
+              line = [tuple(kk.split(':')) for kk in msg.lower().split('\n') if ': ' in kk]
+              line = [(kk[0].strip().replace(' ','_'), kk[1].strip()) for kk in line]
+              line = [ll for ll in line if ll[0] not in omits]
+              tm['attrs'].update(dict(line))
+            
             # save metadata from first image product (the image itself)
             # compare later image products to see if dimensions match up
             # Note: only checking image dimensions, NOT COORDINATE VALUES!!
             if meta == {}:
-                meta = dict(tm)
-            elif np.any(meta['dsize'] != tm['dsize']):
-                diftypes += [imtype]
-                difmeta += [tm]
-                imtypes = [_ for _ in imtypes if _ != imtype]
-
+              meta = dict(tm)
+            elif (np.any(meta['dsize'] != np.array(summary['shape'])) & (imtype != 'sumwt')):
+              diftypes += [imtype]
+              difmeta += [tm]
+              imtypes = [_ for _ in imtypes if _ != imtype]
+            
             rc = IA.close()
         else:
-            imtypes = [_ for _ in imtypes if _ != imtype]
+          imtypes = [_ for _ in imtypes if _ != imtype]
 
     print('compatible components: ', imtypes)
     print('separate components: ', diftypes)
@@ -134,53 +140,39 @@ def image_to_zarr(infile, outfile=None, artifacts=None):
     dsize, chan_dim = meta['dsize'], meta['dims'].index('frequency')
     pt = [-1 for _ in range(len(dsize))]
     for chan in range(dsize[chan_dim]):
-        print('processing channel ' + str(chan + 1) + ' of ' + str(dsize[chan_dim]))
-        pt[chan_dim] = chan
-        chunk_coords = dict(meta['coords'])  # only want one freq channel coord
-        chunk_coords['frequency'] = np.array([chunk_coords['frequency'][chan]])
-        xdas = {}
-        for imtype in imtypes:
-            rc = IA.open(prefix + '.' + imtype)
-            imchunk = IA.getchunk(pt, pt)
-            if imtype == 'fits': imtype = 'image'
-            xdas[imtype] = xa(imchunk, dims=meta['dims'])
-            rc = IA.close()
-
-        if chan == 0:
-            xds = xd(xdas, coords=chunk_coords, attrs=nested_to_record(meta['attrs'], sep='_'))
-            encoding = dict(zip(list(xds.data_vars), cycle([{'compressor': compressor}])))
-            xds.to_zarr(outfile, mode='w', encoding=encoding)
-        else:
-            xds = xd(xdas, coords=chunk_coords, attrs=meta['attrs'])
-            xds.to_zarr(outfile, mode='a', append_dim='frequency')
-
-    print("processed image size " + str(dsize) + " in " + str(np.float32(time.time() - begin)) + " seconds")
-
-    # process remaining image artifacts with different sizes to different zarr files
-    # partition by channel, read each channel for each image artifact
-    for nn, imtype in enumerate(diftypes):
-        outfile = prefix + '.' + imtype + '.zarr'
-        tmp = os.system("rm -fr " + outfile)
-        dsize, chan_dim = difmeta[nn]['dsize'], difmeta[nn]['dims'].index('frequency')
-        pt = [-1 for _ in range(len(dsize))]
-        rc = IA.open(prefix + '.' + imtype)
-        for chan in range(dsize[chan_dim]):
-            print('processing ' + imtype + ' channel ' + str(chan + 1) + ' of ' + str(dsize[chan_dim]))
-            pt[chan_dim] = chan
-            chunk_coords = dict(difmeta[nn]['coords'])  # only want one freq channel coord
-            chunk_coords['frequency'] = np.array([chunk_coords['frequency'][chan]])
-
-            imchunk = IA.getchunk(pt, pt)
-            xda = xa(imchunk, dims=difmeta[nn]['dims'])
-
-            if chan == 0:
-                xds = xd({imtype: xda}, coords=chunk_coords, attrs=difmeta[nn]['attrs'])
-                encoding = dict(zip(list(xds.data_vars), cycle([{'compressor': compressor}])))
-                xds.to_zarr(outfile, mode='w', encoding=encoding)
-            else:
-                xds = xd({imtype: xda}, coords=chunk_coords, attrs=nested_to_record(difmeta[nn]['attrs'], sep='_'))
-                xds.to_zarr(outfile, mode='a', append_dim='frequency')
+      print('processing channel ' + str(chan+1) + ' of ' + str(dsize[chan_dim]), end='\r')
+      pt[chan_dim] = chan
+      chunk_coords = dict(meta['coords']) # only want one freq channel coord
+      chunk_coords['frequency'] = np.array([chunk_coords['frequency'][chan]])
+      xdas = {}
+      for imtype in imtypes:
+        rc = IA.open(prefix + '.' + imtype) 
+        
+        # extract pixel data
+        imchunk = IA.getchunk(pt, pt)
+        if imtype == 'fits': imtype = 'image'
+        if imtype == 'mask':
+          xdas['deconvolve'] = xa(imchunk.astype(bool), dims=meta['dims'])
+        elif imtype == 'sumwt': 
+          xdas[imtype] = xa(imchunk.reshape(imchunk.shape[2],1), dims=['stokes','frequency'])
+        else: 
+          xdas[imtype] = xa(imchunk, dims=meta['dims'])
+        
+        # extract mask
+        summary = IA.summary(list=False)
+        if len(summary['masks']) > 0:
+          imchunk = IA.getchunk(pt, pt, getmask=True)
+          xdas['mask'] = xa(imchunk.astype(bool), dims=meta['dims'])
+        
         rc = IA.close()
-
-    print('complete')
+      
+      if chan == 0:
+        xds = xd(xdas, coords=chunk_coords, attrs=nested_to_record(meta['attrs'], sep='_'))
+        encoding = dict(zip(list(xds.data_vars), cycle([{'compressor':compressor}])))
+        rc = xds.to_zarr(outfile, mode='w', encoding=encoding)
+      else: 
+        xds = xd(xdas, coords=chunk_coords, attrs=meta['attrs'])
+        rc = xds.to_zarr(outfile, mode='a', append_dim='frequency')
+    
+    print("processed image size " + str(dsize) + " in " + str(np.float32(time.time()-begin)) + " seconds")
 
