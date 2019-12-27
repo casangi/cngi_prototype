@@ -155,11 +155,11 @@ def freq_pol_info(ms_ddi, infile, ddi, col_names):
         n_chan_check = selected_col.shape[1]
         n_pol_check = selected_col.shape[2]
     elif "CORRECTED_DATA" in col_names:
-        selected_col = ms_ddi.getcol("DATA", 0, 1).transpose()
+        selected_col = ms_ddi.getcol("CORRECTED_DATA", 0, 1).transpose()
         n_chan_check = selected_col.shape[1]
         n_pol_check = selected_col.shape[2]
     elif "MODEL_DATA" in col_names:
-        selected_col = ms_ddi.getcol("DATA", 0, 1).transpose()
+        selected_col = ms_ddi.getcol("MODEL_DATA", 0, 1).transpose()
         n_chan_check = selected_col.shape[1]
         n_pol_check = selected_col.shape[2]
     else:
@@ -209,20 +209,7 @@ def convert_ms_data_ndim(col_name, selected_col, chunksize, n_baseline, chunk_ti
         data.fill(np.nan)
 
         decompose_row_3d(data, n_row, chunk_time_col_indx, chunk_col_baseline_indx, selected_col)
-        '''
-        for row in range(n_row):
-          time_indx = chunk_time_col_indx[row]
-          baseline_indx = chunk_col_baseline_indx[row]
-          data[time_indx, baseline_indx,:] = selected_col[row,:]
-        '''
         dim_names = ['time', 'baseline', 'uvw']
-    ###########################################################################################
-    ###########################################################################################
-    ###########################################################################################
-    # elif col_name in ["TIME","INTERVAL","FIELD_ID","SCAN_NUMBER"]:                         #n_row -> n_time
-    #  data,_ = get_unique_sequence(selected_col)
-    #  dim_names = ['time']
-
     ###########################################################################################
     ###########################################################################################
     ###########################################################################################
@@ -236,12 +223,6 @@ def convert_ms_data_ndim(col_name, selected_col, chunksize, n_baseline, chunk_ti
             data.fill(np.nan)
 
         decompose_row_2d(data, n_row, chunk_time_col_indx, chunk_col_baseline_indx, selected_col)
-        '''
-        for row in range(n_row):
-          time_indx = chunk_time_col_indx[row]
-          baseline_indx = chunk_col_baseline_indx[row]
-          data[time_indx, baseline_indx] = selected_col[row]
-        '''
         dim_names = ['time', 'baseline']
     ###########################################################################################
     ###########################################################################################
@@ -252,19 +233,11 @@ def convert_ms_data_ndim(col_name, selected_col, chunksize, n_baseline, chunk_ti
         data.fill(np.nan)
 
         decompose_row_3d(data, n_row, chunk_time_col_indx, chunk_col_baseline_indx, selected_col)
-        '''
-        for row in range(n_row):
-          time_indx = chunk_time_col_indx[row]
-          baseline_indx = chunk_col_baseline_indx[row]
-          data[time_indx, baseline_indx,:] = selected_col[row,:]
-        '''
-
         dim_names = ['time', 'baseline', 'pol']
     ###########################################################################################
     ###########################################################################################
     ###########################################################################################
-    elif col_name in ["SIGMA_SPECTRUM", "WEIGHT_SPECTRUM", "FLAG", "DATA", "MODEL_DATA",
-                      "CORRECTED_DATA"]:  # n_row x n_chan x n_pol -> n_time x n_baseline x n_chan x n_pol
+    elif col_name in ["SIGMA_SPECTRUM", "WEIGHT_SPECTRUM", "FLAG", "DATA", "MODEL_DATA","CORRECTED_DATA"]:  # n_row x n_chan x n_pol -> n_time x n_baseline x n_chan x n_pol
         assert (dim[1] == n_chan) & (dim[2] == n_pol), 'Collumn dimentions not correct'
 
         # Flag all missing values
@@ -275,14 +248,7 @@ def convert_ms_data_ndim(col_name, selected_col, chunksize, n_baseline, chunk_ti
             data.fill(np.nan)
 
         decompose_row_4d(data, n_row, chunk_time_col_indx, chunk_col_baseline_indx, selected_col)
-
-        '''
-        for row in range(n_row):
-          time_indx = chunk_time_col_indx[row]
-          baseline_indx = chunk_col_baseline_indx[row]
-          data[time_indx, baseline_indx,:,:] = selected_col[row,:,:]
-        '''
-
+        
         dim_names = ['time', 'baseline', 'chan', 'pol']
 
     ###########################################################################################
@@ -302,8 +268,9 @@ def convert_ms_data_ndim(col_name, selected_col, chunksize, n_baseline, chunk_ti
 # each DDI is written to its own subdirectory under the parent folder
 # consequently, different DDI's may be processed in parallel if the MS is opened with no locks
 def processDDI(ddi, infile, outfile, compressor):
-    import xarray
+    import xarray as xr
     from casatools import table as tb
+    
 
     print('**********************************')
     print('Processing ddi', ddi)
@@ -377,7 +344,8 @@ def processDDI(ddi, infile, outfile, compressor):
         '''
 
         for col_name in col_names:
-            try:
+            #try:
+            if True:
                 if col_name in ["FLAG_CATEGORY", "DATA_DESC_ID"]: continue
 
                 selected_col = ms_ddi.getcol(col_name, time_step_indx[start_row_indx], n_row_in_chunk).transpose()
@@ -390,17 +358,18 @@ def processDDI(ddi, infile, outfile, compressor):
                 # print('convert time ', col_name, time.time() - start)
 
                 if skip == False:
-                    dict_x_data_array[col_name] = xarray.DataArray(data, dims=dim_names)
-            except Exception:  # sometimes bad columns break the table tool (??)
-                print("WARNING: can't process column %s" % (col_name))
-                col_names = [_ for _ in col_names if _ != col_name]
+                    dict_x_data_array[col_name] = xr.DataArray(data, dims=dim_names)
+            #except Exception:  # sometimes bad columns break the table tool (??)
+            #    print("WARNING: can't process column %s" % (col_name))
+            #    col_names = [_ for _ in col_names if _ != col_name]
 
         # print('#')
         # print({'DATA':dict_x_data_array['DATA']})
         # print(coords)
-        # x_dataset = xarray.Dataset( dict_x_data_array, coords=coords).chunk({'time':len(coords['time']),'baseline':None,'chan':None,'pol':None,'uvw':None})
+        # x_dataset = xr.Dataset( dict_x_data_array, coords=coords).chunk({'time':len(coords['time']),'baseline':None,'chan':None,'pol':None,'uvw':None})
 
-        x_dataset = xarray.Dataset(dict_x_data_array, coords=coords).chunk(
+        
+        x_dataset = xr.Dataset(dict_x_data_array, coords=coords).chunk(
             {'time': len(coords['time']), 'baseline': None, 'chan': None, 'pol': None, 'uvw': None})
 
         if cc == 0:
@@ -408,10 +377,10 @@ def processDDI(ddi, infile, outfile, compressor):
             x_dataset.to_zarr(outfile + '/' + str(ddi), mode='w', encoding=encoding)
         else:
             x_dataset.to_zarr(outfile + '/' + str(ddi), mode='a', append_dim='time')
-
+        
     # coords, dict_x_data_array = {'baseline':np.arange(n_baseline),'ant_pair':np.arange(2)}, {}
-    # dict_x_data_array['baseline_ant_pairs'] = xarray.DataArray(baseline_ant_pairs, dims=['baseline','ant_pair'])
-    # x_dataset = xarray.Dataset(dict_x_data_array, coords=coords)
+    # dict_x_data_array['baseline_ant_pairs'] = xr.DataArray(baseline_ant_pairs, dims=['baseline','ant_pair'])
+    # x_dataset = xr.Dataset(dict_x_data_array, coords=coords)
 
     # Add non dimentional coordinates
     coords = {}
@@ -420,19 +389,29 @@ def processDDI(ddi, infile, outfile, compressor):
     coords['field_id'] = ('time', field_id_step)
     coords['scan_number'] = ('time', scan_number_step)
 
-    x_dataset = xarray.Dataset(coords=coords)
+    x_dataset = xr.Dataset(coords=coords)
 
-    # Add metadata
-    # Should this be metadata?
-    # scan_number_col = ms_ddi.getcol("SCAN_NUMBER").transpose()
-    # scan_number_indx = no_repeat_array(scan_number_col) #list of arrays, first array is scan number and second is scan index (2 x [n_scan x 1])
-    # field_id_col = ms_ddi.getcol("FIELD_ID").transpose()
-    # field_id_indx = no_repeat_array(field_id_col)       #(2 x [n_field x 1])
+    # Add attributes
+    # Should this be attributes?
+    scan_number_col = ms_ddi.getcol("SCAN_NUMBER").transpose()
+    no_repeat_scan_number, scan_number_step_indx = no_repeat_array(scan_number_col.astype(int)) 
+    scan_number_indx = np.array([list(no_repeat_scan_number), list(scan_number_step_indx)], np.int)
+    
+    field_id_col = ms_ddi.getcol("FIELD_ID").transpose()
+    no_repeat_field_id, field_id_step_indx = no_repeat_array(field_id_col.astype(int))       #(2 x [n_field x 1])
+    field_id_indx = np.array([list(no_repeat_field_id), list(field_id_step_indx)],np.int)
+    
+    n_scan  = len(np.unique(no_repeat_scan_number))
+    n_field = len(np.unique(no_repeat_field_id))
 
     x_dataset.attrs['baseline_ant_pairs'] = baseline_ant_pairs
     x_dataset.attrs['auto_corr_flag'] = auto_corr_flag
     x_dataset.attrs['ref_frequency'] = ref_frequency
-    # print(x_dataset)
+    x_dataset.attrs['scan_number_indx'] = scan_number_indx
+    x_dataset.attrs['field_id_indx'] = field_id_indx
+    x_dataset.attrs['n_scan'] = n_scan
+    x_dataset.attrs['n_field'] = n_field
+    
     x_dataset.to_zarr(outfile + '/' + str(ddi), mode='a')
 
     ms_ddi.close()
