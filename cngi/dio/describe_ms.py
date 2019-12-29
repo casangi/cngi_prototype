@@ -15,44 +15,33 @@
 
 #############################################
 def describe_ms(infile):
-  """
-   Summarize the contents of a zarr format MS directory on disk
-
-   Parameters
-   ----------
-   infile : str
-       input filename of zarr MS
-   
-   Returns
-   -------
-   Pandas Dataframe
-       Summary information
-   """
-  import os
-  import numpy as np
-  import pandas as pd
-  import pyarrow.parquet as pq
-  
-  infile = os.path.expanduser(infile)  # does nothing if $HOME is unknown
-  if ddis == None:
-    try:
-      ddis = list(np.array(os.listdir(infile), dtype=int))
-    except ValueError:
-      # relative paths include basename in listdir
-      ddis = list(np.array(os.listdir(infile)[1:], dtype=int))
-  elif type(ddis) != list:
-    ddis = [ddis]
-  
-  summary = pd.DataFrame([])
-  for ddi in ddis:
-    dpath = os.path.join(infile, str(ddi))
-    chunks = os.listdir(dpath)
-    dsize = np.sum([os.path.getsize(os.path.join(dpath, ff)) for ff in chunks]) / 1024 ** 3
-    pqf = pq.ParquetFile(os.path.join(dpath, chunks[0]))
-    sdf = [{'ddi': ddi, 'chunks': len(chunks), 'size_GB': np.around(dsize, 2),
-            'row_count_estimate': pqf.metadata.num_rows * len(chunks),
-            'col_count': pqf.metadata.num_columns, 'col_names': pqf.schema.names}]
-    summary = pd.concat([summary, pd.DataFrame(sdf)], axis=0, sort=False)
-  
-  summary = summary.reset_index().drop(columns=['index'])
-  return summary
+    """
+    Summarize the contents of a zarr format MS directory on disk
+    
+    Parameters
+    ----------
+    infile : str
+        input filename of zarr MS
+    
+    Returns
+    -------
+    Pandas Dataframe
+        Summary information
+    """
+    import os
+    import numpy as np
+    import pandas as pd
+    from xarray import open_zarr
+    
+    infile = os.path.expanduser(infile)  # does nothing if $HOME is unknown
+    ddis = list(np.array(os.listdir(infile), dtype=int))
+    
+    summary = pd.DataFrame([])
+    for ii,ddi in enumerate(ddis):
+        dpath = os.path.join(infile, str(ddi))
+        xds = open_zarr(dpath)
+        sdf = {'ddi':ddi, 'size_GB':xds.nbytes/1024**3}
+        sdf.update(dict(xds.dims))
+        summary = pd.concat([summary, pd.DataFrame(sdf,index=[ii])], axis=0, sort=False)
+    
+    return summary
