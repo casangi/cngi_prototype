@@ -65,6 +65,7 @@ def rebin(ds, **kwargs):
 
     """
     .. todo::
+        Check for and apply all masks and regions
         Accept arguments that control which DataArray is binned
         Improve performance when framework client has processes=True
     
@@ -101,7 +102,8 @@ def rebin(ds, **kwargs):
         axis = 'frequency'
 
     # works best with threads
-    new_ds = ds.groupby_bins(axis, factor).mean(keep_attrs=True)
+    # keep_attrs not implemented here yet (xarray/issues/3376)
+    new_ds = ds.coarsen({axis:factor}).mean(keep_attrs=True)
 
     return new_ds
 
