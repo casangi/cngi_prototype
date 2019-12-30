@@ -48,12 +48,13 @@ or
 Coding Standards
 ^^^^^^^^^^^^^^^^^^^^^
 
-The CNGI project has not yet formally adopted a set of enforceable coding standards.
+Documentation is generated using Sphinx, with the autodoc and napoleon extensions enabled. Function docstrings should be written in `NumPy style <https://www.sphinx-doc.org/en/master/usage/extensions/napoleon.html#google-vs-numpy>`_. For compatibility with Sphinx, import statements should generally be underneath function definitions, not at the top of the file.
 
-Some alternatives under consideration are:
+A complete set of formal and enforced coding standards have not yet been formally adopted. Some alternatives under consideration are:
 
 * Google's `style guide <https://google.github.io/styleguide/pyguide.html>`_
 * Python Software Foundation's `style guide <https://www.python.org/dev/peps/pep-008/>`_
-* Something like a PyData project (`two <https://docs.dask.org/en/latest/develop/html>`_ `examples <xarray.pydata.org/en/stable/contributing.html#code-standards>`_)
+* Following conventions established by PyData projects (examples `one <https://docs.dask.org/en/latest/develop/html>`_ and `two <https://xarray.pydata.org/en/stable/contributing.html#code-standards>`_)
 
-We're thinking about using flake8, mypy, pysort, lint, etc. for checking and enforcement.
+We are evaluating the adoption of `PEP 484 <https://www.python.org/dev/peps/pep-0484/>`_ convention, `mypy <http://mypy-lang.org/>`_, or  `param <https://param.holoviz.org/>`_ for type-checking, and `flake8 <http://flake8.pycqa.org/en/latest/index.html>`_ or `pylint <https://www.pylint.org/>`_ for enforcement.
+
