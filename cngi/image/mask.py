@@ -16,7 +16,7 @@
 def mask(xds, name='mask1', ra=None, dec=None, pixels=None, stokes=-1, channels=-1):
     """
     Create a new mask Data variable in the Dataset \n
-    NOTE: currently only supports rectangles and integer pixel boundaries
+    .. note:: This function currently only supports rectangles and integer pixel boundaries
 
     Parameters
     ----------
