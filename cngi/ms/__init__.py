@@ -1,3 +1,5 @@
 #__init__.py
-from .examination import *
 from .manipulation import *
+from .applyflags import *
+from .chanaverage import *
+from .timeaverage import *
