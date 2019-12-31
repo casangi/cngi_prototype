@@ -2,14 +2,14 @@ import numpy as np
 from numba import jit
 import time
 import math
-import ctypes
+#import ctypes
 
-def standard_grid_dask(grid_data, uvw, weight, flag_row, flag, freq_chan, chan_map, n_chan, pol_map, n_pol, cgk_1D, grid_parms):
+def standard_grid_dask(grid_data, uvw, weight, flag_row, flag, freq_chan, chan_map, n_chan, pol_map, cgk_1D, grid_parms):
       """
       Testing Function
       Wrapper function that is used when using dask distributed parallelism (blockwise function). 
       Only returns the gridded visibilities and not the sum of weights.
-      This limitation due to the dask blockwise function that can only return one array.
+      This limitation is due to the dask blockwise function that can only return one array.
       Rather use standard_grid_dask_sparse.
       
       Parameters
@@ -26,8 +26,8 @@ def standard_grid_dask(grid_data, uvw, weight, flag_row, flag, freq_chan, chan_m
       cgk_1D : float array (oversampling*(support//2 + 1))
       grid_parms : dictionary ('n_imag_chan','n_imag_pol','n_uv','delta_lm','oversampling','support')
       Returns
-      grid : complex array (1,n_imag_chan,n_imag_pol,n_u,n_v)
       -------
+      grid : complex array (1,n_imag_chan,n_imag_pol,n_u,n_v)
       """
       n_imag_chan = grid_parms['n_imag_chan']
       n_imag_pol = grid_parms['n_imag_pol']
@@ -38,13 +38,13 @@ def standard_grid_dask(grid_data, uvw, weight, flag_row, flag, freq_chan, chan_m
      
   
       grid = np.zeros((n_imag_chan, n_imag_pol,n_uv[0],n_uv[1]),dtype=np.complex128)
-      sum_weight = np.zeros((n_imag_chan,n_imag_pol),dtype=np.double)
+      sum_weight = np.zeros((1,n_imag_chan,n_imag_pol),dtype=np.double)
      
-      standard_grid(grid, sum_weight, grid_data[0][0], uvw[0], freq_chan, chan_map, pol_map, weight[0], flag_row[0],flag[0][0], cgk_1D, n_uv, delta_lm, support, oversampling)
-      grid = grid/sum_weight[:,:,None,None]
+      _standard_grid_jit(grid, sum_weight, grid_data[0][0], uvw[0], freq_chan, chan_map, pol_map, weight[0], flag_row[0],flag[0][0], cgk_1D, n_uv, delta_lm, support, oversampling)
+      grid = grid/sum_weight[0,:,:,None,None]
       return grid[None,:,:,:,:]#, sum_weight 
 
-def convert_sum_weight_to_sparse(sum_weight,n_chan,n_pol,n_uv):
+def _convert_sum_weight_to_sparse(sum_weight,n_chan,n_pol,n_uv):
      import sparse
      
      sum_weight_coords = np.zeros((6,n_chan*n_pol),dtype=int)
@@ -81,10 +81,10 @@ def standard_grid_dask_sparse(grid_data, uvw, weight, flag_row, flag, freq_chan,
       cgk_1D : float array (oversampling*(support//2 + 1))
       grid_parms : dictionary ('n_imag_chan','n_imag_pol','n_uv','delta_lm','oversampling','support')
       Returns
-      grid : complex sparse array (1,2,n_imag_chan,n_imag_pol,n_u,n_v)
-      grid[0,:,:,:,:] contains gridded data
-      grid[1,:,:,0,0] contains the sum of weights.
       -------
+      grid : complex sparse array (1,2,n_imag_chan,n_imag_pol,n_u,n_v)
+          grid[0,0,:,:,:,:] contains gridded data
+          grid[0,1,:,:,0,0] contains the sum of weights.
       """
      
       import sparse
@@ -98,8 +98,8 @@ def standard_grid_dask_sparse(grid_data, uvw, weight, flag_row, flag, freq_chan,
       grid = np.zeros(( n_chan, n_pol, n_uv[0],n_uv[1]),dtype=np.complex128)
       sum_weight = np.zeros((n_chan,n_pol),dtype=np.double)
      
-      standard_grid(grid, sum_weight, grid_data[0][0], uvw[0], freq_chan, chan_map, pol_map, weight[0], flag_row[0],flag[0][0], cgk_1D, n_uv, delta_lm, support, oversampling)
-      sum_weight = convert_sum_weight_to_sparse(sum_weight,n_chan,n_pol,n_uv)
+      _standard_grid_jit(grid, sum_weight, grid_data[0][0], uvw[0], freq_chan, chan_map, pol_map, weight[0], flag_row[0],flag[0][0], cgk_1D, n_uv, delta_lm, support, oversampling)
+      sum_weight = _convert_sum_weight_to_sparse(sum_weight,n_chan,n_pol,n_uv)
      
       grid = sparse.COO(grid[None,None,:,:,:,:]) #First None for Dask packing, second None for switching between grid and sum_weight
       grid_and_sum_weight = sparse.concatenate((grid,sum_weight),axis=1)
@@ -107,11 +107,48 @@ def standard_grid_dask_sparse(grid_data, uvw, weight, flag_row, flag, freq_chan,
      
       return grid_and_sum_weight
      
-@jit(nopython=True,cache=True)
-def standard_grid(grid, sum_weight, grid_data, uvw, freq_chan, chan_map, pol_map, weight, flag_row, flag, cgk_1D, n_uv, delta_lm, support, oversampling):
+     
+def standard_grid(grid_data, uvw, weight, flag_row, flag, freq_chan, chan_map, n_chan, pol_map, cgk_1D, grid_parms):
       """
-      Wrapper function that is used when using dask distributed parallelism.
+      Grids visibilities.
       
+      Parameters
+      ----------
+      grid : complex array (n_chan, n_pol, n_u, n_v)
+      sum_weight : float array (n_chan, n_pol) 
+      uvw  : float array (n_time, n_baseline, 3)
+      freq_chan : float array (n_chan)
+      chan_map : int array (n_chan)
+      pol_map : int array (n_pol)
+      weight : float array (n_time, n_baseline, n_vis_chan)
+      flag_row : boolean array (n_time, n_baseline)
+      flag : boolean array (n_time, n_baseline, n_chan, n_pol)
+      cgk_1D : float array (oversampling*(support//2 + 1))
+      grid_parms : dictionary ('n_imag_chan','n_imag_pol','n_uv','delta_lm','oversampling','support')
+      Returns
+      -------
+      grid : complex array (n_imag_chan,n_imag_pol,n_u,n_v)
+      sum_weight : float array (n_imag_chan,n_imag_pol)
+      """
+      n_imag_chan = grid_parms['n_imag_chan']
+      n_imag_pol = grid_parms['n_imag_pol']
+      n_uv = grid_parms['n_uv']
+      delta_lm = grid_parms['delta_lm']
+      oversampling = grid_parms['oversampling']
+      support = grid_parms['support']
+     
+  
+      grid = np.zeros((n_imag_chan, n_imag_pol,n_uv[0],n_uv[1]),dtype=np.complex128)
+      sum_weight = np.zeros((n_imag_chan,n_imag_pol),dtype=np.double)
+     
+      _standard_grid_jit(grid, sum_weight, grid_data, uvw, freq_chan, chan_map, pol_map, weight, flag_row,flag, cgk_1D, n_uv, delta_lm, support, oversampling)
+      grid = grid/sum_weight[:,:,None,None]
+      return grid, sum_weight 
+     
+     
+@jit(nopython=True,cache=True)
+def _standard_grid_jit(grid, sum_weight, grid_data, uvw, freq_chan, chan_map, pol_map, weight, flag_row, flag, cgk_1D, n_uv, delta_lm, support, oversampling):
+      """
       Parameters
       ----------
       grid : complex array (n_chan, n_pol, n_u, n_v)
@@ -195,28 +232,64 @@ def standard_grid(grid, sum_weight, grid_data, uvw, freq_chan, chan_map, pol_map
                     sum_weight[a_chan,a_pol] = sum_weight[a_chan,a_pol] + weight[i_time,i_baseline,i_pol]*norm               
                   
       return
+    
+def standard_grid_psf(uvw, weight, flag_row, flag, freq_chan, chan_map, n_chan, pol_map, cgk_1D, grid_parms):
+      """
+      Grids weights for psf.
+      
+      Parameters
+      ----------
+      grid : complex array (n_chan, n_pol, n_u, n_v)
+      sum_weight : float array (n_chan, n_pol) 
+      uvw  : float array (n_time, n_baseline, 3)
+      freq_chan : float array (n_chan)
+      chan_map : int array (n_chan)
+      pol_map : int array (n_pol)
+      weight : float array (n_time, n_baseline, n_vis_chan)
+      flag_row : boolean array (n_time, n_baseline)
+      flag : boolean array (n_time, n_baseline, n_chan, n_pol)
+      cgk_1D : float array (oversampling*(support//2 + 1))
+      grid_parms : dictionary ('n_imag_chan','n_imag_pol','n_uv','delta_lm','oversampling','support')
+      Returns
+      -------
+      grid : complex array (1,n_imag_chan,n_imag_pol,n_u,n_v)
+      """
+      n_imag_chan = grid_parms['n_imag_chan']
+      n_imag_pol = grid_parms['n_imag_pol']
+      n_uv = grid_parms['n_uv']
+      delta_lm = grid_parms['delta_lm']
+      oversampling = grid_parms['oversampling']
+      support = grid_parms['support']
+     
+  
+      grid = np.zeros((n_imag_chan, n_imag_pol,n_uv[0],n_uv[1]),dtype=np.complex128)
+      sum_weight = np.zeros((n_imag_chan,n_imag_pol),dtype=np.double)
+     
+      _standard_grid_psf_jit(grid, sum_weight, uvw, freq_chan, chan_map, pol_map, weight, flag_row,flag, cgk_1D, n_uv, delta_lm, support, oversampling)
+      grid = grid/sum_weight[:,:,None,None]
+      return grid, sum_weight 
+    
+    
 
 @jit(nopython=True,cache=True)
-def standard_grid_psf(grid, sum_weight, uvw, freq_chan, chan_map, pol_map, weight, flag_row, flag, cgk_1D, n_uv, delta_lm, support, oversampling):
+def _standard_grid_psf_jit(grid, sum_weight, uvw, freq_chan, chan_map, pol_map, weight, flag_row, flag, cgk_1D, n_uv, delta_lm, support, oversampling):
       """
-      Args:
-        grid (n_chan, n_pol, n_u, n_v): Inout, Complex, ndimentional array conatining the gridded visibilities.
-        sum_weight (n_chan, n_pol): 
-        uvw (n_time, n_baseline, 3):
-        freq_chan (n_chan):
-        chan_map (n_chan):
-        pol_map (n_pol):
-        weight (n_time, n_baseline, n_pol):
-        flag_row (n_time, n_baseline):
-        flag (n_time, n_baseline, n_chan, n_pol):
-        cgk_1D (oversampling*(support//2 + 1)): float/complex
-        n_uv (2):int 
-        delta_lm (2): int
-        support (1): int
-        oversampling (1): int
-      Returns:
-        bool: The return value. True for success, False otherwise.
-
+      Parameters
+      ----------
+      grid : complex array (n_chan, n_pol, n_u, n_v)
+      sum_weight : float array (n_chan, n_pol) 
+      grid_data : complex array (n_time, n_baseline, n_vis_chan, n_pol)
+      uvw  : float array (n_time, n_baseline, 3)
+      freq_chan : float array (n_chan)
+      chan_map : int array (n_chan)
+      pol_map : int array (n_pol)
+      weight : float array (n_time, n_baseline, n_vis_chan)
+      flag_row : boolean array (n_time, n_baseline)
+      flag : boolean array (n_time, n_baseline, n_chan, n_pol)
+      cgk_1D : float array (oversampling*(support//2 + 1))
+      grid_parms : dictionary ('n_imag_chan','n_imag_pol','n_uv','delta_lm','oversampling','support')
+      Returns
+      -------
       """
       
       

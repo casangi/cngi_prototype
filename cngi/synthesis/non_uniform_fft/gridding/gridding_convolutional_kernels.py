@@ -7,10 +7,17 @@ import math
 import ctypes
 from numba import jit
 import time
-from .helper_functions_imaging_coords import coordinates
+from .helper_functions_imaging_coords import _coordinates
 print("numba version: %s\n numpy version: %s" % (numba.__version__,np.__version__))
 
 def create_prolate_spheroidal_kernel(oversampling, support, n_u):
+    """
+    Parameters
+    ----------
+    oversampling : int 
+    support : int
+    -------
+    """
     # support//2 is the index of the zero value of the support values
     # oversampling//2 is the index of the zero value of the oversampling value
     support_center = support//2
@@ -44,7 +51,7 @@ def create_prolate_spheroidal_kernel(oversampling, support, n_u):
     #kernel /= norm
     
     # Gridding correction function (applied after dirty image is created)
-    kernel_image_points_1D = np.abs(2.0 * coordinates(n_u))
+    kernel_image_points_1D = np.abs(2.0 * _coordinates(n_u))
     kernel_image_1D = prolate_spheroidal_function(kernel_image_points_1D)[0]
     kernel_image = np.outer(kernel_image_1D, kernel_image_1D)
     #kernel_image[kernel_image > 0.0] = kernel_image.max() / kernel_image[kernel_image > 0.0]
