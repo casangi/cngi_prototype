@@ -42,6 +42,8 @@ def InitializeFramework(workers=2, memory='8GB', processes=True, **kwargs):
         Client from Dask Distributed for use by Dask objects
     """
 
+    import socket
+
     if 'threads_per_worker' in kwargs.keys():
         tpw = kwargs['threads_per_worker']
     else: # enforce default of 1 thread per process
@@ -59,8 +61,12 @@ def InitializeFramework(workers=2, memory='8GB', processes=True, **kwargs):
 
     global_framework_client = Client(cluster)
     
-    print("Dask dashboard now running at",
-          global_framework_client.cluster.dashboard_link)
+    print("Dask dashboard hosted at:")
+    if processes == True:
+        print(global_framework_client.cluster.dashboard_link)
+    else:
+        print(socket.gethostbyname(socket.gethostname()) + '/' + 
+              str(global_framework_client.scheduler_info()['services']['dashboard']))
     
     return(global_framework_client)
 
@@ -78,6 +84,4 @@ def GetFrameworkClient():
     Dask Distributed Client
         Client from Dask Distributed for use by Dask objects
     """
-    print("Dask dashboard running at",
-          global_framework_client.cluster.dashboard_link)
     return (global_framework_client)
