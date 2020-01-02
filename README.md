@@ -67,19 +67,18 @@ or
 >>> df = cdio.read_pq(...)
 ```
 
-Run Unit Tests
-^^^^^^^^^^^^^^
+### Run Unit Tests
+
 
 Dowload the unit test data from https://astrocloud.nrao.edu/s/Hacr42aZmJ3eb7i and place the files in cngi_prototype/cngi/data/.
 Unit test can be found in cngi_prototype/cngi/unit_tests/. For example:
 
 ```sh
 >>> import cngi
->>> cngi.unit_tests.test_standard_gridder()
+>>> cngi.unit_tests.test_standard_gridder(...)
 ```
 
-Coding Standards
-^^^^^^^^^^^^^^^^^^^^^
+### Coding Standards
 
 Documentation is generated using Sphinx, with the autodoc and napoleon extensions enabled. Function docstrings should be written in `NumPy style <https://www.sphinx-doc.org/en/master/usage/extensions/napoleon.html#google-vs-numpy>`_. For compatibility with Sphinx, import statements should generally be underneath function definitions, not at the top of the file.
 
