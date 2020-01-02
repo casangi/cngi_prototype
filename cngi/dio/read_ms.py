@@ -27,7 +27,7 @@ def read_ms(infile, ddi=0):
 
   Returns
   -------
-  xarray Dataset
+  xarray.core.dataset.Dataset
       New xarray Dataset of MS contents
   """
   import os

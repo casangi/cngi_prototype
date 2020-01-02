@@ -22,11 +22,11 @@ def moment(ds, **kwargs):
     
     Parameters
     ----------
-    ds : xarray Dataset
+    ds : xarray.core.dataset.Dataset
         input Image
-    axis : :obj:`str`, optional
+    axis : str, optional
         specified axis along which to reduce for moment generation, Default='frequency'
-    code : :obj:`int`, optional
+    code : int, optional
         number that selects which moment to calculate from the following list
 
         -1 - mean value of the spectrum (default)
@@ -60,8 +60,8 @@ def moment(ds, **kwargs):
 
     Returns
     -------
-    xarray Dataset
-        New Dataset
+    xarray.core.dataset.Dataset
+        output Image
     """
 
     # input parameter checking

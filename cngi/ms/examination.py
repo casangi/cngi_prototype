@@ -23,14 +23,14 @@ def setmeta(df, fields={}):
     
     Parameters
     ----------
-    df : Dask Dataframe
+    df : dask.dataframe.core.DataFrame
         input MS to view
     fields : dict
         dictionary of column:value pairs to set in the metadata
 
     Returns
     -------
-    Dask Dataframe
+    dask.dataframe.core.DataFrame
         New Dataframe with modified metadata
     """
     return {}
@@ -46,7 +46,7 @@ def viewmeta(df):
     
     Parameters
     ----------
-    df : Dask Dataframe
+    df : dask.dataframe.core.DataFrame
         input MS to view
 
     Returns
@@ -70,7 +70,7 @@ def summarizeDF(df, field=None, spw=None, timerange=None, uvrange=None, antenna=
     
     Parameters
     ----------
-    df : Dask Dataframe
+    df : dask.dataframe.core.DataFrame
         input MS to summarize
     field : int
         field selection. If None, use all fields
@@ -105,14 +105,14 @@ def summarizeFile(infile, ddis=None):
     
     Parameters
     ----------
-    infile : Dask Dataframe
+    infile : dask.dataframe.core.DataFrame
         input filename of Parquet MS 
     ddis : int or list
         Data Description IDs in MS to inspect. Default = None, summarizes all
     
     Returns
     -------
-    Pandas Dataframe
+    pandas.core.frame.DataFrame
         Summary information
     """
     import os

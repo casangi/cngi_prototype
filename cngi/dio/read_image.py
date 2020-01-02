@@ -25,7 +25,7 @@ def read_image(infile):
 
   Returns
   -------
-  xarray Dataset
+  xarray.core.dataset.Dataset
       New xarray Dataset of image contents
   """
   import os

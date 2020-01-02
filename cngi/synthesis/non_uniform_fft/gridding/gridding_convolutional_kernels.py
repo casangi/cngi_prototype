@@ -35,7 +35,8 @@ def create_prolate_spheroidal_kernel(oversampling, support, n_u):
 
     Returns
     -------
-    kernel, kernel_image
+    kernel : numpy.ndarray
+    kernel_image : numpy.ndarray
 
     """
     # support//2 is the index of the zero value of the support values

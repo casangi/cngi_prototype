@@ -24,14 +24,14 @@ def joinspw(df1, df2):
     
     Parameters
     ----------
-    df1 : Dask Dataframe
+    df1 : dask.dataframe.core.DataFrame
         first MS DF to join
-    df2 : Dask Dataframe
+    df2 : dask.dataframe.core.DataFrameDask
         second MS DF to join
 
     Returns
     -------
-    Dask Dataframe
+    dask.dataframe.core.DataFrameDask
         New Dataframe with combined contents
     """
     return {}
@@ -48,7 +48,7 @@ def hanningsmooth(df, field=None, spw=None, timerange=None, uvrange=None, antenn
     
     Parameters
     ----------
-    df : Dask Dataframe
+    df : dask.dataframe.core.DataFrameDask
         input MS
     field : int
         field selection. If None, use all fields
@@ -65,7 +65,7 @@ def hanningsmooth(df, field=None, spw=None, timerange=None, uvrange=None, antenn
 
     Returns
     -------
-    Dask Dataframe
+    dask.dataframe.core.DataFrameDask
         New Dataframe with updated data
     """
     return {}
@@ -82,7 +82,7 @@ def recalculateUVW(df, field=None, refcode=None, reuse=True, phasecenter=None):
     
     Parameters
     ----------
-    df : Dask Dataframe
+    df : dask.dataframe.core.DataFrameDask
         input MS
     field : int
         fields to operate on. None = all
@@ -95,7 +95,7 @@ def recalculateUVW(df, field=None, refcode=None, reuse=True, phasecenter=None):
 
     Returns
     -------
-    Dask Dataframe
+    dask.dataframe.core.DataFrameDask
         New Dataframe with updated data
     """
     return {}
@@ -112,7 +112,7 @@ def regridSPW(df, field=None, spw=None, timerange=None, uvrange=None, antenna=No
         
     Parameters
     ----------
-    df : Dask Dataframe
+    df : dask.dataframe.core.DataFrameDask
         input MS
     field : int
         field selection. If None, use all fields
@@ -147,7 +147,7 @@ def regridSPW(df, field=None, spw=None, timerange=None, uvrange=None, antenna=No
 
     Returns
     -------
-    Dask Dataframe
+    dask.dataframe.core.DataFrameDask
         New Dataframe with updated data
     """
     return {}
@@ -164,7 +164,7 @@ def uvcontsub(df, field=None, fitspw=None, combine=None, solint='int', fitorder=
     
     Parameters
     ----------
-    df : Dask Dataframe
+    df : dask.dataframe.core.DataFrameDask
         input MS
     field : int
         field selection. If None, use all fields
@@ -179,7 +179,7 @@ def uvcontsub(df, field=None, fitspw=None, combine=None, solint='int', fitorder=
 
     Returns
     -------
-    Dask Dataframe
+    dask.dataframe.core.DataFrameDask
         New Dataframe with updated data
     """
     return {}
@@ -197,7 +197,7 @@ def uvmodelfit(df, field=None, spw=None, timerange=None, uvrange=None, antenna=N
     
     Parameters
     ----------
-    df : Dask Dataframe
+    df : dask.dataframe.core.DataFrameDask
         input MS
     field : int
         field selection. If None, use all fields
@@ -222,7 +222,7 @@ def uvmodelfit(df, field=None, spw=None, timerange=None, uvrange=None, antenna=N
 
     Returns
     -------
-    Dask Dataframe
+    dask.dataframe.core.DataFrameDask
         New Dataframe with updated data
     """
     return {}

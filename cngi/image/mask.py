@@ -20,15 +20,15 @@ def mask(xds, name='mask1', ra=None, dec=None, pixels=None, stokes=-1, channels=
 
     Parameters
     ----------
-    xds : xarray Dataset
-        input image dataset
+    xds : xarray.core.dataset.Dataset
+        input Image
     name : str
         dataset variable name for mask, overwrites if already present
     ra : list
         right ascension coordinate range in the form of [min, max]. Default None means all
     dec : list
         declination coordinate range in the form of [min, max]. Default None means all
-    pixels : numpy array
+    pixels : numpy.ndarray
         array of shape (N,2) containing pixel box. AND'd with ra/dec
     stokes : int or list
         stokes dimension(s) to include in mask.  Default of -1 means all
@@ -37,8 +37,8 @@ def mask(xds, name='mask1', ra=None, dec=None, pixels=None, stokes=-1, channels=
 
     Returns
     -------
-    xarray Dataset
-        New Dataset
+    xarray.core.dataset.Dataset
+        output Image
     """
     import numpy as np
     import xarray as xr

@@ -26,8 +26,8 @@ def image_to_zarr(infile, outfile=None, artifacts=None):
         Input image filename (.image or .fits format)
     outfile : str
         Output zarr filename. If None, will use infile name with .zarr extension
-    artifacts : list of strings
-        List of other image artifacts to include if present with infile. Default None = ['mask','model','pb','psf','residual','sumwt','weight']
+    artifacts : list of str
+        List of other image artifacts to include if present with infile. Default None uses ``['mask','model','pb','psf','residual','sumwt','weight']``
 
     Returns
     -------

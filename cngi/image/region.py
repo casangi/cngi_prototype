@@ -21,7 +21,7 @@ def region(xds, name='region1', ra=None, dec=None, pixels=None, stokes=-1, chann
     
     Parameters
     ----------
-    xds : xarray Dataset
+    xds : xarray.core.dataset.Dataset
         input image dataset
     name : str
         dataset variable name for region, overwrites if already present
@@ -29,7 +29,7 @@ def region(xds, name='region1', ra=None, dec=None, pixels=None, stokes=-1, chann
         right ascension coordinate range in the form of [min, max]. Default None means all
     dec : list
         declination coordinate range in the form of [min, max]. Default None means all
-    pixels : numpy array
+    pixels : array_like
         array of shape (N,2) containing pixel box. OR'd with ra/dec
     stokes : int or list
         stokes dimension(s) to include in region.  Default of -1 means all
@@ -38,7 +38,7 @@ def region(xds, name='region1', ra=None, dec=None, pixels=None, stokes=-1, chann
         
     Returns
     -------
-    xarray Dataset
+    xarray.core.dataset.Dataset
         New Dataset
     """
     import numpy as np

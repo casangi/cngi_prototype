@@ -20,14 +20,14 @@ def applyflags(xds, flags=None):
 
     Parameters
     ----------
-    xds : xarray Dataset
+    xds : xarray.core.dataset.Dataset
         input MS dataset
     flags : list of str
         list of data var names to use as flags. Default None uses all bool types
     Returns
     -------
-    xarray Dataset
-        New Dataset
+    xarray.core.dataset.Dataset
+        output MS dataset
     """
     import xarray
 
