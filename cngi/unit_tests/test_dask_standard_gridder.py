@@ -14,7 +14,7 @@
 
 
 ##########################################
-def test_standard_gridder(show_plots = False):
+def test_dask_standard_gridder(show_plots = False):
     """
     Unit test that compares the standard gridder in CNGI with that in CASA.
     For the test to run sis14_twhya_field5_mstrans_lsrk_old.zarr and sis14_twhya_casa_ximage.zarr
@@ -37,12 +37,15 @@ def test_standard_gridder(show_plots = False):
     from cngi.synthesis.non_uniform_fft.gridding import standard_gridder as sg
     import matplotlib.pylab as plt
     import numpy as np
+    from dask.distributed import Client
+    import dask.array as da
     from scipy.fftpack import fft2, ifft2, fftshift, ifftshift
+    import time
     
     cngi_path = os.path.dirname(cngi.__file__)
     
     #Load measurement dataset
-    outfile = cngi_path + '/data/sis14_twhya_field5_mstrans_lsrk_old.zarr/0'
+    outfile = cngi_path + '/data/sis14_twhya_field5_mstrans_lsrk.zarr/0'
     
     vis_dataset = xr.open_zarr(outfile)
   
@@ -61,13 +64,16 @@ def test_standard_gridder(show_plots = False):
     cgk, cgk_image = gck.create_prolate_spheroidal_kernel(oversampling, support,n_xy_padded[0]) #Toin Do: rectangular images
     
     #Data used for gridding
-    grid_data = vis_dataset.data_vars['DATA'].values
-    uvw = vis_dataset.data_vars['UVW'].values
+    grid_data = vis_dataset.data_vars['DATA']
+    uvw = vis_dataset.data_vars['UVW']
     freq_chan = vis_dataset.coords['chan'].values
-    weight = vis_dataset.data_vars['WEIGHT'].values
-    weight[:,:,0] = (weight[:,:,0] + weight[:,:,1])/2 #Casa averages the weights for different polarizations. See code/msvis/MSVis/VisImagingWeight.cc VisImagingWeight::unPolChanWeight
-    flag_row = vis_dataset.data_vars['FLAG_ROW'].values
-    flag = vis_dataset.data_vars['FLAG'].values
+    weight = vis_dataset.data_vars['WEIGHT']
+    weight_avg = xr.DataArray.expand_dims((weight[:,:,0] + weight[:,:,1])/2,dim=['n_pol'],axis=2) #Casa averages the weights for different polarizations. See code/msvis/MSVis/VisImagingWeight.cc VisImagingWeight::unPolChanWeight
+                                                                                                  #The polarization dimention is again added.
+    
+    
+    flag_row = vis_dataset.data_vars['FLAG_ROW']
+    flag = vis_dataset.data_vars['FLAG']
     n_uv = n_xy_padded
     
     #
@@ -83,17 +89,35 @@ def test_standard_gridder(show_plots = False):
     
     grid_parms = {}
     grid_parms['n_imag_chan'] = n_imag_chan 
-    
     grid_parms['n_imag_pol'] = n_imag_pol
     grid_parms['n_uv'] = n_uv
     grid_parms['delta_lm'] = delta_lm
     grid_parms['oversampling'] = oversampling
     grid_parms['support'] = support
     
-    #Grid data
-    #sg.standard_grid(vis_grid, sum_weight, grid_data, uvw, freq_chan, chan_map, pol_map, weight, row_flag, flag, cgk_1D, n_uv, delta_lm, support, oversampling)
-    vis_grid, sum_weight  = sg.standard_grid(grid_data, uvw, weight, flag_row, flag, freq_chan, chan_map, n_chan, pol_map, cgk_1D, grid_parms)
     
+    n_workers = 2
+    threads_per_worker = 1
+    memory_limit = '4GB'
+    client = Client(n_workers=n_workers, threads_per_worker=threads_per_worker, memory_limit=memory_limit)
+    print(client)
+    
+    start = time.time()
+    grids_and_sum_weights = da.blockwise(sg.standard_grid_dask_sparse, ("n_time", "n_switch","n_imag_chan", "n_imag_pol", "n_u", "n_v"), grid_data, ("n_time","n_baseline","n_chan","n_pol"),
+                                  uvw, ("n_time","n_baseline","uvw"), weight_avg,("n_time","n_baseline","n_pol"), flag_row, ("n_time","n_baseline"), flag, ("n_time","n_baseline","n_vis_chan","n_vis_pol"),
+                                  new_axes={"n_switch" : 2,"n_imag_chan": n_imag_chan, "n_imag_pol": n_imag_pol, "n_u": n_xy_padded[0],"n_v":n_xy_padded[1]}, 
+                                  adjust_chunks={"n_time": 1},
+                                  freq_chan=freq_chan, chan_map = chan_map, pol_map = pol_map, cgk_1D=cgk_1D, grid_parms=grid_parms, 
+                                  dtype=complex)
+    grid_and_sum_weight = (grids_and_sum_weights.sum(axis=0))
+    #dask_grid.visualize(filename='dask_grid.svg')
+ 
+    grid_and_sum_weight = grid_and_sum_weight.compute()
+    vis_grid = grid_and_sum_weight[0,:,:,:,:].todense()
+    sum_weight = grid_and_sum_weight[1,0,0,0,0]
+    print('Gridding Time Dask (s): ', time.time() - start)
+    
+    client.close()
     
     #Create Dirty Image and correct for gridding convolutional kernel
     uncorrected_dirty_image = fftshift(ifft2(ifftshift(vis_grid[0,0,:,:]))).T *((n_xy_padded[0]*n_xy_padded[1])/np.sum(sum_weight)) 
@@ -157,7 +181,9 @@ def test_standard_gridder(show_plots = False):
     print('*******************************************************************************')
 
     return pass_test
-  
+    
+if __name__ == '__main__':
+    test_dask_standard_gridder()
   
   
   
