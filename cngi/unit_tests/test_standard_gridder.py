@@ -42,7 +42,7 @@ def test_standard_gridder(show_plots = False):
     cngi_path = os.path.dirname(cngi.__file__)
     
     #Load measurement dataset
-    outfile = cngi_path + '/data/sis14_twhya_field5_mstrans_lsrk_old.zarr/0'
+    outfile = cngi_path + '/data/sis14_twhya_field5_mstrans_lsrk.zarr/0'
     
     vis_dataset = xr.open_zarr(outfile)
   
@@ -83,6 +83,7 @@ def test_standard_gridder(show_plots = False):
     
     grid_parms = {}
     grid_parms['n_imag_chan'] = n_imag_chan 
+    
     grid_parms['n_imag_pol'] = n_imag_pol
     grid_parms['n_uv'] = n_uv
     grid_parms['delta_lm'] = delta_lm

@@ -1,14 +1,24 @@
-#defining NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION"
-#https://cython.readthedocs.io/en/latest/src/userguide/numpy_tutorial.html
-from __future__ import print_function
+#   Copyright 2019 AUI, Inc. Washington DC, USA
+#
+#   Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
+
 import numba
 import numpy as np
 import math
-import ctypes
+#import ctypes
 from numba import jit
 import time
 from .helper_functions_imaging_coords import _coordinates
-print("numba version: %s\n numpy version: %s" % (numba.__version__,np.__version__))
 
 def create_prolate_spheroidal_kernel(oversampling, support, n_u):
     """
