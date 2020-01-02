@@ -18,7 +18,7 @@ import time
 import math
 #import ctypes
 
-def standard_grid_dask(grid_data, uvw, weight, flag_row, flag, freq_chan, chan_map, n_chan, pol_map, cgk_1D, grid_parms):
+def standard_grid_dask(grid_data, uvw, weight, flag_row, flag, freq_chan, chan_map, pol_map, cgk_1D, grid_parms):
       """
       Testing Function
       Wrapper function that is used when using dask distributed parallelism (blockwise function). 
@@ -67,7 +67,7 @@ def standard_grid_dask(grid_data, uvw, weight, flag_row, flag, freq_chan, chan_m
       grid = np.zeros((n_imag_chan, n_imag_pol,n_uv[0],n_uv[1]),dtype=np.complex128)
       sum_weight = np.zeros((1,n_imag_chan,n_imag_pol),dtype=np.double)
      
-      _standard_grid_jit(grid, sum_weight, grid_data[0][0], uvw[0], freq_chan, chan_map, pol_map, weight[0], flag_row[0],flag[0][0], cgk_1D, n_uv, delta_lm, support, oversampling)
+      _standard_grid_jit(grid, sum_weight, grid_data[0][0][0], uvw[0][0], freq_chan, chan_map, pol_map, weight[0][0], flag_row[0],flag[0][0][0], cgk_1D, n_uv, delta_lm, support, oversampling)
       grid = grid/sum_weight[0,:,:,None,None]
       return grid[None,:,:,:,:]#, sum_weight 
 
@@ -89,8 +89,8 @@ def _convert_sum_weight_to_sparse(sum_weight,n_chan,n_pol,n_uv):
          flat_indx = flat_indx + 1
      return sparse.COO(sum_weight_coords, sum_weight_data, shape=(1,1,n_chan,n_pol,n_uv[0],n_uv[1]))
   
-  
-def standard_grid_dask_sparse(grid_data, uvw, weight, flag_row, flag, freq_chan, chan_map, pol_map, cgk_1D, grid_parms):
+
+def standard_grid_dask_sparse(grid_data, uvw, weight, flag_row, flag, freq_chan,chan_map, pol_map, cgk_1D, grid_parms):
       """
       Wrapper function that is used when using dask distributed parallelism (blockwise function). 
       
@@ -126,7 +126,14 @@ def standard_grid_dask_sparse(grid_data, uvw, weight, flag_row, flag, freq_chan,
           grid[0,0,:,:,:,:] contains gridded data
           grid[0,1,:,:,0,0] contains the sum of weights.
       """
-     
+      
+      #uvw, weight, flag_row, flag, freq_chan,
+      #print(grid_data[0][0][0].shape)
+      #print(uvw[0][0].shape)
+      #print(weight[0][0].shape)
+      #print(flag_row[0].shape)
+      #print(flag[0][0][0].shape)
+      
       import sparse
       n_imag_chan = grid_parms['n_imag_chan']
       n_imag_pol = grid_parms['n_imag_pol']
@@ -135,18 +142,18 @@ def standard_grid_dask_sparse(grid_data, uvw, weight, flag_row, flag, freq_chan,
       oversampling = grid_parms['oversampling']
       support = grid_parms['support']
      
-      grid = np.zeros(( n_chan, n_pol, n_uv[0],n_uv[1]),dtype=np.complex128)
-      sum_weight = np.zeros((n_chan,n_pol),dtype=np.double)
+      grid = np.zeros(( n_imag_chan, n_imag_pol, n_uv[0],n_uv[1]),dtype=np.complex128)
+      sum_weight = np.zeros((n_imag_chan,n_imag_pol),dtype=np.double)
      
-      _standard_grid_jit(grid, sum_weight, grid_data[0][0], uvw[0], freq_chan, chan_map, pol_map, weight[0], flag_row[0],flag[0][0], cgk_1D, n_uv, delta_lm, support, oversampling)
-      sum_weight = _convert_sum_weight_to_sparse(sum_weight,n_chan,n_pol,n_uv)
+      _standard_grid_jit(grid, sum_weight, grid_data[0][0][0], uvw[0][0], freq_chan, chan_map, pol_map, weight[0][0], flag_row[0],flag[0][0][0], cgk_1D, n_uv, delta_lm, support, oversampling)
+      sum_weight = _convert_sum_weight_to_sparse(sum_weight,n_imag_chan,n_imag_pol,n_uv)
      
       grid = sparse.COO(grid[None,None,:,:,:,:]) #First None for Dask packing, second None for switching between grid and sum_weight
       grid_and_sum_weight = sparse.concatenate((grid,sum_weight),axis=1)
      
      
       return grid_and_sum_weight
-     
+
      
 def standard_grid(grid_data, uvw, weight, flag_row, flag, freq_chan, chan_map, n_chan, pol_map, cgk_1D, grid_parms):
       """
