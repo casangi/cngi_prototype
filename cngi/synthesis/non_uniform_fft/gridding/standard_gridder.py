@@ -28,20 +28,33 @@ def standard_grid_dask(grid_data, uvw, weight, flag_row, flag, freq_chan, chan_m
       
       Parameters
       ----------
-      grid : complex array (n_chan, n_pol, n_u, n_v)
-      sum_weight : float array (n_chan, n_pol) 
-      uvw  : float array (n_time, n_baseline, 3)
-      freq_chan : float array (n_chan)
-      chan_map : int array (n_chan)
-      pol_map : int array (n_pol)
-      weight : float array (n_time, n_baseline, n_vis_chan)
-      flag_row : boolean array (n_time, n_baseline)
-      flag : boolean array (n_time, n_baseline, n_chan, n_pol)
-      cgk_1D : float array (oversampling*(support//2 + 1))
-      grid_parms : dictionary ('n_imag_chan','n_imag_pol','n_uv','delta_lm','oversampling','support')
+      grid : complex array
+          (n_chan, n_pol, n_u, n_v)
+      sum_weight : float array
+          (n_chan, n_pol) 
+      uvw  : float array
+          (n_time, n_baseline, 3)
+      freq_chan : float array
+          (n_chan)
+      chan_map : int array
+          (n_chan)
+      pol_map : int array
+          (n_pol)
+      weight : float array
+          (n_time, n_baseline, n_vis_chan)
+      flag_row : boolean array
+          (n_time, n_baseline)
+      flag : boolean array
+          (n_time, n_baseline, n_chan, n_pol)
+      cgk_1D : float array
+          (oversampling*(support//2 + 1))
+      grid_parms : dictionary
+          keys ('n_imag_chan','n_imag_pol','n_uv','delta_lm','oversampling','support')
+
       Returns
       -------
-      grid : complex array (1,n_imag_chan,n_imag_pol,n_u,n_v)
+      grid : complex array
+          (1,n_imag_chan,n_imag_pol,n_u,n_v)
       """
       n_imag_chan = grid_parms['n_imag_chan']
       n_imag_pol = grid_parms['n_imag_pol']
@@ -83,20 +96,33 @@ def standard_grid_dask_sparse(grid_data, uvw, weight, flag_row, flag, freq_chan,
       
       Parameters
       ----------
-      grid : complex array (n_chan, n_pol, n_u, n_v)
-      sum_weight : float array (n_chan, n_pol) 
-      uvw  : float array (n_time, n_baseline, 3)
-      freq_chan : float array (n_chan)
-      chan_map : int array (n_chan)
-      pol_map : int array (n_pol)
-      weight : float array (n_time, n_baseline, n_vis_chan)
-      flag_row : boolean array (n_time, n_baseline)
-      flag : boolean array (n_time, n_baseline, n_chan, n_pol)
-      cgk_1D : float array (oversampling*(support//2 + 1))
-      grid_parms : dictionary ('n_imag_chan','n_imag_pol','n_uv','delta_lm','oversampling','support')
+      grid : complex array
+          (n_chan, n_pol, n_u, n_v)
+      sum_weight : float array
+          (n_chan, n_pol) 
+      uvw  : float array
+          (n_time, n_baseline, 3)
+      freq_chan : float array
+          (n_chan)
+      chan_map : int array 
+          (n_chan)
+      pol_map : int array 
+          (n_pol)
+      weight : float array 
+          (n_time, n_baseline, n_vis_chan)
+      flag_row : boolean array 
+          (n_time, n_baseline)
+      flag : boolean array 
+          (n_time, n_baseline, n_chan, n_pol)
+      cgk_1D : float array 
+          (oversampling*(support//2 + 1))
+      grid_parms : dictionary 
+          ('n_imag_chan','n_imag_pol','n_uv','delta_lm','oversampling','support')
+
       Returns
       -------
-      grid : complex sparse array (1,2,n_imag_chan,n_imag_pol,n_u,n_v)
+      grid : complex sparse array 
+          (1,2,n_imag_chan,n_imag_pol,n_u,n_v)
           grid[0,0,:,:,:,:] contains gridded data
           grid[0,1,:,:,0,0] contains the sum of weights.
       """
@@ -124,21 +150,33 @@ def standard_grid_dask_sparse(grid_data, uvw, weight, flag_row, flag, freq_chan,
      
 def standard_grid(grid_data, uvw, weight, flag_row, flag, freq_chan, chan_map, n_chan, pol_map, cgk_1D, grid_parms):
       """
-      Grids visibilities.
+      Grids visibilities
       
       Parameters
       ----------
-      grid : complex array (n_chan, n_pol, n_u, n_v)
-      sum_weight : float array (n_chan, n_pol) 
-      uvw  : float array (n_time, n_baseline, 3)
-      freq_chan : float array (n_chan)
-      chan_map : int array (n_chan)
-      pol_map : int array (n_pol)
-      weight : float array (n_time, n_baseline, n_vis_chan)
-      flag_row : boolean array (n_time, n_baseline)
-      flag : boolean array (n_time, n_baseline, n_chan, n_pol)
-      cgk_1D : float array (oversampling*(support//2 + 1))
-      grid_parms : dictionary ('n_imag_chan','n_imag_pol','n_uv','delta_lm','oversampling','support')
+      grid : complex array 
+          (n_chan, n_pol, n_u, n_v)
+      sum_weight : float array  
+          (n_chan, n_pol) 
+      uvw  : float array  
+          (n_time, n_baseline, 3)
+      freq_chan : float array  
+          (n_chan)
+      chan_map : int array  
+          (n_chan)
+      pol_map : int array  
+          (n_pol)
+      weight : float array  
+          (n_time, n_baseline, n_vis_chan)
+      flag_row : boolean array  
+          (n_time, n_baseline)
+      flag : boolean array  
+          (n_time, n_baseline, n_chan, n_pol)
+      cgk_1D : float array  
+          (oversampling*(support//2 + 1))
+      grid_parms : dictionary  
+          keys ('n_imag_chan','n_imag_pol','n_uv','delta_lm','oversampling','support')
+
       Returns
       -------
       grid : complex array (n_imag_chan,n_imag_pol,n_u,n_v)
@@ -165,22 +203,34 @@ def _standard_grid_jit(grid, sum_weight, grid_data, uvw, freq_chan, chan_map, po
       """
       Parameters
       ----------
-      grid : complex array (n_chan, n_pol, n_u, n_v)
-      sum_weight : float array (n_chan, n_pol) 
-      grid_data : complex array (n_time, n_baseline, n_vis_chan, n_pol)
-      uvw  : float array (n_time, n_baseline, 3)
-      freq_chan : float array (n_chan)
-      chan_map : int array (n_chan)
-      pol_map : int array (n_pol)
-      weight : float array (n_time, n_baseline, n_vis_chan)
-      flag_row : boolean array (n_time, n_baseline)
-      flag : boolean array (n_time, n_baseline, n_chan, n_pol)
-      cgk_1D : float array (oversampling*(support//2 + 1))
-      grid_parms : dictionary ('n_imag_chan','n_imag_pol','n_uv','delta_lm','oversampling','support')
+      grid : complex array 
+          (n_chan, n_pol, n_u, n_v)
+      sum_weight : float array 
+          (n_chan, n_pol) 
+      grid_data : complex array 
+          (n_time, n_baseline, n_vis_chan, n_pol)
+      uvw  : float array 
+          (n_time, n_baseline, 3)
+      freq_chan : float array 
+          (n_chan)
+      chan_map : int array 
+          (n_chan)
+      pol_map : int array 
+          (n_pol)
+      weight : float array 
+          (n_time, n_baseline, n_vis_chan)
+      flag_row : boolean array 
+          (n_time, n_baseline)
+      flag : boolean array 
+          (n_time, n_baseline, n_chan, n_pol)
+      cgk_1D : float array 
+          (oversampling*(support//2 + 1))
+      grid_parms : dictionary 
+          keys ('n_imag_chan','n_imag_pol','n_uv','delta_lm','oversampling','support')
+
       Returns
       -------
       """
-      
       
       c = 299792458.0
       uv_scale = np.zeros((2,len(freq_chan)), dtype=np.double)
@@ -253,20 +303,33 @@ def standard_grid_psf(uvw, weight, flag_row, flag, freq_chan, chan_map, n_chan, 
       
       Parameters
       ----------
-      grid : complex array (n_chan, n_pol, n_u, n_v)
-      sum_weight : float array (n_chan, n_pol) 
-      uvw  : float array (n_time, n_baseline, 3)
-      freq_chan : float array (n_chan)
-      chan_map : int array (n_chan)
-      pol_map : int array (n_pol)
-      weight : float array (n_time, n_baseline, n_vis_chan)
-      flag_row : boolean array (n_time, n_baseline)
-      flag : boolean array (n_time, n_baseline, n_chan, n_pol)
-      cgk_1D : float array (oversampling*(support//2 + 1))
-      grid_parms : dictionary ('n_imag_chan','n_imag_pol','n_uv','delta_lm','oversampling','support')
+      grid : complex array 
+          (n_chan, n_pol, n_u, n_v)
+      sum_weight : float array 
+          (n_chan, n_pol) 
+      uvw  : float array 
+          (n_time, n_baseline, 3)
+      freq_chan : float array 
+          (n_chan)
+      chan_map : int array 
+          (n_chan)
+      pol_map : int array 
+          (n_pol)
+      weight : float array 
+          (n_time, n_baseline, n_vis_chan)
+      flag_row : boolean array 
+          (n_time, n_baseline)
+      flag : boolean array 
+          (n_time, n_baseline, n_chan, n_pol)
+      cgk_1D : float array 
+          (oversampling*(support//2 + 1))
+      grid_parms : dictionary 
+          keys ('n_imag_chan','n_imag_pol','n_uv','delta_lm','oversampling','support')
+
       Returns
       -------
-      grid : complex array (1,n_imag_chan,n_imag_pol,n_u,n_v)
+      grid : complex array 
+          (1,n_imag_chan,n_imag_pol,n_u,n_v)
       """
       n_imag_chan = grid_parms['n_imag_chan']
       n_imag_pol = grid_parms['n_imag_pol']
@@ -290,18 +353,31 @@ def _standard_grid_psf_jit(grid, sum_weight, uvw, freq_chan, chan_map, pol_map, 
       """
       Parameters
       ----------
-      grid : complex array (n_chan, n_pol, n_u, n_v)
-      sum_weight : float array (n_chan, n_pol) 
-      grid_data : complex array (n_time, n_baseline, n_vis_chan, n_pol)
-      uvw  : float array (n_time, n_baseline, 3)
-      freq_chan : float array (n_chan)
-      chan_map : int array (n_chan)
-      pol_map : int array (n_pol)
-      weight : float array (n_time, n_baseline, n_vis_chan)
-      flag_row : boolean array (n_time, n_baseline)
-      flag : boolean array (n_time, n_baseline, n_chan, n_pol)
-      cgk_1D : float array (oversampling*(support//2 + 1))
-      grid_parms : dictionary ('n_imag_chan','n_imag_pol','n_uv','delta_lm','oversampling','support')
+      grid : complex array 
+          (n_chan, n_pol, n_u, n_v)
+      sum_weight : float array 
+          (n_chan, n_pol) 
+      grid_data : complex array 
+          (n_time, n_baseline, n_vis_chan, n_pol)
+      uvw  : float array 
+          (n_time, n_baseline, 3)
+      freq_chan : float array 
+          (n_chan)
+      chan_map : int array 
+          (n_chan)
+      pol_map : int array 
+          (n_pol)
+      weight : float array 
+          (n_time, n_baseline, n_vis_chan)
+      flag_row : boolean array 
+          (n_time, n_baseline)
+      flag : boolean array 
+          (n_time, n_baseline, n_chan, n_pol)
+      cgk_1D : float array 
+          (oversampling*(support//2 + 1))
+      grid_parms : dictionary 
+          keys ('n_imag_chan','n_imag_pol','n_uv','delta_lm','oversampling','support')
+
       Returns
       -------
       """

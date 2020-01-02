@@ -22,11 +22,21 @@ from .helper_functions_imaging_coords import _coordinates
 
 def create_prolate_spheroidal_kernel(oversampling, support, n_u):
     """
+    Create PSWF to serve as gridding kernel
+
     Parameters
     ----------
     oversampling : int 
+        oversampling//2 is the index of the zero value of the oversampling value
     support : int
+        support//2 is the index of the zero value of the support values
+    n_u: int
+        number of pixels in u,v,w space
+
+    Returns
     -------
+    kernel, kernel_image
+
     """
     # support//2 is the index of the zero value of the support values
     # oversampling//2 is the index of the zero value of the oversampling value
@@ -71,14 +81,18 @@ def create_prolate_spheroidal_kernel(oversampling, support, n_u):
 
 #@jit not working due to boolean slicing of array not working    
 def prolate_spheroidal_function(u):
-    """Calculate PSWF using an old SDE routine re-written in Python
-        Find Spheroidal function with M = 6, alpha = 1 using the rational
-        approximations discussed by Fred Schwab in 'Indirect Imaging'.
-        This routine was checked against Fred's SPHFN routine, and agreed
-        to about the 7th significant digit.
-        The griddata function is (1-NU**2)*GRDSF(NU) where NU is the distance
-        to the edge. The grid correction function is just 1/GRDSF(NU) where NU
-        is now the distance to the edge of the image.
+    """
+    Calculate PSWF using an old SDE routine re-written in Python
+
+    Find Spheroidal function with M = 6, alpha = 1 using the rational
+    approximations discussed by Fred Schwab in 'Indirect Imaging'.
+
+    This routine was checked against Fred's SPHFN routine, and agreed
+    to about the 7th significant digit.
+
+    The griddata function is (1-NU**2)*GRDSF(NU) where NU is the distance
+    to the edge. The grid correction function is just 1/GRDSF(NU) where NU
+    is now the distance to the edge of the image.
     """
     p = np.array([[8.203343e-2, -3.644705e-1, 6.278660e-1, -5.335581e-1, 2.312756e-1],[4.028559e-3, -3.697768e-2, 1.021332e-1, -1.201436e-1, 6.412774e-2]])
     q = np.array([[1.0000000e0, 8.212018e-1, 2.078043e-1],[1.0000000e0, 9.599102e-1, 2.918724e-1]])
