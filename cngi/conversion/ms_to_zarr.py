@@ -15,7 +15,7 @@
 
 def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None):
     """
-    Convert legacy format MS to a xarray dataset which is saved to disk using zarr
+    Convert legacy format MS to xarray compatible zarr format MS
 
     This function requires CASA6 casatools module.
 
@@ -36,10 +36,13 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None):
     """
     import os
     from casatools import table as tb
+    from casatools import measures
     from numcodecs import Blosc
+    import pandas as pd
     import xarray
     import numpy as np
     import time
+    import datetime
     from itertools import cycle
     
     # parse filename to use
@@ -86,7 +89,12 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None):
         
         col_names = tb_tool.colnames()  # Array with collumns names
         
-        times = np.array(ms_ddi.getcol('TIME'))
+        # we want times in datetime format, there must be a better way to do this
+        me = measures()
+        ms_today = me.epoch('iat','today')['m0']['value'] * 24 * 60 * 60
+        real_today = datetime.datetime.now().timestamp()
+        correction = ms_today - real_today
+        times = pd.to_datetime(np.array(ms_ddi.getcol('TIME')) - correction, unit='s')
         unique_times, time_changes, time_idxs = np.unique(times, return_index=True, return_inverse=True)
         n_time = unique_times.shape[0]
         
@@ -105,12 +113,14 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None):
         meta = {'baseline_ant_pairs':unique_baselines, 'auto_corr_flag':np.any(ant1_col == ant2_col)}
         tb_tool_meta.open(infile + "/SPECTRAL_WINDOW", nomodify=True, lockoptions={'option': 'usernoread'})
         for col in tb_tool_meta.colnames():
-            meta[col] = tb_tool_meta.getcol(col, spectral_window_id[ddi], 1).transpose()[0]
+            if (not tb_tool_meta.isvarcol(col)) | (col == 'CHAN_FREQ'):
+                meta[col] = tb_tool_meta.getcol(col, spectral_window_id[ddi], 1).transpose()[0]
         tb_tool_meta.close()
         
         tb_tool_meta.open(infile + "/POLARIZATION", nomodify=True, lockoptions={'option': 'usernoread'})
         for col in tb_tool_meta.colnames():
-            meta[col] = tb_tool_meta.getcol(col, polarization_id[ddi], 1).transpose()[0]
+            if not tb_tool_meta.isvarcol(col):
+                meta[col] = tb_tool_meta.getcol(col, polarization_id[ddi], 1).transpose()[0]
         tb_tool_meta.close()
         
         #for tt in os.listdir(infile):
@@ -125,7 +135,7 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None):
         print('n_time:', n_time, '  n_baseline:', n_baseline,'  n_chan:', n_chan, '  n_pol:', n_pol, '  chunksize:', chunksize)
 
         for key in meta.keys():  # zarr doesn't like numpy bools?
-            if (type(meta[key]).__module__ == np.__name__) & (meta[key].dtype == 'bool'): meta[key] = meta[key].astype(np.uint8)
+            if (type(meta[key]).__module__ == np.__name__) & (meta[key].dtype == 'bool') & (meta[key].ndim == 0): meta[key] = bool(meta[key])
         
         ######
         for cc, start_row_indx in enumerate(range(0, n_time, chunksize)):
@@ -141,7 +151,7 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None):
                     if col_name in ["DATA_DESC_ID","ANTENNA1","ANTENNA2","INTERVAL","FIELD_ID","SCAN_NUMBER"]: continue
                     
                     selected_col = ms_ddi.getcol(col_name, idx_range[0], len(idx_range)).transpose()
-                    if selected_col.dtype == 'bool': selected_col = selected_col.astype(np.uint8)
+                    if (selected_col.dtype == 'bool') & (selected_col.ndim == 0): selected_col = bool(selected_col)
                     
                     if col_name in ["UVW"]:  # n_row x 3 -> n_time x n_baseline x 3
                         assert (selected_col.ndim == 2), 'Column dimensions not correct'
@@ -150,7 +160,10 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None):
                         dict_x_data_array[col_name] = xarray.DataArray(data, dims=['time', 'baseline','uvw'])
                     
                     elif selected_col.ndim == 1:  # n_row -> n_time x n_baseline
-                        data = np.full((len(chunk), n_baseline), np.nan, dtype=selected_col.dtype)
+                        if col_name == "FLAG_ROW":
+                            data = np.ones((len(chunk), n_baseline), dtype=selected_col.dtype)
+                        else:
+                            data = np.full((len(chunk), n_baseline), np.nan, dtype=selected_col.dtype)
                         data[time_idxs[idx_range]-chunk[0], baseline_idxs[idx_range]] = selected_col
                         dict_x_data_array[col_name] = xarray.DataArray(data, dims=['time', 'baseline'])
                     
@@ -162,7 +175,10 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None):
                     
                     elif selected_col.ndim == 3:
                         assert (selected_col.shape[1] == n_chan) & (selected_col.shape[2] == n_pol), 'Column dimensions not correct'
-                        data = np.full((len(chunk), n_baseline, n_chan, n_pol), np.nan, dtype=selected_col.dtype)
+                        if col_name == "FLAG":
+                            data = np.ones((len(chunk), n_baseline, n_chan, n_pol), dtype=selected_col.dtype)
+                        else:
+                            data = np.full((len(chunk), n_baseline, n_chan, n_pol), np.nan, dtype=selected_col.dtype)
                         data[time_idxs[idx_range]-chunk[0], baseline_idxs[idx_range], :, :] = selected_col
                         dict_x_data_array[col_name] = xarray.DataArray(data, dims=['time', 'baseline', 'chan', 'pol'])
                     

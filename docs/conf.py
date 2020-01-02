@@ -65,6 +65,8 @@ numpy_show_class_members = False
 #napoleon_use_param = True
 #napoleon_use_rtype = True
 
+#List of imports to mock (this ensures readthedocs works)
+autodoc_mock_imports = ['numcodecs','os','numpy','time','xarray','numba','itertools','zarr']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -207,5 +209,4 @@ epub_exclude_files = ['search.html']
 #autosummary_generate = True
 #autodoc_default_flags = ['members', 'inherited-members']
 
-#List of imports to mock (this ensures readthedocs works)
-autodoc_mock_imports = ['numcodecs','os','numpy','time','xarray','numba','itertools','zarr']
+

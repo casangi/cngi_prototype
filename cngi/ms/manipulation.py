@@ -12,28 +12,6 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-########################
-def chanaverage(df, width=1):
-    """
-    .. todo::
-        This function is not yet implemented
-
-    Average data across channels
-    
-    Parameters
-    ----------
-    df : Dask Dataframe
-        input MS
-    width : int
-        number of adjacent channels to average. Default=1 (no change)
-
-    Returns
-    -------
-    Dask Dataframe
-        New Dataframe with averaged data
-    """
-    return {}
-
 
 
 ########################
@@ -173,33 +151,6 @@ def regridSPW(df, field=None, spw=None, timerange=None, uvrange=None, antenna=No
         New Dataframe with updated data
     """
     return {}
-
-
-
-################################################
-def timeaverage(df, timebin=0.0, timespan=None, maxuvdistance=0.0):
-    """
-    .. todo::
-        This function is not yet implemented
-
-    Average data across time axis
-    
-    Parameters
-    ----------
-    df : Dask Dataframe
-        input MS
-    timebin : float
-        Bin width for time averaging (in seconds). Default 0.0
-    timespan : str
-        Span the timebin. Allowed values are None, 'scan', 'state' or 'both'
-
-    Returns
-    -------
-    Dask Dataframe
-        New Dataframe with averaged data
-    """
-    return {}
-
 
 
 
