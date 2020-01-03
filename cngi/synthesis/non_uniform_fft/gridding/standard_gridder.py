@@ -201,7 +201,6 @@ def standard_grid(grid_data, uvw, weight, flag_row, flag, freq_chan, chan_map, n
       sum_weight = np.zeros((n_imag_chan,n_imag_pol),dtype=np.double)
      
       _standard_grid_jit(grid, sum_weight, grid_data, uvw, freq_chan, chan_map, pol_map, weight, flag_row,flag, cgk_1D, n_uv, delta_lm, support, oversampling)
-      grid = grid/sum_weight[:,:,None,None]
       return grid, sum_weight 
      
      

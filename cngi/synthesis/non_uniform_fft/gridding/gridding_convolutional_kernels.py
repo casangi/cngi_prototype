@@ -20,7 +20,7 @@ from numba import jit
 import time
 from .helper_functions_imaging_coords import _coordinates
 
-def create_prolate_spheroidal_kernel(oversampling, support, n_u):
+def create_prolate_spheroidal_kernel(oversampling, support, n_uv):
     """
     Create PSWF to serve as gridding kernel
 
@@ -30,8 +30,9 @@ def create_prolate_spheroidal_kernel(oversampling, support, n_u):
         oversampling//2 is the index of the zero value of the oversampling value
     support : int
         support//2 is the index of the zero value of the support values
-    n_u: int
-        number of pixels in u,v,w space
+    n_uv: int array
+        (2)
+        number of pixels in u,v space
 
     Returns
     -------
@@ -71,9 +72,14 @@ def create_prolate_spheroidal_kernel(oversampling, support, n_u):
     #kernel /= norm
     
     # Gridding correction function (applied after dirty image is created)
-    kernel_image_points_1D = np.abs(2.0 * _coordinates(n_u))
-    kernel_image_1D = prolate_spheroidal_function(kernel_image_points_1D)[0]
-    kernel_image = np.outer(kernel_image_1D, kernel_image_1D)
+    kernel_image_points_1D_u = np.abs(2.0 * _coordinates(n_uv[0]))
+    kernel_image_1D_u = prolate_spheroidal_function(kernel_image_points_1D_u)[0]
+    
+    kernel_image_points_1D_v = np.abs(2.0 * _coordinates(n_uv[1]))
+    kernel_image_1D_v = prolate_spheroidal_function(kernel_image_points_1D_v)[0]
+    
+    kernel_image = np.outer(kernel_image_1D_u, kernel_image_1D_v)
+    
     #kernel_image[kernel_image > 0.0] = kernel_image.max() / kernel_image[kernel_image > 0.0]
     
     #kernel_image =  kernel_image/kernel_image.max()
