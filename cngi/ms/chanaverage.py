@@ -20,14 +20,14 @@ def chanaverage(xds, width=1):
 
     Parameters
     ----------
-    xds : xarray Dataset
+    xds : xarray.core.dataset.Dataset
         input MS dataset
     width : int
         number of adjacent channels to average. Default=1 (no change)
 
     Returns
     -------
-    xarray Dataset
+    xarray.core.dataset.Dataset
         New Dataset
     """
     import xarray

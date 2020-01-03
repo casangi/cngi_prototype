@@ -30,7 +30,7 @@ def read_legacy_ms(infile, ddi=None):
 
     Returns
     -------
-    Dask Dataframe
+    dask.dataframe.core.DataFrame
         New Dataframe of MS contents
     """
     return True

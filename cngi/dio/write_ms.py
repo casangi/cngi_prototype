@@ -20,13 +20,13 @@ def write_ms(xds, outfile='ms.zarr', ddi=0, append=True):
   
     Parameters
     ----------
-    xds : xarray Dataset
+    xds : xarray.core.dataset.Dataset
         MS Dataset to write to disk
     outfile : str
         output filename, generally ends in .zarr
-    ddi = int
+    int : ddi
         Data Description ID in MS to write. Defaults to 0
-    append = bool
+    append : bool
         Append this DDI in to an existing zarr MS. False will erase old zarr directory. Default=True
     
     Returns

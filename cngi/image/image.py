@@ -14,7 +14,6 @@
 
 
 
-
 ########################
 def regrid(ds):
     """
@@ -25,13 +24,13 @@ def regrid(ds):
     
     Parameters
     ----------
-    ds : xarray Dataset
+    ds : xarray.core.dataset.Dataset
         input Image
     
     Returns
     -------
-    xarray Dataset
-        New Dataset
+    xarray.core.dataset.Dataset
+        output Image
     """
     return True
 
@@ -47,13 +46,13 @@ def reframe(ds):
     
     Parameters
     ----------
-    ds : xarray Dataset
+    ds : xarray.core.dataset.Dataset
         input Image
     
     Returns
     -------
-    xarray Dataset
-        New Dataset
+    xarray.core.dataset.Dataset
+        output Image
     """
     return True
 
@@ -70,13 +69,13 @@ def contsub(ds):
     
     Parameters
     ----------
-    ds : xarray Dataset
+    ds : xarray.core.dataset.Dataset
         input Image
     
     Returns
     -------
-    xarray Dataset
-        New Dataset
+    xarray.core.dataset.Dataset
+        output Image
     """
     return True
 
@@ -92,13 +91,13 @@ def smooth(ds):
     
     Parameters
     ----------
-    ds : xarray Dataset
+    ds : xarray.core.dataset.Dataset
         input Image
     
     Returns
     -------
-    xarray Dataset
-        New Dataset
+    xarray.core.dataset.Dataset
+        output Image
     """
     return True
 
@@ -114,13 +113,13 @@ def specfit(ds):
     
     Parameters
     ----------
-    ds : xarray Dataset
+    ds : xarray.core.dataset.Dataset
         input Image
     
     Returns
     -------
-    xarray Dataset
-        New Dataset
+    xarray.core.dataset.Dataset
+        output Image
     """
     return True
 
@@ -136,13 +135,13 @@ def spxfit(ds):
     
     Parameters
     ----------
-    ds : xarray Dataset
+    ds : xarray.core.dataset.Dataset
         input Image
     
     Returns
     -------
-    xarray Dataset
-        New Dataset
+    xarray.core.dataset.Dataset
+        output Image
     """
     return True
 
@@ -158,13 +157,13 @@ def specflux(ds):
     
     Parameters
     ----------
-    ds : xarray Dataset
+    ds : xarray.core.dataset.Dataset
         input Image
     
     Returns
     -------
-    xarray Dataset
-        New Dataset
+    xarray.core.dataset.Dataset
+        output Image
     """
     return True
 
@@ -180,13 +179,13 @@ def rmfit(ds):
     
     Parameters
     ----------
-    ds : xarray Dataset
+    ds : xarray.core.dataset.Dataset
         input Image
     
     Returns
     -------
-    xarray Dataset
-        New Dataset
+    xarray.core.dataset.Dataset
+        output Image
     """
     return True
 
@@ -202,13 +201,13 @@ def ellipsefit(ds):
     
     Parameters
     ----------
-    ds : xarray Dataset
+    ds : xarray.core.dataset.Dataset
         input Image
     
     Returns
     -------
-    xarray Dataset
-        New Dataset
+    xarray.core.dataset.Dataset
+        output Image
     """
     return True
 

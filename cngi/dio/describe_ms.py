@@ -25,7 +25,7 @@ def describe_ms(infile):
     
     Returns
     -------
-    Pandas Dataframe
+    pandas.core.frame.DataFrame
         Summary information
     """
     import os

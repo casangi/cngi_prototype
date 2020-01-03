@@ -27,7 +27,7 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None):
         Output zarr filename. If None, will use infile name with .zarr extension
     ddi : int
         Specific ddi to convert. Leave as None to convert entire MS
-    compressor : blosc
+    compressor : numcodecs.blosc.Blosc
         The blosc compressor to use when saving the converted data to disk using zarr.
         If None the zstd compression algorithm used with compression level 2.
 

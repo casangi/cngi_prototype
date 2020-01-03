@@ -23,7 +23,7 @@ def timeaverage(xds, timebin=0.0, timespan=None, maxuvdistance=0.0):
 
     Parameters
     ----------
-    xds : xarray Dataset
+    xds : xarray.core.dataset.Dataset
         input MS dataset
     timebin : float
         Bin width for time averaging (in seconds). Default 0.0
@@ -32,7 +32,7 @@ def timeaverage(xds, timebin=0.0, timespan=None, maxuvdistance=0.0):
 
     Returns
     -------
-    xarray Dataset
+    xarray.core.dataset.Dataset
         New Dataset
     """
     import xarray
