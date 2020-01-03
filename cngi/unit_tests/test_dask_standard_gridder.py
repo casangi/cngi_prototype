@@ -45,7 +45,7 @@ def test_dask_standard_gridder(show_plots = False):
     cngi_path = os.path.dirname(cngi.__file__)
     
     #Load measurement dataset
-    outfile = cngi_path + '/data/sis14_twhya_field5_mstrans_lsrk.zarr/0'
+    outfile = cngi_path + '/data/sis14_twhya_field5_mstrans_lsrk_old.zarr/0'
     
     vis_dataset = xr.open_zarr(outfile)
   
