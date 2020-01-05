@@ -34,7 +34,7 @@ def test_dask_standard_gridder(show_plots=False):
     import cngi
     import os
     from cngi.gridding import gridding_convolutional_kernels as gck
-    from cngi.gridding import standard_gridder as sg
+    from cngi.gridding import serial_grid_dask_sparse
     import matplotlib.pylab as plt
     import numpy as np
     from dask.distributed import Client
@@ -105,7 +105,7 @@ def test_dask_standard_gridder(show_plots=False):
     print(client)
     
     start = time.time()
-    grids_and_sum_weights = da.blockwise(sg.standard_grid_dask_sparse, ("n_time", "n_switch", "n_imag_chan", "n_imag_pol", "n_u", "n_v"),
+    grids_and_sum_weights = da.blockwise(serial_grid_dask_sparse, ("n_time", "n_switch", "n_imag_chan", "n_imag_pol", "n_u", "n_v"),
                                          grid_data, ("n_time", "n_baseline", "n_chan", "n_pol"),
                                          uvw, ("n_time", "n_baseline", "uvw"), weight_avg, ("n_time", "n_baseline", "n_pol"), flag_row,
                                          ("n_time", "n_baseline"), flag, ("n_time", "n_baseline", "n_vis_chan", "n_vis_pol"),
