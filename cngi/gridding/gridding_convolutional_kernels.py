@@ -12,33 +12,33 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-#defining NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION"
-#https://cython.readthedocs.io/en/latest/src/userguide/numpy_tutorial.html
-from __future__ import print_function
+import numba
 import numpy as np
+import math
+#import ctypes
+from numba import jit
+import time
+from .helper_functions_imaging_coords import _coordinates
 
-
-def _coordinates(npixel: int):
-    """ 1D array which spans [-.5,.5[ with 0 at position npixel/2
+def create_prolate_spheroidal_kernel(oversampling, support, n_uv):
     """
-    return (np.arange(npixel) - npixel // 2) / npixel
+    Create PSWF to serve as gridding kernel
 
-
-def _coordinates2(npixel: int):
-    """Two dimensional grids of coordinates spanning -1 to 1 in each dimension
-    1. a step size of 2/npixel and
-    2. (0,0) at pixel (floor(n/2),floor(n/2))
-    """
-    return (np.mgrid[0:npixel, 0:npixel] - npixel // 2) / npixel
-
-
-def create_prolate_spheroidal_kernel(oversampling, support, n_u):
-    """
     Parameters
     ----------
     oversampling : int 
+        oversampling//2 is the index of the zero value of the oversampling value
     support : int
+        support//2 is the index of the zero value of the support values
+    n_uv: int array
+        (2)
+        number of pixels in u,v space
+
+    Returns
     -------
+    kernel : numpy.ndarray
+    kernel_image : numpy.ndarray
+
     """
     # support//2 is the index of the zero value of the support values
     # oversampling//2 is the index of the zero value of the oversampling value
@@ -73,9 +73,14 @@ def create_prolate_spheroidal_kernel(oversampling, support, n_u):
     #kernel /= norm
     
     # Gridding correction function (applied after dirty image is created)
-    kernel_image_points_1D = np.abs(2.0 * _coordinates(n_u))
-    kernel_image_1D = prolate_spheroidal_function(kernel_image_points_1D)[0]
-    kernel_image = np.outer(kernel_image_1D, kernel_image_1D)
+    kernel_image_points_1D_u = np.abs(2.0 * _coordinates(n_uv[0]))
+    kernel_image_1D_u = prolate_spheroidal_function(kernel_image_points_1D_u)[0]
+    
+    kernel_image_points_1D_v = np.abs(2.0 * _coordinates(n_uv[1]))
+    kernel_image_1D_v = prolate_spheroidal_function(kernel_image_points_1D_v)[0]
+    
+    kernel_image = np.outer(kernel_image_1D_u, kernel_image_1D_v)
+    
     #kernel_image[kernel_image > 0.0] = kernel_image.max() / kernel_image[kernel_image > 0.0]
     
     #kernel_image =  kernel_image/kernel_image.max()
@@ -83,14 +88,18 @@ def create_prolate_spheroidal_kernel(oversampling, support, n_u):
 
 #@jit not working due to boolean slicing of array not working    
 def prolate_spheroidal_function(u):
-    """Calculate PSWF using an old SDE routine re-written in Python
-        Find Spheroidal function with M = 6, alpha = 1 using the rational
-        approximations discussed by Fred Schwab in 'Indirect Imaging'.
-        This routine was checked against Fred's SPHFN routine, and agreed
-        to about the 7th significant digit.
-        The griddata function is (1-NU**2)*GRDSF(NU) where NU is the distance
-        to the edge. The grid correction function is just 1/GRDSF(NU) where NU
-        is now the distance to the edge of the image.
+    """
+    Calculate PSWF using an old SDE routine re-written in Python
+
+    Find Spheroidal function with M = 6, alpha = 1 using the rational
+    approximations discussed by Fred Schwab in 'Indirect Imaging'.
+
+    This routine was checked against Fred's SPHFN routine, and agreed
+    to about the 7th significant digit.
+
+    The griddata function is (1-NU**2)*GRDSF(NU) where NU is the distance
+    to the edge. The grid correction function is just 1/GRDSF(NU) where NU
+    is now the distance to the edge of the image.
     """
     p = np.array([[8.203343e-2, -3.644705e-1, 6.278660e-1, -5.335581e-1, 2.312756e-1],[4.028559e-3, -3.697768e-2, 1.021332e-1, -1.201436e-1, 6.412774e-2]])
     q = np.array([[1.0000000e0, 8.212018e-1, 2.078043e-1],[1.0000000e0, 9.599102e-1, 2.918724e-1]])

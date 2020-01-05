@@ -20,7 +20,7 @@ def write_image(xds, outfile='image.zarr'):
     
     Parameters
     ----------
-    xds : xarray Dataset
+    xds : xarray.core.dataset.Dataset
         image Dataset to write to disk
     outfile : str
         output filename, generally ends in .zarr
@@ -34,7 +34,8 @@ def write_image(xds, outfile='image.zarr'):
     
     outfile = os.path.expanduser(outfile)
     compressor = Blosc(cname='zstd', clevel=2, shuffle=0)
-    encoding = dict(zip(list(xds.data_vars), cycle([{'compressor': compressor}])))
+    encoding = dict(zip(list(xds.data_vars), 
+                        cycle([{'compressor': compressor}])))
     
     xds.to_zarr(outfile, mode='w', encoding=encoding)
 

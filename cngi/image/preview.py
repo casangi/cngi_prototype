@@ -19,8 +19,8 @@ def preview(xds, variable='image', region=None, stokes=0, channels=0, tsize=250)
     
     Parameters
     ----------
-    xds : xarray Dataset
-        input image dataset
+    xds : xarray.core.dataset.Dataset
+        input Image
     variable : str
         dataset variable to plot.  Default is image
     region : str

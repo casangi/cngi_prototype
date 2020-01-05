@@ -38,7 +38,7 @@ def InitializeFramework(workers=2, memory='8GB', processes=True, **kwargs):
 
     Returns
     -------
-    Dask Distributed Client
+    distributed.client.Client
         Client from Dask Distributed for use by Dask objects
     """
 
@@ -81,7 +81,7 @@ def GetFrameworkClient():
     
     Returns
     -------
-    Dask Distributed Client
+    distributed.client.Client
         Client from Dask Distributed for use by Dask objects
     """
     return (global_framework_client)

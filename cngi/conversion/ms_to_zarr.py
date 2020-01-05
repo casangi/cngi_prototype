@@ -27,7 +27,7 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None):
         Output zarr filename. If None, will use infile name with .zarr extension
     ddi : int
         Specific ddi to convert. Leave as None to convert entire MS
-    compressor : blosc
+    compressor : numcodecs.blosc.Blosc
         The blosc compressor to use when saving the converted data to disk using zarr.
         If None the zstd compression algorithm used with compression level 2.
 
@@ -160,7 +160,10 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None):
                         dict_x_data_array[col_name] = xarray.DataArray(data, dims=['time', 'baseline','uvw'])
                     
                     elif selected_col.ndim == 1:  # n_row -> n_time x n_baseline
-                        data = np.full((len(chunk), n_baseline), np.nan, dtype=selected_col.dtype)
+                        if col_name == "FLAG_ROW":
+                            data = np.ones((len(chunk), n_baseline), dtype=selected_col.dtype)
+                        else:
+                            data = np.full((len(chunk), n_baseline), np.nan, dtype=selected_col.dtype)
                         data[time_idxs[idx_range]-chunk[0], baseline_idxs[idx_range]] = selected_col
                         dict_x_data_array[col_name] = xarray.DataArray(data, dims=['time', 'baseline'])
                     
@@ -172,7 +175,10 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None):
                     
                     elif selected_col.ndim == 3:
                         assert (selected_col.shape[1] == n_chan) & (selected_col.shape[2] == n_pol), 'Column dimensions not correct'
-                        data = np.full((len(chunk), n_baseline, n_chan, n_pol), np.nan, dtype=selected_col.dtype)
+                        if col_name == "FLAG":
+                            data = np.ones((len(chunk), n_baseline, n_chan, n_pol), dtype=selected_col.dtype)
+                        else:
+                            data = np.full((len(chunk), n_baseline, n_chan, n_pol), np.nan, dtype=selected_col.dtype)
                         data[time_idxs[idx_range]-chunk[0], baseline_idxs[idx_range], :, :] = selected_col
                         dict_x_data_array[col_name] = xarray.DataArray(data, dims=['time', 'baseline', 'chan', 'pol'])
                     
