@@ -23,6 +23,7 @@ input / output, MS operations, and Image operations.
    ms
    images
    direct
+   gridding
 
 Usage
 ^^^^^^^^^^^^^^^^^^^^^

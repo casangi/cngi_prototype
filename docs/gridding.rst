@@ -1,12 +1,12 @@
-Synthesis
+Image
 ====================
 
-Functions that convert visbilities to images.
+Non-Uniform FFT functions for gridding visibility data
 
 To access these functions, use your favorite variation of:
-``import cngi.synthesis``
+``import cngi.gridding``
 
-.. automodsumm:: cngi.synthesis
+.. automodsumm:: cngi.gridding
    :toctree: api
    :nosignatures:
    :functions-only:
