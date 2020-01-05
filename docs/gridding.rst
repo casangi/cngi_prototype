@@ -1,4 +1,4 @@
-Image
+Gridding
 ====================
 
 Non-Uniform FFT functions for gridding visibility data
