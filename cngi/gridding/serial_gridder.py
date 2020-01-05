@@ -20,7 +20,7 @@ import math
 
 # import ctypes
 
-def standard_grid_dask(grid_data, uvw, weight, flag_row, flag, freq_chan, chan_map, pol_map, cgk_1D, grid_parms):
+def serial_grid_dask(grid_data, uvw, weight, flag_row, flag, freq_chan, chan_map, pol_map, cgk_1D, grid_parms):
     """
     Testing Function
     Wrapper function that is used when using dask distributed parallelism (blockwise function).
@@ -93,7 +93,7 @@ def _convert_sum_weight_to_sparse(sum_weight, n_chan, n_pol, n_uv):
     return sparse.COO(sum_weight_coords, sum_weight_data, shape=(1, 1, n_chan, n_pol, n_uv[0], n_uv[1]))
 
 
-def standard_grid_dask_sparse(grid_data, uvw, weight, flag_row, flag, freq_chan, chan_map, pol_map, cgk_1D, grid_parms):
+def serial_grid_dask_sparse(grid_data, uvw, weight, flag_row, flag, freq_chan, chan_map, pol_map, cgk_1D, grid_parms):
     """
     Wrapper function that is used when using dask distributed parallelism (blockwise function).
 
@@ -158,7 +158,7 @@ def standard_grid_dask_sparse(grid_data, uvw, weight, flag_row, flag, freq_chan,
     return grid_and_sum_weight
 
 
-def standard_grid(grid_data, uvw, weight, flag_row, flag, freq_chan, chan_map, n_chan, pol_map, cgk_1D, grid_parms):
+def serial_grid(grid_data, uvw, weight, flag_row, flag, freq_chan, chan_map, n_chan, pol_map, cgk_1D, grid_parms):
     """
     Grids visibilities
 
@@ -305,7 +305,7 @@ def _standard_grid_jit(grid, sum_weight, grid_data, uvw, freq_chan, chan_map, po
     return
 
 
-def standard_grid_psf(uvw, weight, flag_row, flag, freq_chan, chan_map, n_chan, pol_map, cgk_1D, grid_parms):
+def serial_grid_psf(uvw, weight, flag_row, flag, freq_chan, chan_map, n_chan, pol_map, cgk_1D, grid_parms):
     """
     Grids weights for psf.
 
