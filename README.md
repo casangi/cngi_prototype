@@ -13,7 +13,7 @@ input / output, MS operations, and Image operations.
 - ms
 - images
 - direct
-- unit_tests
+- gridding
 
 ### Installation Requirements
 Installing the CNGI prototype currently only works on Linux systems with Python 3.6 (due to the CASA 6 requirement for the measurement set conversion functions). 
@@ -67,16 +67,10 @@ or
 >>> df = cdio.read_pq(...)
 ```
 
-### Run Unit Tests
-
+### Run Tests
 
 Dowload the unit test data from https://astrocloud.nrao.edu/s/Hacr42aZmJ3eb7i and place the files in cngi_prototype/cngi/data/.
-Unit test can be found in cngi_prototype/cngi/unit_tests/. For example:
-
-```sh
->>> import cngi
->>> cngi.unit_tests.test_standard_gridder(...)
-```
+Unit test can be found in cngi_prototype/cngi/unit_tests/. 
 
 ### Coding Standards
 

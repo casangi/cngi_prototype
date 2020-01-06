@@ -43,9 +43,10 @@ def test_dask_standard_gridder(show_plots=False):
     import time
     
     cngi_path = os.path.dirname(cngi.__file__)
+    cngi_prototype_path = cngi_path[:cngi_path.rfind('/')]
 
     # Load measurement dataset
-    outfile = cngi_path + '/data/sis14_twhya_field5_mstrans_lsrk_old.zarr/0'
+    outfile = cngi_prototype_path + '/data/sis14_twhya_field5_mstrans_lsrk_old.zarr/0'
     
     vis_dataset = xr.open_zarr(outfile)
 
@@ -137,7 +138,7 @@ def test_dask_standard_gridder(show_plots=False):
     # corrected_dirty_image = corrected_dirty_image/(np.max(np.abs(corrected_dirty_image)))
 
     # Load CASA data
-    outfile = cngi_path + '/data/sis14_twhya_field5_mstrans_lsrk_ximage.zarr'
+    outfile = cngi_prototype_path + '/data/sis14_twhya_field5_mstrans_lsrk_ximage.zarr'
     ximage_dataset = xr.open_zarr(outfile)
     casa_corrected_dirty_image = ximage_dataset['residual'].values[:, :, 0, 0]
     

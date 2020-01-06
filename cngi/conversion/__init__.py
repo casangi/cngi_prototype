@@ -8,6 +8,7 @@
 ##################################
 from .msconversion import *
 from .ms_to_zarr import *
+from .ms_to_zarr_numba import ms_to_zarr_numba
 from .ms_to_pq import *
 from .image_to_zarr import *
 from .zarr_to_image import *

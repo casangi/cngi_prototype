@@ -29,6 +29,17 @@ def test_standard_gridder(show_plots=False):
     pass_test : bool
         Is True if CNGI values are close enough to CASA values.
     """
+    
+    import xarray as xr
+    import cngi
+    import os
+    from cngi.gridding import gridding_convolutional_kernels as gck
+    from cngi.gridding import serial_grid
+    from cngi.gridding import standard_grid
+    import matplotlib.pylab as plt
+    import numpy as np
+    from scipy.fftpack import fft2, ifft2, fftshift, ifftshift
+    import time
 
     cngi_path = os.path.dirname(cngi.__file__)
 
@@ -46,7 +57,7 @@ def test_standard_gridder(show_plots=False):
     delta_uv = np.array([1 / (n_xy_padded[0] * delta_lm[0]), 1 / (n_xy_padded[1] * delta_lm[1])])  # Visibility domain cell size
 
     # Creating gridding kernel (same as CASA)
-    support = 7  # The support in CASA is defined as the half support, which is 3
+    support = 35#7  # The support in CASA is defined as the half support, which is 3
     oversampling = 100
     cgk_1D = gck.create_prolate_spheroidal_kernel_1D(oversampling, support)
     cgk, cgk_image = gck.create_prolate_spheroidal_kernel(oversampling, support, n_xy_padded)
@@ -84,8 +95,13 @@ def test_standard_gridder(show_plots=False):
     grid_parms['support'] = support
 
     # Grid data
+    start = time.time()
     p_vis_grid, sum_weight = standard_grid(grid_data, uvw, weight, flag_row, flag, freq_chan, chan_map, n_chan, pol_map, cgk_1D, grid_parms)
+    print('Vectorized Gridding Time Dask (s): ', time.time() - start)
+    
+    start = time.time()
     s_vis_grid, sum_weight = serial_grid(grid_data, uvw, weight, flag_row, flag, freq_chan, chan_map, n_chan, pol_map, cgk_1D, grid_parms)
+    print('Numba Gridding Time Dask (s): ', time.time() - start)
     
     # temp
     p_vis_grid = p_vis_grid / sum_weight
@@ -140,3 +156,5 @@ def test_standard_gridder(show_plots=False):
     # print('*******************************************************************************')
     
     return True  # pass_test
+
+test_standard_gridder(show_plots=False)

@@ -26,7 +26,7 @@ def serial_grid_dask(grid_data, uvw, weight, flag_row, flag, freq_chan, chan_map
     Wrapper function that is used when using dask distributed parallelism (blockwise function).
     Only returns the gridded visibilities and not the sum of weights.
     This limitation is due to the dask blockwise function that can only return one array.
-    Rather use standard_grid_dask_sparse.
+    Rather use serial_grid_dask_sparse.
 
     Parameters
     ----------
