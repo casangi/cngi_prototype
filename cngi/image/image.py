@@ -82,28 +82,6 @@ def contsub(ds):
 
 
 ########################
-def smooth(ds):
-    """
-    .. todo::
-        This function is not yet implemented
-    
-    Smooth data along n-dimensions of the image cube
-    
-    Parameters
-    ----------
-    ds : xarray.core.dataset.Dataset
-        input Image
-    
-    Returns
-    -------
-    xarray.core.dataset.Dataset
-        output Image
-    """
-    return True
-
-
-
-########################
 def specfit(ds):
     """
     .. todo::
