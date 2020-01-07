@@ -16,7 +16,7 @@ input / output, MS operations, and Image operations.
 - gridding
 
 ### Installation Requirements
-Installing the CNGI prototype currently only works on Linux systems with Python 3.6 (due to the CASA 6 requirement for the measurement set conversion functions). 
+Installing the CNGI prototype currently only works on Linux systems with Python 3.6 (due to the [CASA 6](https://open-bitbucket.nrao.edu/projects/CASA/repos/casa6/browse) requirement for the measurement set conversion functions). 
 This dependency on CASA 6 and will be removed in the future. It suggested that a Python virtual environment is created using either Conda or pip.
 
 ### Installation
@@ -90,5 +90,5 @@ A complete set of formal and enforced coding standards have not yet been formall
 * Python Software Foundation's [style guide](https://www.python.org/dev/peps/pep-008/)
 * Following conventions established by PyData projects (examples [one](https://docs.dask.org/en/latest/develop/html) and [two](https://xarray.pydata.org/en/stable/contributing.html#code-standards))
 
-We are evaluating the adoption of [PEP 484](https://www.python.org/dev/peps/pep-0484/) convention, [myp](http://mypy-lang.org/), or  [param](https://param.holoviz.org) for type-checking, and [flake8](http://flake8.pycqa.org/en/latest/index.html) or [pylint](https://www.pylint.org/) for enforcement.
+We are evaluating the adoption of [PEP 484](https://www.python.org/dev/peps/pep-0484/) convention, [mypy](http://mypy-lang.org/), or  [param](https://param.holoviz.org) for type-checking, and [flake8](http://flake8.pycqa.org/en/latest/index.html) or [pylint](https://www.pylint.org/) for enforcement.
 
