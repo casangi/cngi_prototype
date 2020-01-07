@@ -5,3 +5,4 @@ from .mask import *
 from .preview import *
 from .rebin import *
 from .moments import *
+from .smooth import *
