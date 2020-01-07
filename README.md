@@ -46,7 +46,7 @@ Navigate to the cngi_prototype directory.
 conda activate cngi
 pip install sphinx-automodapi
 pip install sphinx_rtd_theme
-sphinx-build -b html ./docs/ ./_build/
+sphinx-build -b html ./docs/ ./docs/_build/
 ```
 
 ### Running CNGI in Parallel using Dask.distributed
@@ -77,8 +77,8 @@ or
 
 ### Run Tests
 
-Dowload the unit test data from https://astrocloud.nrao.edu/s/Hacr42aZmJ3eb7i and place the files in `cngi_prototype/cngi/data/`.
-Unit tests can be found in `cngi_prototype/tests/`. 
+Dowload the test data from https://astrocloud.nrao.edu/s/Hacr42aZmJ3eb7i and place the files in `cngi_prototype/cngi/data/`.
+The test scripts can be found in `cngi_prototype/tests/`. 
 
 ### Coding Standards
 

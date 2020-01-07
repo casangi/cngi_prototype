@@ -25,7 +25,7 @@ input / output, MS operations, and Image operations.
 
 Installation Requirements
 ^^^^^^^^^^^^^^^^^^^^^^^^^
-Installing the CNGI prototype currently only works on Linux systems with Python 3.6 (due to the CASA 6 requirement for the measurement set conversion functions). 
+Installing the CNGI prototype currently only works on Linux systems with Python 3.6 (due to the `CASA 6 <https://open-bitbucket.nrao.edu/projects/CASA/repos/casa6/browse>`_ requirement for the measurement set conversion functions). 
 This dependency on CASA 6 and will be removed in the future. It suggested that a Python virtual environment is created using either Conda or pip.
 
 Installation
