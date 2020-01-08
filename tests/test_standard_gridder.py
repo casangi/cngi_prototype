@@ -33,7 +33,7 @@ def test_standard_gridder(show_plots=False):
     import xarray as xr
     import cngi
     import os
-    from cngi.gridding import gridding_convolutional_kernels as gck
+    import tests.gridding_convolutional_kernels as gck
     from cngi.gridding import serial_grid
     from cngi.gridding import standard_grid
     import matplotlib.pylab as plt
@@ -41,10 +41,8 @@ def test_standard_gridder(show_plots=False):
     from scipy.fftpack import fft2, ifft2, fftshift, ifftshift
     import time
 
-    cngi_path = os.path.dirname(cngi.__file__)
-
     # Load measurement dataset
-    outfile = cngi_path + '/data/sis14_twhya_field5_mstrans_lsrk_old.zarr/0'
+    outfile = os.getcwd() + '/data/sis14_twhya_field5_mstrans_lsrk_old.zarr/0'
 
     vis_dataset = xr.open_zarr(outfile)
 

@@ -33,7 +33,7 @@ def test_serial_gridder(show_plots=False):
     import xarray as xr
     import cngi
     import os
-    from cngi.gridding import gridding_convolutional_kernels as gck
+    import tests.gridding_convolutional_kernels as gck
     from cngi.gridding import serial_grid
     import matplotlib.pylab as plt
     import numpy as np

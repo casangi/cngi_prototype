@@ -14,7 +14,7 @@
 
 
 ##########################################
-def test_dask_standard_gridder(show_plots=False):
+def test_dask_serial_gridder(show_plots=False):
     """
     Unit test that compares the standard gridder in CNGI with that in CASA.
     For the test to run sis14_twhya_field5_mstrans_lsrk_old.zarr and sis14_twhya_field5_mstrans_lsrk_ximage.zarr
@@ -33,7 +33,7 @@ def test_dask_standard_gridder(show_plots=False):
     import xarray as xr
     import cngi
     import os
-    from cngi.gridding import gridding_convolutional_kernels as gck
+    import tests.gridding_convolutional_kernels as gck
     from cngi.gridding import serial_grid_dask_sparse
     import matplotlib.pylab as plt
     import numpy as np
@@ -184,4 +184,4 @@ def test_dask_standard_gridder(show_plots=False):
 
 
 if __name__ == '__main__':
-    test_dask_standard_gridder()
+    test_dask_serial_gridder()
