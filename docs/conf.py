@@ -46,7 +46,8 @@ extensions = [
     'sphinx.ext.coverage',
     'sphinx.ext.githubpages',
     'sphinx.ext.napoleon',
-    'sphinx_automodapi.automodapi'
+    'sphinx_automodapi.automodapi',
+    'm2r'
 ]
 
 todo_include_todos = True

@@ -1,7 +1,7 @@
 Gridding
 ====================
 
-Non-Uniform FFT functions for gridding visibility data
+Example notional Non-Uniform FFT Gridding function(s) provided here to assess performance of infrastructure package.
 
 To access these functions, use your favorite variation of:
 ``import cngi.gridding``

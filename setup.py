@@ -2,12 +2,12 @@ from setuptools import setup, find_packages
 import os
 import sys
 
-with open('README.rst', encoding='utf-8') as fid:
+with open('README.md', encoding='utf-8') as fid:
     long_description = fid.read()
 
 setup(
     name='cngi_prototype',
-    version='0.0.23',
+    version='0.0.24',
     description='CASA Next Generation Infrastructure Prototype',
     long_description=long_description,
     author='National Radio Astronomy Observatory',
