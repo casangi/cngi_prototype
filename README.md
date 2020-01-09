@@ -33,7 +33,7 @@ In the future, the conversion module may be moved outside of the CNGI package an
 python3 -m venv cngi
 source cngi/bin/activate
 #(maybe) sudo apt-get install libgfortran3
-pip install --index-url https://casa-pip.nrao.edu/repository/pypi-group/simple casatools
+pip install --index-url https://casa-pip.nrao.edu/repository/pypi-casa-release/simple casatools==6.0.0.27
 pip install cngi-prototype
 ```
 
@@ -43,7 +43,7 @@ pip install cngi-prototype
 conda create -n cngi python=3.6
 conda activate cngi
 #(maybe) sudo apt-get install libgfortran3
-pip install --index-url https://casa-pip.nrao.edu/repository/pypi-group/simple casatools
+pip install --index-url https://casa-pip.nrao.edu/repository/pypi-casa-release/simple casatools==6.0.0.27
 pip install cngi-prototype
 ```
 
@@ -127,18 +127,18 @@ cngi_prototype
 |-- cngi
 |    |-- module1
 |    |     |-- __init__.py  
-|    |     |-- file1    
-|    |     |-- file2  
+|    |     |-- file1.py    
+|    |     |-- file2.py  
 |    |     | ...  
 |    |-- module2  
 |    |     |-- __init__.py
-|    |     |-- file3    
-|    |     |-- file4  
+|    |     |-- file3.py    
+|    |     |-- file4.py  
 |    |     | ...  
 |    |-- _helper
 |    |     |-- __init__.py
-|    |     |-- file5    
-|    |     |-- file6  
+|    |     |-- file5.py    
+|    |     |-- file6.py  
 |    |     | ...  
 |-- docs  
 |    | ...  
