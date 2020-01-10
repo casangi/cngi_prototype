@@ -13,37 +13,42 @@
 #   limitations under the License.
 
 
-########################
-def chanaverage(xds, width=1):
+################################################
+def timeaverage(xds, timebin=0.0, timespan=None, maxuvdistance=0.0):
     """
-    Average data across channels
+    .. todo::
+        This function is not yet implemented
+
+    Average data across time axis
 
     Parameters
     ----------
     xds : xarray.core.dataset.Dataset
-        input MS dataset
-    width : int
-        number of adjacent channels to average. Default=1 (no change)
+        input Visibility Dataset
+    timebin : float
+        Bin width for time averaging (in seconds). Default 0.0
+    timespan : str
+        Span the timebin. Allowed values are None, 'scan', 'state' or 'both'
 
     Returns
     -------
     xarray.core.dataset.Dataset
-        New Dataset
+        New Visibility Dataset
     """
     import xarray
-    
+
     new_xds = xarray.Dataset(attrs=xds.attrs)
-    
-    # find all variables with chan dimension (vwcd)
-    vwcds = [dv for dv in xds.data_vars if 'chan' in xds[dv].dims]
+
+    # find all variables with time dimension (vwtd)
+    vwtds = [dv for dv in xds.data_vars if 'chan' in xds[dv].dims]
     
     for dv in xds.data_vars:
         xda = xds.data_vars[dv]
-        
-        # apply chan averaging to compatible variables
-        if dv in vwcds:
-            xda = xda.coarsen(chan=width, boundary='trim').mean().astype(xda.dtype)
-        
-        new_xds = new_xds.assign(dict([(dv,xda)]))
     
+        # apply chan averaging to compatible variables
+        #if dv in vwtds:
+        #    xda = xda.coarsen(chan=width, boundary='trim').mean().astype(xda.dtype)
+    
+        new_xds = new_xds.assign(dict([(dv, xda)]))
+
     return new_xds

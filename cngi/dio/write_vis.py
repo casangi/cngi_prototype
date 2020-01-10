@@ -14,20 +14,20 @@
 
 
 #############################################
-def write_ms(xds, outfile='ms.zarr', ddi=0, append=True):
+def write_vis(xds, outfile='vis.zarr', ddi=0, append=True):
     """
-    Write MS dataset to xarray zarr format on disk
+    Write xarray Visibility Dataset to zarr format on disk
   
     Parameters
     ----------
     xds : xarray.core.dataset.Dataset
-        MS Dataset to write to disk
+        Visibility Dataset to write to disk
     outfile : str
         output filename, generally ends in .zarr
     int : ddi
-        Data Description ID in MS to write. Defaults to 0
+        Data Description ID of Visibility data to write. Defaults to 0
     append : bool
-        Append this DDI in to an existing zarr MS. False will erase old zarr directory. Default=True
+        Append this DDI in to an existing zarr directory. False will erase old zarr directory. Default=True
     
     Returns
     -------

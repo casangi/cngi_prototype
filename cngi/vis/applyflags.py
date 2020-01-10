@@ -16,18 +16,18 @@
 ########################
 def applyflags(xds, flags=None):
     """
-    Apply flag variables to other data in MS
+    Apply flag variables to other data in Visibility Dataset
 
     Parameters
     ----------
     xds : xarray.core.dataset.Dataset
-        input MS dataset
+        input Visibility Dataset
     flags : list of str
         list of data var names to use as flags. Default None uses all bool types
     Returns
     -------
     xarray.core.dataset.Dataset
-        output MS dataset
+        output Visibility Dataset
     """
     import xarray
 

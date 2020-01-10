@@ -2,9 +2,9 @@ Conversion
 ====================
 
 Legacy CASA uses a custom MS format while CNGI uses the standard
-Apache Parquet (PQ) format.  These functions allow conversion between
+Zarr format.  These functions allow conversion between
 the two as well as directly from the telescope archival science data
-model (ASDM) (future growth).  Note that both the MS and PQ formats
+model (ASDM) (future growth).  Note that both the MS and Zarr formats
 are directories, not single files.
 
 This package has a dependency on legacy CASA / casacore and will be

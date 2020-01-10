@@ -9,7 +9,7 @@ CASA Next Generation Infrastructure
    readme
    conversion
    dio
-   ms
+   vis
    images
    direct
    gridding

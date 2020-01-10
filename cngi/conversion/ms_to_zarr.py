@@ -15,7 +15,7 @@
 
 def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None):
     """
-    Convert legacy format MS to xarray compatible zarr format MS
+    Convert legacy format MS to xarray Visibility Dataset compatible zarr format
 
     This function requires CASA6 casatools module.
 
@@ -24,7 +24,7 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None):
     infile : str
         Input MS filename
     outfile : str
-        Output zarr filename. If None, will use infile name with .zarr extension
+        Output zarr filename. If None, will use infile name with .vis.zarr extension
     ddi : int
         Specific ddi to convert. Leave as None to convert entire MS
     compressor : numcodecs.blosc.Blosc
@@ -49,7 +49,7 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None):
     infile = os.path.expanduser(infile)
     prefix = infile[:infile.rindex('.')]
     if outfile is None:
-        outfile = prefix + '.zarr'
+        outfile = prefix + '.vis.zarr'
     else:
         outfile = os.path.expanduser(outfile)
     

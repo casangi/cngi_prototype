@@ -19,7 +19,7 @@ def read_legacy_ms(infile, ddi=None):
     .. todo::
         This function is not yet implemented
 
-    Read legacy CASA MS format data directly to an xarray Dataset
+    Read legacy CASA MS format data directly to an xarray Visibility Dataset
 
     Parameters
     ----------
@@ -31,7 +31,7 @@ def read_legacy_ms(infile, ddi=None):
     Returns
     -------
     xarray Dataset
-        New Dataset of MS contents
+        New Visibility Dataset of MS contents
     """
     return True
 
@@ -43,7 +43,7 @@ def zarr_to_ms(infile, format='ms', outfile=None):
     .. todo::
         This function is not yet implemented
 
-    Convert xarray Dataset zarr format to Legacy CASA MS or FITS format
+    Convert xarray Visibility Dataset from zarr format to Legacy CASA MS or FITS format
 
     Parameters
     ----------
@@ -69,7 +69,7 @@ def asdm_to_zarr(infile, outfile=None):
     .. todo::
         This function is not yet implemented
 
-    Convert ASDM format to xarray Dataset zarr format (future)
+    Convert ASDM format to xarray Visibility Dataset zarr format (future)
     
     Parameters
     ----------
@@ -93,7 +93,7 @@ def zarr_to_asdm(infile, outfile=None):
     .. todo::
         This function is not yet implemented
 
-    Convert xarray Dataset zarr format to ASDM format (future)
+    Convert xarray Visibility Dataset from zarr format to ASDM format (future)
 
     Parameters
     ----------

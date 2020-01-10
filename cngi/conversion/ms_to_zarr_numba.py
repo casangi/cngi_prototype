@@ -424,7 +424,7 @@ def _processDDI(ddi, infile, outfile, compressor):
 ############################################################################
 def ms_to_zarr_numba(infile, outfile=None, ddi=None, compressor=None):
     """
-    Convert legacy format MS to a xarray dataset which is saved to disk using zarr
+    Convert legacy format MS to xarray Visibility Dataset compatible zarr format
 
     This function requires CASA6 casatools module.
 
@@ -433,7 +433,7 @@ def ms_to_zarr_numba(infile, outfile=None, ddi=None, compressor=None):
     infile : str
         Input MS filename
     outfile : str
-        Output zarr filename. If None, will use infile name with .zarr extension
+        Output zarr filename. If None, will use infile name with .vis.zarr extension
     ddi : int
         Specific ddi to convert. Leave as None to convert entire MS
     compressor : blosc
@@ -452,7 +452,7 @@ def ms_to_zarr_numba(infile, outfile=None, ddi=None, compressor=None):
 
     # Parse filename to use
     prefix = infile[:infile.rindex('.')]
-    if outfile == None: outfile = prefix + '.zarr'
+    if outfile == None: outfile = prefix + '.vis.zarr'
 
     # Need to manually remove existing directory (if any)
     tmp = os.system("rm -fr " + outfile)

@@ -13,27 +13,24 @@
 #   limitations under the License.
 
 
-#############################################
-def read_ms(infile, ddi=0):
-  """
-  Read xarray zarr format MS from disk
+########################
+def joinspw(xds1, xds2):
+    """
+    .. todo::
+        This function is not yet implemented
 
-  Parameters
-  ----------
-  infile : str
-      input MS filename
-  ddi : int
-      Data Description ID in MS to read. Defaults to 0
+    Concatenate together two Visibility Datasets of compatible shape
 
-  Returns
-  -------
-  xarray.core.dataset.Dataset
-      New xarray Dataset of MS contents
-  """
-  import os
-  from xarray import open_zarr
+    Parameters
+    ----------
+    xds1 : xarray.core.dataset.Dataset
+        first Visibility Dataset to join
+    xds2 : xarray.core.dataset.Dataset
+        second Visibility Dataset to join
 
-  infile = os.path.expanduser(infile)
-  xds = open_zarr(infile + '/' + str(ddi))
-  return xds
-
+    Returns
+    -------
+    xarray.core.dataset.Dataset
+        New Visibility Dataset with combined contents
+    """
+    return {}

@@ -14,15 +14,15 @@
 
 
 #############################################
-def describe_ms(infile):
+def describe_vis(infile):
     """
-    Summarize the contents of a zarr format MS directory on disk
-    
+    Summarize the contents of a zarr format Visibility directory on disk
+
     Parameters
     ----------
     infile : str
-        input filename of zarr MS
-    
+        input filename of zarr Visibility data
+
     Returns
     -------
     pandas.core.frame.DataFrame
@@ -37,11 +37,11 @@ def describe_ms(infile):
     ddis = list(np.array(os.listdir(infile), dtype=int))
     
     summary = pd.DataFrame([])
-    for ii,ddi in enumerate(ddis):
+    for ii, ddi in enumerate(ddis):
         dpath = os.path.join(infile, str(ddi))
         xds = open_zarr(dpath)
-        sdf = {'ddi':ddi, 'size_GB':xds.nbytes/1024**3}
+        sdf = {'ddi': ddi, 'size_GB': xds.nbytes / 1024 ** 3}
         sdf.update(dict(xds.dims))
-        summary = pd.concat([summary, pd.DataFrame(sdf,index=[ii])], axis=0, sort=False)
+        summary = pd.concat([summary, pd.DataFrame(sdf, index=[ii])], axis=0, sort=False)
     
     return summary

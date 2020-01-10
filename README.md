@@ -12,12 +12,12 @@ Image Processing Overview: https://colab.research.google.com/github/casangi/exam
 ### Organization
 CNGI is organized in to modules as described below. Each module is
 responsible for a different functional area, such as file conversion,
-input / output, MS operations, and Image operations.  
+input / output, Visibility data operations, and Image data operations.  
 
 - conversion
 - dio
-- ms
-- images
+- vis
+- image
 - direct
 - gridding
 
@@ -85,17 +85,17 @@ export OPENBLAS_NUM_THREADS=1
 You can import things several different ways.  For example:
 ```python
 >>> from cngi import dio
->>> df = dio.read_ms(...)
+>>> df = dio.read_image(...)
 ```
 or
 ```python
->>> from cngi.dio import read_ms
->>> df = read_ms(...)
+>>> from cngi.dio import read_image
+>>> df = read_image(...)
 ```
 or
 ```python
 >>> import cngi.dio as cdio
->>> df = cdio.read_ms(...)
+>>> df = cdio.read_image(...)
 ```
 
 ### Run Tests
@@ -106,9 +106,9 @@ The test scripts can be found in `cngi_prototype/tests/`.
 ### Design
 READ THIS BEFORE YOU CONTRIBUTE CODE!!!  
   
-The CNGI code base is not object oriented, and instead follows a more functional paradigm. Objects are indeed used to hold MS
+The CNGI code base is not object oriented, and instead follows a more functional paradigm. Objects are indeed used to hold Visibility
 and Image data, but they come directly from the underlying xarray/dask framework and are not extended in any way. The API
-consists of stateless Python functions only.  They take in an MS or Image object and return a new MS or Image object with no
+consists of stateless Python functions only.  They take in an Visibility or Image object and return a new Visibility or Image object with no
 global variables.  
 
 The cngi_prototype _repository_ contains the cngi _package_ along with supporting folders docs and tests. 
