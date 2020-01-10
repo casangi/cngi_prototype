@@ -19,7 +19,7 @@ def read_legacy_ms(infile, ddi=None):
     .. todo::
         This function is not yet implemented
 
-    Read legacy CASA MS format data directly to a Dask Dataframe
+    Read legacy CASA MS format data directly to an xarray Dataset
 
     Parameters
     ----------
@@ -30,25 +30,27 @@ def read_legacy_ms(infile, ddi=None):
 
     Returns
     -------
-    dask.dataframe.core.DataFrame
-        New Dataframe of MS contents
+    xarray Dataset
+        New Dataset of MS contents
     """
     return True
 
 
 
 ###########################################
-def pq_to_ms(infile, outfile=None):
+def zarr_to_ms(infile, format='ms', outfile=None):
     """
     .. todo::
         This function is not yet implemented
 
-    Convert Apache Parquet MS to Legacy CASA MS format
+    Convert xarray Dataset zarr format to Legacy CASA MS or FITS format
 
     Parameters
     ----------
     infile : str
-        Input Parquet filename
+        Input zarr filename
+    format : str
+        Conversion output format, 'ms' or 'fits'.  Default = 'ms'
     outfile : str
         Output MS filename. If None, will use infile name with .ms extension
 
@@ -62,19 +64,19 @@ def pq_to_ms(infile, outfile=None):
 
 
 ###########################################
-def asdm_to_pq(infile, outfile=None):
+def asdm_to_zarr(infile, outfile=None):
     """
     .. todo::
         This function is not yet implemented
 
-    Convert ASDM format to Apache Parquet format (future)
+    Convert ASDM format to xarray Dataset zarr format (future)
     
     Parameters
     ----------
     infile : str
         Input ASDM filename
     outfile : str
-        Output Parquet filename. If None, will use infile name with .pq extension
+        Output zarr filename. If None, will use infile name with .zarr extension
 
     Returns
     -------
@@ -86,67 +88,19 @@ def asdm_to_pq(infile, outfile=None):
 
 
 ###########################################
-def pq_to_asdm(infile, outfile=None):
+def zarr_to_asdm(infile, outfile=None):
     """
     .. todo::
         This function is not yet implemented
 
-    Convert Apache Parquet MS to ASDM format (future)
-    
+    Convert xarray Dataset zarr format to ASDM format (future)
+
     Parameters
     ----------
     infile : str
-        Input Parquet filename
+        Input zarr filename
     outfile : str
         Output ASDM filename. If None, will use infile name with .asdm extension
-
-    Returns
-    -------
-    bool
-        Success status
-    """
-    return True
-
-
-
-###########################################
-def fits_to_pq(infile, outfile=None):
-    """
-    .. todo::
-        This function is not yet implemented
-
-    Convert FITS format MS to Apache Parquet format (future)
-    
-    Parameters
-    ----------
-    infile : str
-        Input FITS filename
-    outfile : str
-        Output Parquet filename. If None, will use infile name with .pq extension
-
-    Returns
-    -------
-    bool
-        Success status
-    """
-    return True
-
-
-
-############################################
-def pq_to_fits(infile, outfile=None):
-    """
-    .. todo::
-        This function is not yet implemented
-
-    Convert Apache Parquet MS to FITS format (future)
-    
-    Parameters
-    ----------
-    infile : str
-        Input Parquet filename
-    outfile : str
-        Output FITS filename. If None, will use infile name with .fits extension
 
     Returns
     -------
