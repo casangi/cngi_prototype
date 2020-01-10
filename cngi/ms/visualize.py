@@ -15,7 +15,7 @@
 
 def visualize(xda, axis=None, tsize=250):
     """
-    Plot a preview of any xarray data array contents
+    Plot a preview of any xarray DataArray contents
 
     Parameters
     ----------
