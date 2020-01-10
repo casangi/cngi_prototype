@@ -20,7 +20,7 @@ def zarr_to_image(infile, outfile=None):
     .. todo::
         This function is not yet implemented
 
-    Convert xarray compatible zarr format to legacy CASA Image format or FITS format
+    Convert xarray Image Dataset compatible zarr format to legacy CASA Image format or FITS format
 
     Parameters
     ----------

@@ -16,7 +16,7 @@
 ##########################################
 def image_to_zarr(infile, outfile=None, artifacts=None):
     """
-    Convert legacy format Image or FITS format image to xarray compatible zarr format image
+    Convert legacy format Image or FITS format image to xarray Image Dataset compatible zarr format
 
     This function requires CASA6 casatools module.
 
@@ -25,7 +25,7 @@ def image_to_zarr(infile, outfile=None, artifacts=None):
     infile : str
         Input image filename (.image or .fits format)
     outfile : str
-        Output zarr filename. If None, will use infile name with .zarr extension
+        Output zarr filename. If None, will use infile name with .img.zarr extension
     artifacts : list of str
         List of other image artifacts to include if present with infile. Default None uses ``['mask','model','pb','psf','residual','sumwt','weight']``
 
@@ -53,7 +53,7 @@ def image_to_zarr(infile, outfile=None, artifacts=None):
         suffix = suffix[:-1]
 
     if outfile == None:
-        outfile = prefix + '.zarr'
+        outfile = prefix + '.img.zarr'
     else:
         outfile = os.path.expanduser(outfile)
     tmp = os.system("rm -fr " + outfile)
