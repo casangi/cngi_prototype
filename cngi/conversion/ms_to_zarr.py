@@ -140,8 +140,9 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None):
         ######
         for cc, start_row_indx in enumerate(range(0, n_time, chunksize)):
             chunk = np.arange(min(chunksize, n_time - start_row_indx)) + start_row_indx
-            idx_range = np.array(range(time_changes[chunk[0]], time_changes[chunk[-1]]+1))
-            
+            end_idx = time_changes[chunk[-1]+1] if chunk[-1]+1 < len(time_changes) else len(time_idxs)
+            idx_range = np.arange(time_changes[chunk[0]], end_idx)
+
             coords = {'time': unique_times, 'baseline': np.arange(n_baseline), 'chan': meta['CHAN_FREQ'],
                       'pol': np.arange(n_pol), 'uvw': np.arange(3)}
             dict_x_data_array = {}
