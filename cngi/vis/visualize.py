@@ -53,11 +53,11 @@ def visualize(xda, axis=None, tsize=250):
     if (txda.ndim > 1) and (axis is None):
         axis = np.array(['time', 'chan'])
 
-    # dimensions to plot
+    # collapse data to 1-D or 2-D
     if axis is not None:
         axis = np.atleast_1d(axis)
-        # collapse dims other than axis list
-        txda = txda.max(dim=[dd for dd in txda.dims if dd not in axis])
+        if txda.ndim > 1:
+            txda = txda.max(dim=[dd for dd in txda.dims if dd not in axis])
 
     # different types of plots depending on shape and parameters
     if (txda.ndim == 1) and (axis is None):
@@ -66,7 +66,7 @@ def visualize(xda, axis=None, tsize=250):
         plt.title(txda.name)
     elif (txda.ndim == 1):
         txda.plot.line(x=axis[0], marker='.', linewidth=0.0)
-        plt.title(txda.name + ' over ' + axis[0])
+        plt.title(txda.name + ' vs ' + axis[0])
     else:  # more than 1-D
         txda.plot.pcolormesh(x=axis[0], y=axis[1])
-        plt.title(txda.name + ' ' + axis[1] + ' over ' + axis[0])
+        plt.title(txda.name + ' ' + axis[1] + ' vs ' + axis[0])
