@@ -54,13 +54,15 @@ def preview(xds, variable='image', region=None, stokes=0, channels=0, tsize=250)
         txds = (xds[variable][{'frequency':channels}] * xds[region][{'frequency':channels}]).thin(
                                                           {'d0':thinf,'d1':thinf,'stokes':1,'frequency':1})
     
-    vmin = txds.values.min()
-    vmax = txds.values.max()
+    vmin, vmax = txds.values.min(), txds.values.max()
+    xx, yy = 'd0', 'd1'
+    if 'right_ascension' in txds.coords:
+        xx, yy = 'right_ascension', 'declination'
     
     for ii,ch in enumerate(channels):
       # plot as a colormesh
       ixds = txds[dict(stokes=stokes, frequency=ii)]
-      im = ixds.plot.pcolormesh(ax=axes[ii//4,ii%4], x='right_ascension', y='declination', add_colorbar=False,
+      im = ixds.plot.pcolormesh(ax=axes[ii//4,ii%4], x=xx, y=yy, add_colorbar=False,
                                 vmin=vmin, vmax=vmax, norm=colors.PowerNorm(1))
       axes[ii//4,ii%4].set_title(variable + ' (' + str(stokes) + ', ' + str(ch) +')')
       axes[ii//4,ii%4].invert_xaxis()
