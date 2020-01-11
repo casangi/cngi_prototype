@@ -51,14 +51,15 @@ def visualize(xda, axis=None, tsize=250):
 
     # default pcolormesh plot axes
     if (txda.ndim > 1) and (axis is None):
-        axis = np.array(['time', 'chan'])
+        axis = np.array(txda.dims[:2])
+        if 'chan' in txda.dims: axis[-1] = 'chan'
 
     # collapse data to 1-D or 2-D
     if axis is not None:
         axis = np.atleast_1d(axis)
         if txda.ndim > 1:
             txda = txda.max(dim=[dd for dd in txda.dims if dd not in axis])
-
+    
     # different types of plots depending on shape and parameters
     if (txda.ndim == 1) and (axis is None):
         pxda = xarray.DataArray(np.arange(len(txda)), dims=[txda.name], coords={txda.name:txda.values})
