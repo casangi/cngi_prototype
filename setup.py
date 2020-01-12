@@ -1,6 +1,4 @@
 from setuptools import setup, find_packages
-import os
-import sys
 
 with open('README.md', encoding='utf-8') as fid:
     long_description = fid.read()
@@ -23,5 +21,6 @@ setup(
                       'xarray==0.14.1',
                       'zarr==2.3.2',
                       'numcodecs==0.6.4',
-                      'matplotlib==3.1.2'],
+                      'matplotlib==3.1.2',
+                      'sparse==0.8.0'],
 )
