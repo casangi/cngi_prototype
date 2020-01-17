@@ -44,6 +44,8 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None):
     import time
     import datetime
     from itertools import cycle
+    import warnings
+    warnings.filterwarnings('ignore', category=FutureWarning)
     
     # parse filename to use
     infile = os.path.expanduser(infile)
@@ -83,10 +85,10 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None):
         os.system("mkdir " + outfile + '/' + str(ddi))
         tb_tool = tb()
         tb_tool.open(infile, nomodify=True, lockoptions={'option': 'usernoread'})  # allow concurrent reads
-        start = time.time()
         ms_ddi = tb_tool.taql('select * from %s where DATA_DESC_ID = %s ORDERBY TIME,ANTENNA1,ANTENNA2' % (infile, str(ddi)))
-        print('Selecting and sorting time ', time.time() - start)
-        
+        print('Selecting and sorting time ', time.time() - start_ddi)
+        start_ddi = time.time()
+
         col_names = tb_tool.colnames()  # Array with collumns names
         
         # we want times in datetime format, there must be a better way to do this
@@ -103,53 +105,97 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None):
         ant1_ant2 = np.hstack((ant1_col[:, np.newaxis], ant2_col[:, np.newaxis]))
         unique_baselines, baseline_idxs = np.unique(ant1_ant2, axis=0, return_inverse=True)
         n_baseline = unique_baselines.shape[0]
-        
+
+        ##############################################
+        # start a dictionary of auxiliary coordinates
+        aux_coords = {'interval':('time', ms_ddi.getcol('INTERVAL')[time_changes]),
+                  'field_id':('time', ms_ddi.getcol('FIELD_ID')[time_changes]),
+                  'scan_number':('time', ms_ddi.getcol('SCAN_NUMBER')[time_changes]),
+                  'antennas':(['baseline', 'pair'], unique_baselines)}
+
+        #############################################
+        # look up spw and pol ids as starting point
         tb_tool_meta = tb()
         tb_tool_meta.open(infile + "/DATA_DESCRIPTION", nomodify=True, lockoptions={'option': 'usernoread'})
-        spectral_window_id = tb_tool_meta.getcol("SPECTRAL_WINDOW_ID")
-        polarization_id = tb_tool_meta.getcol("POLARIZATION_ID")
+        spectral_window_id = tb_tool_meta.getcol("SPECTRAL_WINDOW_ID")[ddi]
+        polarization_id = tb_tool_meta.getcol("POLARIZATION_ID")[ddi]
         tb_tool_meta.close()
-        
-        meta = {'baseline_ant_pairs':unique_baselines, 'auto_corr_flag':np.any(ant1_col == ant2_col)}
-        tb_tool_meta.open(infile + "/SPECTRAL_WINDOW", nomodify=True, lockoptions={'option': 'usernoread'})
-        for col in tb_tool_meta.colnames():
-            if (not tb_tool_meta.isvarcol(col)) | (col == 'CHAN_FREQ'):
-                meta[col] = tb_tool_meta.getcol(col, spectral_window_id[ddi], 1).transpose()[0]
-        tb_tool_meta.close()
-        
-        tb_tool_meta.open(infile + "/POLARIZATION", nomodify=True, lockoptions={'option': 'usernoread'})
-        for col in tb_tool_meta.colnames():
-            if not tb_tool_meta.isvarcol(col):
-                meta[col] = tb_tool_meta.getcol(col, polarization_id[ddi], 1).transpose()[0]
-        tb_tool_meta.close()
-        
-        #for tt in os.listdir(infile):
-        #    if os.path.isdir(os.path.join(infile, tt)):
-        #        tb_tool_meta.open(os.path.join(infile, tt), nomodify=True, lockoptions={'option': 'usernoread'})
-        #        for col in tb_tool_meta.colnames():
-        #            meta[col] = tb_tool_meta.getcol(col)
-        
-        n_chan = meta['NUM_CHAN']
-        n_pol = meta['NUM_CORR']
-        chunksize = np.int(np.ceil((256 * 10 ** 6) / (n_baseline * n_chan * n_pol * 16)))
+
+        ##############################################
+        # Begin meta data dictionary that will make up attributes section
+        meta = {'DDI': ddi, 'SPECTRAL_WINDOW_ID': spectral_window_id, 'POLARIZATION_ID': polarization_id,
+                'AUTO_CORRELATIONS': np.any(ant1_col == ant2_col)}
+
+        ##############################################
+        # process each meta data table in its own special way
+        # there probably isn't any general purpose way to do this
+        #
+
+        # build metadata structure from remaining table fields
+        # these will be added to the xarray dataset attributes section with a prefix indicating which table it came from
+        table_prefixes = {'ANTENNA':'ANT_', 'DOPPLER':'DOP_', 'FEED':'FEED_', 'FIELD':'FIELD_', 'FLAG_CMD':'FCMD_',
+                          'FREQ_OFFSET':'FOFF_', 'HISTORY':'HIST_', 'OBSERVATION':'OBS_', 'POINTING':'POINT_',
+                          'POLARIZATION':'POL_', 'PROCESSOR':'PROC_', 'SOURCE':'SRC_', 'SPECTRAL_WINDOW':'SPW_',
+                          'STATE':'STATE_', 'SYSCAL':'SCAL_', 'WEATHER':'WEATH_'}
+        # loop over all tables in MS
+        for tt in table_prefixes.keys():
+            if os.path.isdir(os.path.join(infile, tt)):
+                # process table according to its own special construction
+                tb_tool_meta.open(os.path.join(infile, tt), nomodify=True, lockoptions={'option': 'usernoread'})
+                if tt in ['FEED', 'FREQ_OFFSET', 'SOURCE', 'SYSCAL']:
+                    tb_tool_meta = tb_tool_meta.taql('select * from %s where SPECTRAL_WINDOW_ID = %s' %
+                                                (os.path.join(infile, tt), str(spectral_window_id)))
+                if tb_tool_meta.nrows() == 0: continue
+                for col in tb_tool_meta.colnames():
+                    try:  # hard
+                        if col in ['SPECTRAL_WINDOW_ID', 'NUM_RECEPTORS', 'NUM_POLY', 'NUM_LINES']: continue  # don't need
+                        if col in ['CLI_COMMAND']: continue  # currently broken
+                        if col in ['CHAN_FREQ', 'CHAN_WIDTH', 'EFFECTIVE_BW', 'RESOLUTION']:
+                            aux_coords[col.lower()] = ('chan', tb_tool_meta.getcol(col, spectral_window_id, 1)[:, 0])
+                        elif col == 'CORR_TYPE':
+                            aux_coords[col.lower()] = ('pol', tb_tool_meta.getcol(col, polarization_id, 1)[:, 0])
+                        elif col == 'CORR_PRODUCT':
+                            aux_coords[col.lower()] = (['receptor', 'pol'], tb_tool_meta.getcol(col, polarization_id, 1)[:, :, 0])
+                        elif col == 'POL_RESPONSE':
+                            meta[table_prefixes[tt] + col + '_REAL'] = np.real(tb_tool_meta.getcol(col).transpose())
+                            meta[table_prefixes[tt] + col + '_IMAG'] = np.imag(tb_tool_meta.getcol(col).transpose())
+                        else:
+                            meta[table_prefixes[tt] + col] = tb_tool_meta.getcol(col).transpose()
+                    except Exception:  # sometimes bad columns break the table tool (??)
+                        print("WARNING: can't process column %s of table %s" % (col, tt))
+
+                tb_tool_meta.close()
+
+        n_chan = len(aux_coords['chan_freq'][1])
+        n_pol = len(aux_coords['corr_type'][1])
+        chunksize = min(np.int(np.ceil((512 * 10 ** 6) // (n_baseline * n_chan * n_pol * 16))), n_time)
         print('n_time:', n_time, '  n_baseline:', n_baseline,'  n_chan:', n_chan, '  n_pol:', n_pol, '  chunksize:', chunksize)
 
         for key in meta.keys():  # zarr doesn't like numpy bools?
-            if (type(meta[key]).__module__ == np.__name__) & (meta[key].dtype == 'bool') & (meta[key].ndim == 0): meta[key] = bool(meta[key])
-        
+            if (type(meta[key]).__module__ == np.__name__) and (meta[key].dtype == 'bool') and (meta[key].ndim == 0):
+                meta[key] = bool(meta[key])
+
+        coords = {'time': unique_times, 'baseline': np.arange(n_baseline), 'chan': aux_coords.pop('chan_freq')[1],
+                  'pol': aux_coords.pop('corr_type')[1], 'uvw': np.array(['uu', 'vv', 'ww'])}
+
+        print('Metadata processing time ', time.time() - start_ddi)
+        start_ddi = time.time()
+
         ######
         for cc, start_row_indx in enumerate(range(0, n_time, chunksize)):
+            rtestimate = ''
+            if cc > 0:
+                rtestimate = ', remaining time est %s s' % str(int(((time.time()-start_ddi)/cc)*(n_time/chunksize-cc)))
+            print('processing chunk %s of %s' % (str(cc), str(n_time//chunksize)) + rtestimate, end='\r')
             chunk = np.arange(min(chunksize, n_time - start_row_indx)) + start_row_indx
             end_idx = time_changes[chunk[-1]+1] if chunk[-1]+1 < len(time_changes) else len(time_idxs)
             idx_range = np.arange(time_changes[chunk[0]], end_idx)
 
-            coords = {'time': unique_times, 'baseline': np.arange(n_baseline), 'chan': meta['CHAN_FREQ'],
-                      'pol': np.arange(n_pol), 'uvw': np.arange(3)}
             dict_x_data_array = {}
             
             for col_name in col_names:
                 try:
-                    if col_name in ["DATA_DESC_ID","ANTENNA1","ANTENNA2","INTERVAL","FIELD_ID","SCAN_NUMBER"]: continue
+                    if col_name in ["DATA_DESC_ID","INTERVAL","FIELD_ID","SCAN_NUMBER"]: continue
                     
                     selected_col = ms_ddi.getcol(col_name, idx_range[0], len(idx_range)).transpose()
                     if (selected_col.dtype == 'bool') & (selected_col.ndim == 0): selected_col = bool(selected_col)
@@ -190,19 +236,19 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None):
             coords.update({'time':unique_times[chunk]})
             x_dataset = xarray.Dataset(dict_x_data_array, coords=coords).chunk(
                 {'time': chunksize, 'baseline': None, 'chan': None, 'pol': None, 'uvw': None})
-            
-            if cc == 0:
-                encoding = dict(zip(list(x_dataset.data_vars), cycle([{'compressor': compressor}])))
-                x_dataset.to_zarr(outfile + '/' + str(ddi), mode='w', encoding=encoding)
-            else:
-                x_dataset.to_zarr(outfile + '/' + str(ddi), mode='a', append_dim='time')
+
+            if cc > 0:
+                xds = xarray.open_zarr(outfile + '/' + str(ddi))
+                x_dataset = xarray.concat([xds, x_dataset], dim='time')
+            #if cc == 0:
+            encoding = dict(zip(list(x_dataset.data_vars), cycle([{'compressor': compressor}])))
+            x_dataset.to_zarr(outfile + '/' + str(ddi), mode='w', encoding=encoding)
+            #else:
+            #    x_dataset.to_zarr(outfile + '/' + str(ddi), mode='a', append_dim='time')
        
-        # Add non dimensional coordinates and attributes
-        coords = {'time': unique_times,
-                  'interval':('time', ms_ddi.getcol('INTERVAL')[time_changes]),
-                  'field_id':('time', ms_ddi.getcol('FIELD_ID')[time_changes]),
-                  'scan_number':('time', ms_ddi.getcol('SCAN_NUMBER')[time_changes])}
-        x_dataset = xarray.Dataset(coords=coords, attrs=meta)
+        # Add non dimensional auxiliary coordinates and attributes
+        aux_coords.update({'time': unique_times})
+        x_dataset = xarray.Dataset(coords=aux_coords, attrs=meta)
         x_dataset.to_zarr(outfile + '/' + str(ddi), mode='a')
         
         ms_ddi.close()
