@@ -13,7 +13,7 @@
 #   limitations under the License.
 
 
-def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None):
+def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_size_mb=None, chan_chunks=None):
     """
     Convert legacy format MS to xarray Visibility Dataset compatible zarr format
 
@@ -30,7 +30,11 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None):
     compressor : numcodecs.blosc.Blosc
         The blosc compressor to use when saving the converted data to disk using zarr.
         If None the zstd compression algorithm used with compression level 2.
-
+    chunk_size_mb: float
+        Zarr chunk size in megabytes.
+        If None a chunk size of 512 MB is used.
+    chan_chunks: bool
+        Chunk along channel and then if necessary along time.
     Returns
     -------
     """
@@ -47,13 +51,25 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None):
     import warnings
     warnings.filterwarnings('ignore', category=FutureWarning)
     
+    #Set default parameters 
+    if compressor is None:
+        compressor = Blosc(cname='zstd', clevel=2, shuffle=0)
+    if chunk_size_mb is None:
+        chunk_size_mb = 512.0
+    if chan_chunks is None:
+        chan_chunks = False
+    
     # parse filename to use
     infile = os.path.expanduser(infile)
     prefix = infile[:infile.rindex('.')]
     if outfile is None:
         outfile = prefix + '.vis.zarr'
+        if chan_chunks:
+            outfile = prefix + '_chan_chunks.vis.zarr'
     else:
         outfile = os.path.expanduser(outfile)
+        
+        
     
     # need to manually remove existing parquet file (if any)
     os.system("rm -fr " + outfile)
@@ -68,15 +84,11 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None):
     
     MS.close()
     
-    if compressor is None:
-        compressor = Blosc(cname='zstd', clevel=2, shuffle=0)
-    
-    
     ####################################################################
     # process a DDI from the input MS, assume a fixed shape within the ddi (should always be true)
     # each DDI is written to its own subdirectory under the parent folder
     # consequently, different DDI's may be processed in parallel if the MS is opened with no locks
-    def processDDI(ddi, infile, outfile, compressor):
+    def processDDI(ddi, infile, outfile, compressor, chunk_size_mb, chan_chunks):
         print('**********************************')
         print('Processing ddi', ddi)
         start_ddi = time.time()
@@ -168,8 +180,16 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None):
 
         n_chan = len(aux_coords['chan_freq'][1])
         n_pol = len(aux_coords['corr_type'][1])
-        chunksize = min(np.int(np.ceil((512 * 10 ** 6) // (n_baseline * n_chan * n_pol * 16))), n_time)
-        print('n_time:', n_time, '  n_baseline:', n_baseline,'  n_chan:', n_chan, '  n_pol:', n_pol, '  chunksize:', chunksize)
+        
+        if chan_chunks:
+            chunk_size = np.int(np.ceil((chunk_size_mb * 10 ** 6) / (n_baseline * 1 * n_pol * 16)))
+            chan_chunk_size = 1
+            if chunk_size > n_time:
+                chan_chunk_size = np.int(np.ceil((chunk_size_mb * 10 ** 6) / (n_baseline * n_time * n_pol * 16)))
+                chunk_size = n_time
+        else:
+            chunk_size = min(np.int(np.ceil((chunk_size_mb * 10 ** 6) // (n_baseline * n_chan * n_pol * 16))), n_time)
+            print('n_time:', n_time, '  n_baseline:', n_baseline,'  n_chan:', n_chan, '  n_pol:', n_pol, '  number of time steps in chunk:', chunk_size)
 
         for key in meta.keys():  # zarr doesn't like numpy bools?
             if (type(meta[key]).__module__ == np.__name__) and (meta[key].dtype == 'bool') and (meta[key].ndim == 0):
@@ -182,12 +202,12 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None):
         start_ddi = time.time()
 
         ######
-        for cc, start_row_indx in enumerate(range(0, n_time, chunksize)):
+        for cc, start_row_indx in enumerate(range(0, n_time, chunk_size)):
             rtestimate = ''
             if cc > 0:
-                rtestimate = ', remaining time est %s s' % str(int(((time.time()-start_ddi)/cc)*(n_time/chunksize-cc)))
-            print('processing chunk %s of %s' % (str(cc), str(n_time//chunksize)) + rtestimate, end='\r')
-            chunk = np.arange(min(chunksize, n_time - start_row_indx)) + start_row_indx
+                rtestimate = ', remaining time est %s s' % str(int(((time.time()-start_ddi)/cc)*(n_time/chunk_size-cc)))
+            print('processing chunk %s of %s' % (str(cc), str(n_time//chunk_size)) + rtestimate, end='\r')
+            chunk = np.arange(min(chunk_size, n_time - start_row_indx)) + start_row_indx
             end_idx = time_changes[chunk[-1]+1] if chunk[-1]+1 < len(time_changes) else len(time_idxs)
             idx_range = np.arange(time_changes[chunk[0]], end_idx)
 
@@ -234,8 +254,11 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None):
                     col_names = [_ for _ in col_names if _ != col_name]
     
             coords.update({'time':unique_times[chunk]})
-            x_dataset = xarray.Dataset(dict_x_data_array, coords=coords).chunk(
-                {'time': chunksize, 'baseline': None, 'chan': None, 'pol': None, 'uvw': None})
+            
+            if chan_chunks:
+                x_dataset = xarray.Dataset(dict_x_data_array, coords=coords).chunk({'time': chunk_size, 'baseline': None, 'chan': chan_chunk_size, 'pol': None, 'uvw': None})
+            else:
+                x_dataset = xarray.Dataset(dict_x_data_array, coords=coords).chunk({'time': chunk_size, 'baseline': None, 'chan': None, 'pol': None, 'uvw': None})
 
             if cc > 0:
                 xds = xarray.open_zarr(outfile + '/' + str(ddi))
@@ -252,6 +275,10 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None):
         x_dataset.to_zarr(outfile + '/' + str(ddi), mode='a')
         
         ms_ddi.close()
+        
+        x_dataset = xarray.open_zarr(outfile + '/' + str(ddi))
+        print(x_dataset)
+        
         print('Completed ddi', ddi, ' process time ', time.time() - start_ddi)
         print('**********************************')
 
@@ -260,15 +287,17 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None):
     # Parallelize with direct interface
     client = None  # GetFrameworkClient()
     if ddi is not None:
-        processDDI(ddi, infile, outfile, compressor)
+        processDDI(ddi, infile, outfile, compressor, chunk_size_mb, chan_chunks)
     elif client is None:
         for ddi in ddis:
-            processDDI(ddi, infile, outfile, compressor)
+            processDDI(ddi, infile, outfile, compressor, chunk_size_mb, chan_chunks)
     else:
         jobs = client.map(processDDI, ddis,
                           np.repeat(infile, len(ddis)),
                           np.repeat(outfile, len(ddis)),
-                          np.repeat(compressor, len(ddis)))
+                          np.repeat(compressor, len(ddis)),
+                          np.repeat(chunk_size_mb, len(ddis)), 
+                          np.repeat(chan_chunks, len(ddis)))
 
         # block until complete
         for job in jobs: job.result()
