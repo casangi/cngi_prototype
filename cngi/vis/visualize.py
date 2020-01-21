@@ -43,11 +43,13 @@ def visualize(xda, axis=None, tsize=250):
     thinf = int(np.ceil(np.max(xda.shape[0])/tsize))
     txda = xda.thin(thinf)
 
-    # can't plot complex numbers or bools (sometimes)
+    # can't plot complex numbers, bools (sometimes), or strings
     if txda.dtype == 'complex128':
         txda = da.absolute(txda)
     elif txda.dtype == 'bool':
         txda = txda.astype(int)
+    elif txda.dtype.type is np.str_:
+        txda = xarray.DataArray(np.unique(txda, return_inverse=True)[1], dims=txda.dims, coords=txda.coords, name=txda.name)
 
     # default pcolormesh plot axes
     if (txda.ndim > 1) and (axis is None):
