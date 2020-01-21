@@ -1,13 +1,14 @@
 from setuptools import setup, find_packages
 
-with open('README.md', encoding='utf-8') as fid:
+with open('README.md', "r") as fid:   #encoding='utf-8'
     long_description = fid.read()
 
 setup(
     name='cngi_prototype',
-    version='0.0.24',
+    version='0.0.25',
     description='CASA Next Generation Infrastructure Prototype',
     long_description=long_description,
+    long_description_content_type="text/markdown",
     author='National Radio Astronomy Observatory',
     author_email='casa-feedback@nrao.edu',
     url='https://github.com/casangi/cngi_prototype',
