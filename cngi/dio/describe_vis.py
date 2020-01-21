@@ -42,4 +42,4 @@ def describe_vis(infile):
                'baselines':len(xds.baseline), 'fields':len(xds.field)}
         summary = pd.concat([summary, pd.DataFrame(sdf, index=[ii])], axis=0, sort=False)
     
-    return summary
+    return summary.set_index('ddi')
