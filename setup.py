@@ -20,7 +20,7 @@ setup(
                       'bokeh==1.3.4',
                       'pandas==0.25.2',
                       'xarray==0.14.1',
-                      'zarr==2.3.2',
+                      'zarr==2.4.0',
                       'numcodecs==0.6.4',
                       'matplotlib==3.1.2',
                       'sparse==0.8.0'],
