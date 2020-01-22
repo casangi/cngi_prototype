@@ -154,7 +154,7 @@ def image_to_zarr(infile, outfile=None, artifacts=None):
         if imtype == 'mask':
           xdas['deconvolve'] = xa(imchunk.astype(bool), dims=meta['dims'])
         elif imtype == 'sumwt': 
-          xdas[imtype] = xa(imchunk.reshape(imchunk.shape[2],1), dims=['stokes','frequency'])
+          xdas[imtype] = xa(imchunk.reshape(imchunk.shape[2],1), dims=['pol','frequency'])
         else: 
           xdas[imtype] = xa(imchunk, dims=meta['dims'])
         

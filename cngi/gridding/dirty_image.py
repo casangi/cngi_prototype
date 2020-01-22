@@ -325,8 +325,8 @@ def dirty_image(xds, field=None, imsize=[200,200], cell=[0.08, 0.08], nchan=1):
     # put axes in image orientation
     corrected_dirty_image = da.moveaxis(corrected_dirty_image.transpose(), 2, -1)
     
-    coords = dict(zip(['d0','d1','frequency', 'stokes'], [list(range(ss)) for ss in corrected_dirty_image.shape]))
+    coords = dict(zip(['d0','d1','frequency', 'pol'], [list(range(ss)) for ss in corrected_dirty_image.shape]))
     coords['frequency'] = chan_map_freqs
-    image_xds = xr.Dataset({'image':xr.DataArray(corrected_dirty_image, dims=['d0','d1','frequency', 'stokes'])}, coords=coords)
+    image_xds = xr.Dataset({'image':xr.DataArray(corrected_dirty_image, dims=['d0','d1','frequency', 'pol'])}, coords=coords)
     
     return image_xds
