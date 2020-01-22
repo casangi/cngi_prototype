@@ -73,3 +73,5 @@ def visualize(xda, axis=None, tsize=250):
     else:  # more than 1-D
         txda.plot.pcolormesh(x=axis[0], y=axis[1])
         plt.title(txda.name + ' ' + axis[1] + ' vs ' + axis[0])
+
+    plt.show()
