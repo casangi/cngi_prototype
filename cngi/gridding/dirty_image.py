@@ -240,8 +240,8 @@ def dirty_image(xds, field=None, imsize=[200,200], cell=[0.08, 0.08], nchan=1):
     ----------
     xds : xarray.core.dataset.Dataset
         input Visibility Dataset
-    field_id : int or list
-        field id in dataset to grid.  Default None means all
+    field : str or list
+        field in dataset to grid.  Default None means all
     imsize : list of ints
         number of pixels for each spatial dimension. Default [200, 200]
     nchan : int
