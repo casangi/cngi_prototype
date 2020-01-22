@@ -30,7 +30,7 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_size_mb=51
     compressor : numcodecs.blosc.Blosc
         The blosc compressor to use when saving the converted data to disk using zarr.
         If None the zstd compression algorithm used with compression level 2.
-    chunk_size_mb: float
+    chunk_size_mb: int
         Zarr chunk size in megabytes. Default is 512 MB
     chan_chunks: bool
         Chunk along channel and then if necessary along time.  Default is False
@@ -63,10 +63,11 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_size_mb=51
         outfile = os.path.expanduser(outfile)
     
     # need to manually remove existing parquet file (if any)
+    print('processing %s ' % infile)
     os.system("rm -fr " + outfile)
     os.system("mkdir " + outfile)
     start = time.time()
-    
+
     MS = tb(infile)
     MS.open(infile, nomodify=True, lockoptions={'option': 'usernoread'})
     
@@ -81,8 +82,7 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_size_mb=51
     
     # helper for normalizing variable column shapes
     def apad(arr, ts):
-        return np.pad(arr, (0, ts[0] - arr.shape[0])) if arr.ndim == 1 else np.pad(arr,
-                                                                                   ((0, ts[0] - arr.shape[0]), (0, ts[1] - arr.shape[1])))
+        return np.pad(arr, (0, ts[0] - arr.shape[0])) if arr.ndim == 1 else np.pad(arr, ((0, ts[0] - arr.shape[0]), (0, ts[1] - arr.shape[1])))
     
     # helper for reading time columns to datetime format, there must be a better way to do this
     def convert_time(tdata):
@@ -106,10 +106,12 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_size_mb=51
     
     ## ANTENNA table
     tables += ['ANTENNA']
+    print('processing support table %s' % tables[-1], end='\r')
     if os.path.isdir(os.path.join(infile, tables[-1])):
         ms_meta.open(os.path.join(infile, tables[-1]), nomodify=True, lockoptions={'option': 'usernoread'})
         mcoords['antenna'] = list(range(ms_meta.nrows()))
         for col in ms_meta.colnames():
+            if not ms_meta.iscelldefined(col, 0): continue
             data = ms_meta.getcol(col).transpose()
             if data.ndim == 1:
                 mvars['ANT_' + col] = xarray.DataArray(data, dims=['antenna'])
@@ -119,18 +121,17 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_size_mb=51
     
     ## FEED table
     tables += ['FEED']
+    print('processing support table %s' % tables[-1], end='\r')
     if os.path.isdir(os.path.join(infile, tables[-1])):
         ms_meta.open(os.path.join(infile, tables[-1]), nomodify=True, lockoptions={'option': 'usernoread'})
         if ms_meta.nrows() > 0:
-            mcoords['spw'] = ms_meta.taql('select distinct SPECTRAL_WINDOW_ID from %s' % os.path.join(infile, tables[-1])).getcol(
-                'SPECTRAL_WINDOW_ID')
-            mcoords['feed'] = ms_meta.taql('select distinct FEED_ID from %s' % os.path.join(infile, tables[-1])).getcol('FEED_ID')
-            mcoords['receptors'] = list(range(
-                np.max(ms_meta.taql('select distinct NUM_RECEPTORS from %s' % os.path.join(infile, tables[-1])).getcol('NUM_RECEPTORS'))))
+            mcoords['spw'] = np.arange(np.max(ms_meta.getcol('SPECTRAL_WINDOW_ID'))+1)
+            mcoords['feed'] = np.arange(np.max(ms_meta.getcol('FEED_ID'))+1)
+            mcoords['receptors'] = np.arange(np.max(ms_meta.getcol('NUM_RECEPTORS'))+1)
             antidx, spwidx, feedidx = ms_meta.getcol('ANTENNA_ID'), ms_meta.getcol('SPECTRAL_WINDOW_ID'), ms_meta.getcol('FEED_ID')
-            if ms_meta.nrows() != (len(np.unique(antidx)) * len(np.unique(spwidx)) * len(np.unique(feedidx))): print(
-                'WARNING: index mismatch in %s table' % tables[-1])
+            if ms_meta.nrows() != (len(np.unique(antidx)) * len(np.unique(spwidx)) * len(np.unique(feedidx))): print('WARNING: index mismatch in %s table' % tables[-1])
             for col in ms_meta.colnames():
+                if not ms_meta.iscelldefined(col, 0): continue
                 if col in ['SPECTRAL_WINDOW_ID', 'ANTENNA_ID', 'FEED_ID']: continue
                 if ms_meta.isvarcol(col):
                     tshape, tdim = (len(mcoords['receptors']),), ('receptors',)
@@ -140,8 +141,7 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_size_mb=51
                         tshape, tdim = (len(mcoords['receptors']), len(mcoords['receptors'])), ('receptors', 'receptors')
                     data = ms_meta.getvarcol(col)
                     data = np.array([apad(data['r' + str(kk)][..., 0], tshape) for kk in np.arange(len(data)) + 1])
-                    metadata = np.full((len(mcoords['spw']), len(mcoords['antenna']), len(mcoords['feed'])) + tshape, np.nan,
-                                       dtype=data.dtype)
+                    metadata = np.full((len(mcoords['spw']), len(mcoords['antenna']), len(mcoords['feed'])) + tshape, np.nan, dtype=data.dtype)
                     metadata[spwidx, antidx, feedidx] = data
                     mvars['FEED_' + col] = xarray.DataArray(metadata, dims=['spw', 'antenna', 'feed'] + list(tdim))
                 else:
@@ -152,14 +152,14 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_size_mb=51
                         metadata[spwidx, antidx, feedidx] = data
                         mvars['FEED_' + col] = xarray.DataArray(metadata, dims=['spw', 'antenna', 'feed'])
                     else:  # only POSITION should trigger this
-                        metadata = np.full((len(mcoords['spw']), len(mcoords['antenna']), len(mcoords['feed']), data.shape[1]), np.nan,
-                                           dtype=data.dtype)
+                        metadata = np.full((len(mcoords['spw']), len(mcoords['antenna']), len(mcoords['feed']), data.shape[1]), np.nan, dtype=data.dtype)
                         metadata[spwidx, antidx, feedidx] = data
                         mvars['FEED_' + col] = xarray.DataArray(metadata, dims=['spw', 'antenna', 'feed', 'd' + str(data.shape[1])])
         ms_meta.close()
     
     ## FIELD table
     tables += ['FIELD']
+    print('processing support table %s' % tables[-1], end='\r')
     if os.path.isdir(os.path.join(infile, tables[-1])):
         ms_meta.open(os.path.join(infile, tables[-1]), nomodify=True, lockoptions={'option': 'usernoread'})
         if ms_meta.nrows() > 0:
@@ -167,9 +167,9 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_size_mb=51
             mcoords['field'] = [funique[ii] if fcount[ii] == 1 else funique[ii] + ' (%s)' % str(nn) for nn, ii in enumerate(fidx)]
             max_poly = np.max(ms_meta.taql('select distinct NUM_POLY from %s' % os.path.join(infile, tables[-1])).getcol('NUM_POLY')) + 1
             tshape = (2, max_poly)
-            if ms_meta.nrows() != len(mcoords['field']): print('WARNING: index mismatch in %s table' % tables[-1])
             for col in ms_meta.colnames():
                 if col in ['NAME']: continue
+                if not ms_meta.iscelldefined(col, 0): continue
                 if ms_meta.isvarcol(col):
                     data = ms_meta.getvarcol(col)
                     data = np.array([apad(data['r' + str(kk)][..., 0], tshape) for kk in np.arange(len(data)) + 1])
@@ -179,59 +179,93 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_size_mb=51
                     if col == 'TIME': data = convert_time(data)
                     mvars['FIELD_' + col] = xarray.DataArray(data, dims=['field'])
         ms_meta.close()
-    
+
+    ## FLAG_CMD table
+    tables += ['FLAG_CMD']
+    print('processing support table %s' % tables[-1], end='\r')
+    if os.path.isdir(os.path.join(infile, tables[-1])):
+        ms_meta.open(os.path.join(infile, tables[-1]), nomodify=True, lockoptions={'option': 'usernoread'})
+        if ms_meta.nrows() > 0:
+            mcoords['time_fcmd'], timeidx = np.unique(convert_time(ms_meta.getcol('TIME')), return_inverse=True)
+            for col in ms_meta.colnames():
+                if not ms_meta.iscelldefined(col, 0): continue
+                if col in ['TIME']: continue
+                data = ms_meta.getcol(col).transpose()
+                metadata = np.full((len(mcoords['time_fcmd'])), np.nan, dtype=data.dtype)
+                metadata[timeidx] = data
+                mvars['FCMD_' + col] = xarray.DataArray(metadata, dims=['time_fcmd'])
+        ms_meta.close()
+
+    ## HISTORY table
+    tables += ['HISTORY']
+    print('processing support table %s' % tables[-1], end='\r')
+    if os.path.isdir(os.path.join(infile, tables[-1])):
+        ms_meta.open(os.path.join(infile, tables[-1]), nomodify=True, lockoptions={'option': 'usernoread'})
+        if ms_meta.nrows() > 0:
+            mcoords['time_hist'], timeidx = np.unique(convert_time(ms_meta.getcol('TIME')), return_inverse=True)
+            for col in ms_meta.colnames():
+                if not ms_meta.iscelldefined(col, 0): continue
+                if col in ['TIME', 'CLI_COMMAND', 'APP_PARAMS']: continue   # cli_command and app_params are var cols that wont work
+                data = ms_meta.getcol(col).transpose()
+                metadata = np.full((len(mcoords['time_hist'])), np.nan, dtype=data.dtype)
+                metadata[timeidx] = data
+                mvars['FCMD_' + col] = xarray.DataArray(metadata, dims=['time_hist'])
+        ms_meta.close()
+
     ## OBSERVATION table
     tables += ['OBSERVATION']
+    print('processing support table %s' % tables[-1], end='\r')
     if os.path.isdir(os.path.join(infile, tables[-1])):
         ms_meta.open(os.path.join(infile, tables[-1]), nomodify=True, lockoptions={'option': 'usernoread'})
         if ms_meta.nrows() > 0:
             funique, fidx, fcount = np.unique(ms_meta.getcol('PROJECT'), return_inverse=True, return_counts=True)
             mcoords['observation'] = [funique[ii] if fcount[ii] == 1 else funique[ii] + ' (%s)' % str(nn) for nn, ii in enumerate(fidx)]
             for col in ms_meta.colnames():
-                if col in ['PROJECT']: continue
-                if not ms_meta.isvarcol(col):
-                    data = ms_meta.getcol(col).transpose()
-                    if col == 'TIME_RANGE':
-                        data = np.hstack((convert_time(data[:, 0])[:, None], convert_time(data[:, 1])[:, None]))
-                        mvars['OBS_' + col] = xarray.DataArray(data, dims=['observation', 'd2'])
-                    else:
-                        mvars['OBS_' + col] = xarray.DataArray(data, dims=['observation'])
+                if not ms_meta.iscelldefined(col, 0): continue
+                if col in ['PROJECT', 'LOG', 'SCHEDULE']: continue   # log and schedule are var cols that wont work
+                data = ms_meta.getcol(col).transpose()
+                if col == 'TIME_RANGE':
+                    data = np.hstack((convert_time(data[:, 0])[:, None], convert_time(data[:, 1])[:, None]))
+                    mvars['OBS_' + col] = xarray.DataArray(data, dims=['observation', 'd2'])
+                else:
+                    mvars['OBS_' + col] = xarray.DataArray(data, dims=['observation'])
         ms_meta.close()
     
     ## POINTING table
     tables += ['POINTING']
+    print('processing support table %s' % tables[-1], end='\r')
     if os.path.isdir(os.path.join(infile, tables[-1])):
         ms_meta.open(os.path.join(infile, tables[-1]), nomodify=True, lockoptions={'option': 'usernoread'})
         if ms_meta.nrows() > 0:
-            mcoords['point_time'], timeidx = np.unique(convert_time(ms_meta.getcol('TIME')), return_inverse=True)
-            max_poly = np.max(ms_meta.taql('select distinct NUM_POLY from %s' % os.path.join(infile, tables[-1])).getcol('NUM_POLY')) + 1
+            mcoords['time_point'], timeidx = np.unique(convert_time(ms_meta.getcol('TIME')), return_inverse=True)
             antidx = ms_meta.getcol('ANTENNA_ID')
-            tshape = (2, max_poly)
-            if ms_meta.nrows() != (len(mcoords['point_time']) * len(mcoords['antenna'])): print(
-                'WARNING: index mismatch in %s table' % tables[-1])
             for col in ms_meta.colnames():
                 if col in ['TIME', 'ANTENNA_ID']: continue
-                if ms_meta.isvarcol(col):
-                    data = ms_meta.getvarcol(col)
-                    data = np.array([apad(data['r' + str(kk)][..., 0], tshape) for kk in np.arange(len(data)) + 1])
-                    metadata = np.full((len(mcoords['point_time']), len(mcoords['antenna'])) + tshape, np.nan, dtype=data.dtype)
-                    metadata[timeidx, antidx] = data
-                    mvars['POINT_' + col] = xarray.DataArray(metadata, dims=['point_time', 'antenna', 'd' + str(max_poly)])
-                else:
+                if not ms_meta.iscelldefined(col, 0): continue
+                try:  # can't use getvarcol as it dies on large tables like this
                     data = ms_meta.getcol(col).transpose()
-                    metadata = np.full((len(mcoords['point_time']), len(mcoords['antenna'])), np.nan, dtype=data.dtype)
-                    metadata[timeidx, antidx] = data
-                    mvars['POINT_' + col] = xarray.DataArray(metadata, dims=['point_time', 'antenna'])
+                    if data.ndim == 1:
+                        metadata = np.full((len(mcoords['time_point']), len(mcoords['antenna'])), np.nan, dtype=data.dtype)
+                        metadata[timeidx, antidx] = data
+                        mvars['POINT_' + col] = xarray.DataArray(metadata, dims=['time_point', 'antenna'])
+                    if data.ndim > 1:
+                        metadata = np.full((len(mcoords['time_point']), len(mcoords['antenna'])) + data.shape[1:], np.nan, dtype=data.dtype)
+                        metadata[timeidx, antidx] = data
+                        mvars['POINT_' + col] = xarray.DataArray(metadata, dims=['time_point', 'antenna']+['d'+str(ii) for ii in data.shape[1:]])
+                except Exception:
+                    print('WARNING : unable to process col %s of table %s' % (col, tables[-1]))
         ms_meta.close()
     
     ## PROCESSOR table
     tables += ['PROCESSOR']
+    print('processing support table %s' % tables[-1], end='\r')
     if os.path.isdir(os.path.join(infile, tables[-1])):
         ms_meta.open(os.path.join(infile, tables[-1]), nomodify=True, lockoptions={'option': 'usernoread'})
         if ms_meta.nrows() > 0:
             funique, fidx, fcount = np.unique(ms_meta.getcol('TYPE'), return_inverse=True, return_counts=True)
             mcoords['processor'] = [funique[ii] if fcount[ii] == 1 else funique[ii] + ' (%s)' % str(nn) for nn, ii in enumerate(fidx)]
             for col in ms_meta.colnames():
+                if not ms_meta.iscelldefined(col, 0): continue
                 if col in ['TYPE']: continue
                 if not ms_meta.isvarcol(col):
                     data = ms_meta.getcol(col).transpose()
@@ -240,6 +274,7 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_size_mb=51
     
     ## SOURCE table
     tables += ['SOURCE']
+    print('processing support table %s' % tables[-1], end='\r')
     if os.path.isdir(os.path.join(infile, tables[-1])):
         ms_meta.open(os.path.join(infile, tables[-1]), nomodify=True, lockoptions={'option': 'usernoread'})
         if ms_meta.nrows() > 0:
@@ -247,16 +282,16 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_size_mb=51
             max_lines = np.max(ms_meta.taql('select distinct NUM_LINES from %s' % os.path.join(infile, tables[-1])).getcol('NUM_LINES'))
             srcidx, spwidx = ms_meta.getcol('SOURCE_ID'), ms_meta.getcol('SPECTRAL_WINDOW_ID')
             tshape = (2, max_lines)
-            if ms_meta.nrows() != (len(mcoords['source']) * len(mcoords['spw'])): print('WARNING: index mismatch in %s table' % tables[-1])
             for col in ms_meta.colnames():
                 if col in ['SOURCE_ID', 'SPECTRAL_WINDOW_ID']: continue
+                if not ms_meta.iscelldefined(col,0): continue
                 if ms_meta.isvarcol(col) and (tshape[1] > 0) and (col not in ['POSITION', 'SOURCE_MODEL', 'PULSAR_ID']):
                     data = ms_meta.getvarcol(col)
                     data = np.array([apad(data['r' + str(kk)][..., 0], tshape) for kk in np.arange(len(data)) + 1])
                     metadata = np.full((len(mcoords['spw']), len(mcoords['source'])) + tshape, np.nan, dtype=data.dtype)
                     metadata[spwidx, srcidx] = data
                     mvars['SRC_' + col] = xarray.DataArray(metadata, dims=['spw', 'source', 'd' + str(max_lines)])
-                elif ms_meta.iscelldefined(col, 0):
+                else:
                     data = ms_meta.getcol(col).transpose()
                     if col == 'TIME': data = convert_time(data)
                     if data.ndim == 1:
@@ -271,12 +306,14 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_size_mb=51
     
     ## STATE table
     tables += ['STATE']
+    print('processing support table %s' % tables[-1], end='\r')
     if os.path.isdir(os.path.join(infile, tables[-1])):
         ms_meta.open(os.path.join(infile, tables[-1]), nomodify=True, lockoptions={'option': 'usernoread'})
         if ms_meta.nrows() > 0:
             funique, fidx, fcount = np.unique(ms_meta.getcol('OBS_MODE'), return_inverse=True, return_counts=True)
             mcoords['state'] = [funique[ii] if fcount[ii] == 1 else funique[ii] + ' (%s)' % str(nn) for nn, ii in enumerate(fidx)]
             for col in ms_meta.colnames():
+                if not ms_meta.iscelldefined(col, 0): continue
                 if col in ['OBS_MODE']: continue
                 if not ms_meta.isvarcol(col):
                     data = ms_meta.getcol(col).transpose()
@@ -291,16 +328,18 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_size_mb=51
         ms_meta.open(os.path.join(infile, tt), nomodify=True, lockoptions={'option': 'usernoread'})
         if ms_meta.nrows() == 0: continue
         for col in ms_meta.colnames():
-            if ms_meta.isvarcol(col) and ms_meta.iscelldefined(col, 0):
+            if not ms_meta.iscelldefined(col, 0): continue
+            if ms_meta.isvarcol(col):
                 data = ms_meta.getvarcol(col)
-                data = [data['r' + str(kk)].tolist() for kk in np.arange(len(data)) + 1]
+                data = [data['r' + str(kk)].tolist() if not isinstance(data['r' + str(kk)], bool) else [] for kk in np.arange(len(data)) + 1]
                 mattrs[other_tables[tt] + col] = data
-            elif not ms_meta.isvarcol(col):
+            else:
                 data = ms_meta.getcol(col).transpose()
                 mattrs[other_tables[tt] + col] = data.tolist()
         ms_meta.close()
     
     # write the global meta data to a separate global partition in the zarr output directory
+    print('writing global partition')
     mxds = xarray.Dataset(mvars, coords=mcoords, attrs=mattrs)
     mxds.to_zarr(outfile + '/global', mode='w')
     
@@ -348,8 +387,7 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_size_mb=51
             if os.path.isdir(os.path.join(infile, tt)):
                 tb_tool_meta.open(os.path.join(infile, tt), nomodify=True, lockoptions={'option': 'usernoread'})
                 if tt in ['FEED', 'FREQ_OFFSET', 'SOURCE', 'SYSCAL']:
-                    tb_tool_meta = tb_tool_meta.taql(
-                        'select * from %s where SPECTRAL_WINDOW_ID = %s' % (os.path.join(infile, tt), str(spw_id)))
+                    tb_tool_meta = tb_tool_meta.taql('select * from %s where SPECTRAL_WINDOW_ID = %s' % (os.path.join(infile, tt), str(spw_id)))
                 for col in tb_tool_meta.colnames():
                     if col in ['SPECTRAL_WINDOW_ID', 'FLAG_ROW', 'NUM_CORR']: continue  # don't need
                     if not tb_tool_meta.iscelldefined(col, 0): continue
@@ -359,6 +397,9 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_size_mb=51
                         aux_coords[col.lower()] = ('pol', tb_tool_meta.getcol(col, pol_id, 1)[:, 0])
                     elif col == 'CORR_PRODUCT':
                         aux_coords[col.lower()] = (['receptor', 'pol'], tb_tool_meta.getcol(col, pol_id, 1)[:, :, 0])
+                    elif tb_tool_meta.isvarcol(col):
+                        data = tb_tool_meta.getvarcol(col)
+                        meta_attrs[col] = [data['r' + str(kk)].tolist() if not isinstance(data['r' + str(kk)], bool) else [] for kk in np.arange(len(data)) + 1]
                     else:
                         meta_attrs[col] = tb_tool_meta.getcol(col).transpose()[0]
                 tb_tool_meta.close()
@@ -406,7 +447,7 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_size_mb=51
                 elif data.ndim == 1:  # n_row -> n_time x n_baseline
                     if col == 'FIELD_ID' and 'field' in mxds.coords:
                         coords['field'] = ('time', mxds.coords['field'].values[data[chunk_time_changes]])
-                    elif col == 'SCAN_NUMBER' and 'scan' in mxds.coords:
+                    elif col == 'SCAN_NUMBER':
                         coords['scan'] = ('time', data[chunk_time_changes])
                     elif col == 'INTERVAL':
                         coords['interval'] = ('time', data[chunk_time_changes])
