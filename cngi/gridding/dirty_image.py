@@ -232,7 +232,7 @@ def serial_grid_dask_sparse(grid_data, uvw, weight, flag_row, flag, freq_chan, c
 
 #####################################################################################################
 # noinspection PyTypeChecker
-def dirty_image(xds, field_id=None, imsize=[200,200], cell=[0.08, 0.08], nchan=1):
+def dirty_image(xds, field=None, imsize=[200,200], cell=[0.08, 0.08], nchan=1):
     """
     Grids visibilities from Visibility Dataset and returns dirty Image Dataset
 
@@ -261,8 +261,8 @@ def dirty_image(xds, field_id=None, imsize=[200,200], cell=[0.08, 0.08], nchan=1
     
     # subselect field ID
     txds = xds
-    if field_id is not None:
-        txds = xds.where(xds.field_id.isin(np.atleast_1d(field_id)), drop=True)
+    if field is not None:
+        txds = xds.where(xds.field.isin(np.atleast_1d(field)), drop=True)
     
     # Gridding Parameters
     dtr = np.pi / (3600 * 180)  # Degrees to Radians
