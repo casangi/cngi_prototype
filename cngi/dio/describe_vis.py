@@ -29,19 +29,17 @@ def describe_vis(infile):
         Summary information
     """
     import os
-    import numpy as np
     import pandas as pd
     from xarray import open_zarr
     
     infile = os.path.expanduser(infile)  # does nothing if $HOME is unknown
-    ddis = list(np.array(os.listdir(infile), dtype=int))
-    
     summary = pd.DataFrame([])
-    for ii, ddi in enumerate(ddis):
+    for ii, ddi in enumerate(os.listdir(infile)):
+        if ddi == 'global': continue
         dpath = os.path.join(infile, str(ddi))
         xds = open_zarr(dpath)
-        sdf = {'ddi': ddi, 'size_GB': xds.nbytes / 1024 ** 3}
-        sdf.update(dict(xds.dims))
+        sdf = {'ddi': ddi, 'spw_id':xds.spw.values[0], 'size_GB': xds.nbytes / 1024 ** 3, 'channels':len(xds.chan), 'times': len(xds.time),
+               'baselines':len(xds.baseline), 'fields':len(xds.field)}
         summary = pd.concat([summary, pd.DataFrame(sdf, index=[ii])], axis=0, sort=False)
     
-    return summary
+    return summary.set_index('ddi')
