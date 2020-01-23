@@ -383,27 +383,27 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_size_mb=51
         # build metadata structure from remaining spw-specific table fields
         aux_coords = {'time': unique_times, 'spw': np.array([spw_id]), 'antennas': (['baseline', 'pair'], unique_baselines)}
         meta_attrs = {'DDI': ddi, 'AUTO_CORRELATIONS': int(np.any(ant1_col == ant2_col))}
-        for tt in ['POLARIZATION', 'SPECTRAL_WINDOW']:
-            if os.path.isdir(os.path.join(infile, tt)):
-                tb_tool_meta.open(os.path.join(infile, tt), nomodify=True, lockoptions={'option': 'usernoread'})
-                if tt in ['FEED', 'FREQ_OFFSET', 'SOURCE', 'SYSCAL']:
-                    tb_tool_meta = tb_tool_meta.taql('select * from %s where SPECTRAL_WINDOW_ID = %s' % (os.path.join(infile, tt), str(spw_id)))
-                for col in tb_tool_meta.colnames():
-                    if col in ['SPECTRAL_WINDOW_ID', 'FLAG_ROW', 'NUM_CORR']: continue  # don't need
-                    if not tb_tool_meta.iscelldefined(col, 0): continue
-                    if col in ['CHAN_FREQ', 'CHAN_WIDTH', 'EFFECTIVE_BW', 'RESOLUTION']:
-                        aux_coords[col.lower()] = ('chan', tb_tool_meta.getcol(col, spw_id, 1)[:, 0])
-                    elif col == 'CORR_TYPE':
-                        aux_coords[col.lower()] = ('pol', tb_tool_meta.getcol(col, pol_id, 1)[:, 0])
-                    elif col == 'CORR_PRODUCT':
-                        aux_coords[col.lower()] = (['receptor', 'pol'], tb_tool_meta.getcol(col, pol_id, 1)[:, :, 0])
-                    elif tb_tool_meta.isvarcol(col):
-                        data = tb_tool_meta.getvarcol(col)
-                        meta_attrs[col] = [data['r' + str(kk)].tolist() if not isinstance(data['r' + str(kk)], bool) else [] for kk in np.arange(len(data)) + 1]
-                    else:
-                        meta_attrs[col] = tb_tool_meta.getcol(col).transpose()[0]
-                tb_tool_meta.close()
-        
+        tb_tool_meta.open(os.path.join(infile, 'SPECTRAL_WINDOW'), nomodify=True, lockoptions={'option': 'usernoread'})
+        for col in tb_tool_meta.colnames():
+            #if not tb_tool_meta.iscelldefined(col, 0): continue
+            if col in ['FLAG_ROW']: continue
+            if col in ['CHAN_FREQ', 'CHAN_WIDTH', 'EFFECTIVE_BW', 'RESOLUTION']:
+                aux_coords[col.lower()] = ('chan', tb_tool_meta.getcol(col, spw_id, 1)[:, 0])
+            #elif tb_tool_meta.isvarcol(col):
+            #    data = tb_tool_meta.getvarcol(col, spw_id, 1)
+            #    meta_attrs[col] = [data['r' + str(kk)].tolist() if not isinstance(data['r' + str(kk)], bool) else [] for kk in np.arange(len(data)) + 1]
+            else:
+                meta_attrs[col] = tb_tool_meta.getcol(col, spw_id, 1).transpose()[0]
+        tb_tool_meta.close()
+
+        tb_tool_meta.open(os.path.join(infile, 'POLARIZATION'), nomodify=True, lockoptions={'option': 'usernoread'})
+        for col in tb_tool_meta.colnames():
+            if col == 'CORR_TYPE':
+                aux_coords[col.lower()] = ('pol', tb_tool_meta.getcol(col, pol_id, 1)[:, 0])
+            elif col == 'CORR_PRODUCT':
+                aux_coords[col.lower()] = (['receptor', 'pol'], tb_tool_meta.getcol(col, pol_id, 1)[:, :, 0])
+        tb_tool_meta.close()
+
         n_chan = len(aux_coords['chan_freq'][1])
         n_pol = len(aux_coords['corr_type'][1])
         
