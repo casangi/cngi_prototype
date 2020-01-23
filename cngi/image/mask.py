@@ -13,7 +13,7 @@
 #   limitations under the License.
 
 
-def mask(xds, name='mask1', ra=None, dec=None, pixels=None, stokes=-1, channels=-1):
+def mask(xds, name='mask1', ra=None, dec=None, pixels=None, pol=-1, channels=-1):
     """
     Create a new mask Data variable in the Dataset \n
     .. note:: This function currently only supports rectangles and integer pixel boundaries
@@ -30,8 +30,8 @@ def mask(xds, name='mask1', ra=None, dec=None, pixels=None, stokes=-1, channels=
         declination coordinate range in the form of [min, max]. Default None means all
     pixels : numpy.ndarray
         array of shape (N,2) containing pixel box. AND'd with ra/dec
-    stokes : int or list
-        stokes dimension(s) to include in mask.  Default of -1 means all
+    pol : int or list
+        polarization dimension(s) to include in mask.  Default of -1 means all
     channels : int or list
         channel dimension(s) to include in mask.  Default of -1 means all
 
@@ -52,8 +52,8 @@ def mask(xds, name='mask1', ra=None, dec=None, pixels=None, stokes=-1, channels=
     if (pixels.ndim != 2) or (pixels.shape[1] != 2):
         print('ERROR: pixels parameter not a (N,2) array')
         return None
-    stokes = np.array(np.atleast_1d(stokes), dtype=int)
-    if stokes[0] == -1: stokes = [-1]
+    pol = np.array(np.atleast_1d(pol), dtype=int)
+    if pol[0] == -1: pol = [-1]
     channels = np.array(np.atleast_1d(channels), dtype=int)
     if channels[0] == -1: channels = [-1]
 
@@ -69,9 +69,9 @@ def mask(xds, name='mask1', ra=None, dec=None, pixels=None, stokes=-1, channels=
                                                                 (xds.d1 > np.min(pixels[:, 1])) &
                                                                 (xds.d1 < np.max(pixels[:, 1])), True)
 
-    # apply stokes and channels selections
-    if stokes[0] >= 0:
-      mask = mask & xr.zeros_like(xds.image, dtype=bool).where(xds.stokes.isin(xds.stokes[stokes]), True)
+    # apply polarization and channels selections
+    if pol[0] >= 0:
+      mask = mask & xr.zeros_like(xds.image, dtype=bool).where(xds.pol.isin(xds.pol[pol]), True)
     if channels[0] >= 0:
       mask = mask & xr.zeros_like(xds.image, dtype=bool).where(xds.frequency.isin(xds.frequency[channels]), True)
 

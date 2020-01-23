@@ -13,7 +13,7 @@
 #   limitations under the License.
 
 
-def preview(xds, variable='image', region=None, stokes=0, channels=0, tsize=250):
+def preview(xds, variable='image', region=None, pol=0, channels=0, tsize=250):
     """
     Preview the selected image component
     
@@ -25,8 +25,8 @@ def preview(xds, variable='image', region=None, stokes=0, channels=0, tsize=250)
         dataset variable to plot.  Default is image
     region : str
         dataset variable to use as a region/mask.
-    stokes : int
-        stokes dimension index to plot.  Default is 0
+    pol : int
+        polarization dimension index to plot.  Default is 0
     channels : int or list
         channel dimension index or indices to plot.  Default is 0
     tsize : int
@@ -49,10 +49,10 @@ def preview(xds, variable='image', region=None, stokes=0, channels=0, tsize=250)
     # fast decimate to roughly the desired size
     thinf = int(np.max(np.array(np.ceil(np.array(xds[variable].shape[:2]) / tsize), dtype=int)))
     if region is None:
-        txds = xds[variable][{'frequency':channels}].thin({'d0':thinf,'d1':thinf,'stokes':1,'frequency':1})
+        txds = xds[variable][{'frequency':channels}].thin({'d0':thinf,'d1':thinf,'pol':1,'frequency':1})
     else:
         txds = (xds[variable][{'frequency':channels}] * xds[region][{'frequency':channels}]).thin(
-                                                          {'d0':thinf,'d1':thinf,'stokes':1,'frequency':1})
+                                                          {'d0':thinf,'d1':thinf,'pol':1,'frequency':1})
     
     vmin, vmax = txds.values.min(), txds.values.max()
     xx, yy = 'd0', 'd1'
@@ -61,10 +61,10 @@ def preview(xds, variable='image', region=None, stokes=0, channels=0, tsize=250)
     
     for ii,ch in enumerate(channels):
       # plot as a colormesh
-      ixds = txds[dict(stokes=stokes, frequency=ii)]
+      ixds = txds[dict(pol=pol, frequency=ii)]
       im = ixds.plot.pcolormesh(ax=axes[ii//4,ii%4], x=xx, y=yy, add_colorbar=False,
                                 vmin=vmin, vmax=vmax, norm=colors.PowerNorm(1))
-      axes[ii//4,ii%4].set_title(variable + ' (' + str(stokes) + ', ' + str(ch) +')')
+      axes[ii//4,ii%4].set_title(variable + ' (' + str(pol) + ', ' + str(ch) +')')
       axes[ii//4,ii%4].invert_xaxis()
     
     fig.colorbar(im, ax=axes, shrink=0.6)

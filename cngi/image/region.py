@@ -13,7 +13,7 @@
 #   limitations under the License.
 
 
-def region(xds, name='region1', ra=None, dec=None, pixels=None, stokes=-1, channels=-1):
+def region(xds, name='region1', ra=None, dec=None, pixels=None, pol=-1, channels=-1):
     """
     Create a new region Data variable in the Dataset \n
     
@@ -31,8 +31,8 @@ def region(xds, name='region1', ra=None, dec=None, pixels=None, stokes=-1, chann
         declination coordinate range in the form of [min, max]. Default None means all
     pixels : array_like
         array of shape (N,2) containing pixel box. OR'd with ra/dec
-    stokes : int or list
-        stokes dimension(s) to include in region.  Default of -1 means all
+    pol : int or list
+        polarization dimension(s) to include in region.  Default of -1 means all
     channels : int or list
         channel dimension(s) to include in region.  Default of -1 means all
         
@@ -54,8 +54,8 @@ def region(xds, name='region1', ra=None, dec=None, pixels=None, stokes=-1, chann
     if (pixels.ndim != 2) or (pixels.shape[1] != 2):
       print('ERROR: pixels parameter not a (N,2) array')
       return None
-    stokes = np.array(np.atleast_1d(stokes), dtype=int)
-    if stokes[0] == -1: stokes = list(range(len(xds['stokes'])))
+    pol = np.array(np.atleast_1d(pol), dtype=int)
+    if pol[0] == -1: pol = list(range(len(xds['pol'])))
     channels = np.array(np.atleast_1d(channels), dtype=int)
     if channels[0] == -1: channels = list(range(len(xds['frequency'])))
     
@@ -83,8 +83,8 @@ def region(xds, name='region1', ra=None, dec=None, pixels=None, stokes=-1, chann
                                                                (xds.d1 > np.min(pixels[:,1])) &
                                                                (xds.d1 < np.max(pixels[:,1])), False)
     
-    # apply stokes and channels selections
-    region = region.where(xds.stokes.isin(xds.stokes[stokes]), False)
+    # apply polarization and channels selections
+    region = region.where(xds.pol.isin(xds.pol[pol]), False)
     region = region.where(xds.frequency.isin(xds.frequency[channels]), False)
     
     # assign region to a rest of image dataset
