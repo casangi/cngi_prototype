@@ -64,12 +64,13 @@ def visualize(xda, axis=None, tsize=250):
     
     # different types of plots depending on shape and parameters
     if (txda.ndim == 1) and (axis is None):
-        pxda = xarray.DataArray(np.arange(len(txda)), dims=[txda.name], coords={txda.name:txda.values})
+        dname = txda.name if txda.name is not None else 'value'
+        pxda = xarray.DataArray(np.arange(len(txda)), dims=[dname], coords={dname:txda.values})
         pxda.plot.line(y=pxda.dims[0], marker='.', linewidth=0.0)
-        plt.title(txda.name)
+        plt.title(dname)
     elif (txda.ndim == 1):
         txda.plot.line(x=axis[0], marker='.', linewidth=0.0)
-        plt.title(txda.name + ' vs ' + axis[0])
+        if txda.name is not None: plt.title(txda.name + ' vs ' + axis[0])
     else:  # more than 1-D
         txda.plot.pcolormesh(x=axis[0], y=axis[1])
         plt.title(txda.name + ' ' + axis[1] + ' vs ' + axis[0])
