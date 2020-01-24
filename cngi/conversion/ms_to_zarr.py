@@ -13,7 +13,7 @@
 #   limitations under the License.
 
 
-def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_size_mb=512, chan_chunks=False):
+def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100, 400, 20, 1)):
     """
     Convert legacy format MS to xarray Visibility Dataset compatible zarr format
 
@@ -30,10 +30,9 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_size_mb=51
     compressor : numcodecs.blosc.Blosc
         The blosc compressor to use when saving the converted data to disk using zarr.
         If None the zstd compression algorithm used with compression level 2.
-    chunk_size_mb: int
-        Zarr chunk size in megabytes. Default is 512 MB
-    chan_chunks: bool
-        Chunk along channel and then if necessary along time.  Default is False
+    chunk_shape: 4-D tuple of ints
+        Shape of desired chunking in the form of (time, baseline, channel, polarization). Default is (100, 400, 20, 1)
+        Note: chunk size is the product of the four numbers, and data is batch processed by time axis, so that will drive memory needed for conversion.
     Returns
     -------
     """
@@ -50,7 +49,6 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_size_mb=51
     import warnings
     warnings.filterwarnings('ignore', category=FutureWarning)
 
-    chunk_size_mb = int(chunk_size_mb)
     if compressor is None:
         compressor = Blosc(cname='zstd', clevel=2, shuffle=0)
     
@@ -349,7 +347,7 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_size_mb=51
     # process a DDI from the input MS, assume a fixed shape within the ddi (should always be true)
     # each DDI is written to its own subdirectory under the parent folder
     # consequently, different DDI's may be processed in parallel if the MS is opened with no locks
-    def processDDI(ddi, infile, outfile, compressor, chunk_size_mb, chan_chunks):
+    def processDDI(ddi, infile, outfile, compressor, chunk_shape):
         print('**********************************')
         print('Processing ddi', ddi)
         start_ddi = time.time()
@@ -385,13 +383,10 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_size_mb=51
         meta_attrs = {'DDI': ddi, 'AUTO_CORRELATIONS': int(np.any(ant1_col == ant2_col))}
         tb_tool_meta.open(os.path.join(infile, 'SPECTRAL_WINDOW'), nomodify=True, lockoptions={'option': 'usernoread'})
         for col in tb_tool_meta.colnames():
-            #if not tb_tool_meta.iscelldefined(col, 0): continue
+            if not tb_tool_meta.iscelldefined(col, spw_id): continue
             if col in ['FLAG_ROW']: continue
             if col in ['CHAN_FREQ', 'CHAN_WIDTH', 'EFFECTIVE_BW', 'RESOLUTION']:
                 aux_coords[col.lower()] = ('chan', tb_tool_meta.getcol(col, spw_id, 1)[:, 0])
-            #elif tb_tool_meta.isvarcol(col):
-            #    data = tb_tool_meta.getvarcol(col, spw_id, 1)
-            #    meta_attrs[col] = [data['r' + str(kk)].tolist() if not isinstance(data['r' + str(kk)], bool) else [] for kk in np.arange(len(data)) + 1]
             else:
                 meta_attrs[col] = tb_tool_meta.getcol(col, spw_id, 1).transpose()[0]
         tb_tool_meta.close()
@@ -406,27 +401,19 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_size_mb=51
 
         n_chan = len(aux_coords['chan_freq'][1])
         n_pol = len(aux_coords['corr_type'][1])
-        
-        if chan_chunks:
-            chunk_size = np.int(np.ceil((chunk_size_mb * 10 ** 6) / (n_baseline * 1 * n_pol * 16)))
-            chan_chunk_size = 1
-            if chunk_size > n_time:
-                chan_chunk_size = np.int(np.ceil((chunk_size_mb * 10 ** 6) / (n_baseline * n_time * n_pol * 16)))
-                chunk_size = n_time
-        else:
-            chunk_size = min(np.int(np.ceil((chunk_size_mb * 10 ** 6) // (n_baseline * n_chan * n_pol * 16))), n_time)
-            print('n_time:', n_time, '  n_baseline:', n_baseline,'  n_chan:', n_chan, '  n_pol:', n_pol, '  number of time steps in chunk:', chunk_size)
+
+        print('n_time:', n_time, '  n_baseline:', n_baseline,'  n_chan:', n_chan, '  n_pol:', n_pol, ' chunking: ', chunk_shape)
 
         coords = {'time': unique_times, 'baseline': np.arange(n_baseline), 'chan': aux_coords.pop('chan_freq')[1],
                   'pol': aux_coords.pop('corr_type')[1], 'uvw': np.array(['uu', 'vv', 'ww'])}
         
         ###################
         # main table loop over each column of each chunk
-        for cc, start_row_indx in enumerate(range(0, n_time, chunk_size)):
+        for cc, start_row_indx in enumerate(range(0, n_time, chunk_shape[0])):
             rtestimate = ', remaining time est %s s' % str(
-                int(((time.time() - start_ddi) / cc) * (n_time / chunk_size - cc))) if cc > 0 else ''
-            print('processing chunk %s of %s' % (str(cc), str(n_time // chunk_size)) + rtestimate, end='\r')
-            chunk = np.arange(min(chunk_size, n_time - start_row_indx)) + start_row_indx
+                int(((time.time() - start_ddi) / cc) * (n_time / chunk_shape[0] - cc))) if cc > 0 else ''
+            print('processing chunk %s of %s' % (str(cc), str(n_time // chunk_shape[0])) + rtestimate, end='\r')
+            chunk = np.arange(min(chunk_shape[0], n_time - start_row_indx)) + start_row_indx
             chunk_time_changes = time_changes[chunk] - time_changes[chunk[0]]  # indices in this chunk of data where time value changes
             end_idx = time_changes[chunk[-1] + 1] if chunk[-1] + 1 < len(time_changes) else len(time_idxs)
             idx_range = np.arange(time_changes[chunk[0]], end_idx)  # indices (rows) in main table to be read
@@ -483,14 +470,9 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_size_mb=51
                     fulldata[time_idxs[idx_range] - chunk[0], baseline_idxs[idx_range], :, :] = data
                     chunkdata[col] = xarray.DataArray(fulldata, dims=['time', 'baseline', 'chan', 'pol'])
             
-            if chan_chunks:
-                x_dataset = xarray.Dataset(chunkdata, coords=coords).chunk({'time': chunk_size, 'baseline': None, 'chan': chan_chunk_size, 'pol': None, 'uvw': None})
-            else:
-                x_dataset = xarray.Dataset(chunkdata, coords=coords).chunk({'time': chunk_size, 'baseline': None, 'chan': None, 'pol': None, 'uvw': None})
+            x_dataset = xarray.Dataset(chunkdata, coords=coords).chunk({'time': chunk_shape[0], 'baseline': chunk_shape[1],
+                                                                        'chan': chunk_shape[2], 'pol': chunk_shape[3], 'uvw': None})
 
-            # if cc > 0:
-            #    xds = xarray.open_zarr(outfile + '/' + str(ddi))
-            #    x_dataset = xarray.concat([xds, x_dataset], coords='all', compat='broadcast_equals', dim='time')
             if cc == 0:
                 encoding = dict(zip(list(x_dataset.data_vars), cycle([{'compressor': compressor}])))
                 x_dataset.to_zarr(outfile + '/' + str(ddi), mode='w', encoding=encoding)
@@ -511,17 +493,16 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_size_mb=51
     # Parallelize with direct interface
     client = None  # GetFrameworkClient()
     if ddi is not None:
-        processDDI(ddi, infile, outfile, compressor, chunk_size_mb, chan_chunks)
+        processDDI(ddi, infile, outfile, compressor, chunk_shape)
     elif client is None:
         for ddi in ddis:
-            processDDI(ddi, infile, outfile, compressor, chunk_size_mb, chan_chunks)
+            processDDI(ddi, infile, outfile, compressor, chunk_shape)
     else:
         jobs = client.map(processDDI, ddis,
                           np.repeat(infile, len(ddis)),
                           np.repeat(outfile, len(ddis)),
                           np.repeat(compressor, len(ddis)),
-                          np.repeat(chunk_size_mb, len(ddis)),
-                          np.repeat(chan_chunks, len(ddis)))
+                          np.repeat(chunk_shape, len(ddis)))
 
         # block until complete
         for job in jobs: job.result()
