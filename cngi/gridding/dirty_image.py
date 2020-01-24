@@ -308,9 +308,12 @@ def dirty_image(xds, field=None, imsize=[200,200], cell=[0.08, 0.08], nchan=1):
                                          n_imag_pol=n_imag_pol, n_uv=n_uv, delta_lm=delta_lm, oversampling=oversampling, support=support,
                                          dtype=complex)
     grid_and_sum_weight = grids_and_sum_weights.sum(axis=0)
-    
-    vis_grid = grid_and_sum_weight[0].map_blocks(sparse.COO.todense, dtype='complex128')   # convert back to dense array
-    sum_weight = grid_and_sum_weight[1].map_blocks(sparse.COO.todense, dtype='complex128')
+    grid_and_sum_weight = grid_and_sum_weight.map_blocks(sparse.COO.todense, dtype='complex128')  # convert back to dense array
+
+    #vis_grid = grid_and_sum_weight[0].map_blocks(sparse.COO.todense, dtype='complex128')   # convert back to dense array
+    #sum_weight = grid_and_sum_weight[1].map_blocks(sparse.COO.todense, dtype='complex128')
+    vis_grid = grid_and_sum_weight[0]
+    sum_weight = grid_and_sum_weight[1]
     
     # Create Dirty Image and correct for gridding convolutional kernel
     uncorrected_dirty_image = dafft.fftshift(dafft.ifft2(dafft.ifftshift(vis_grid, axes=(2,3)), axes=(2,3)), axes=(2,3))
