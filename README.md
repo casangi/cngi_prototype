@@ -2,11 +2,14 @@
 Installation, setup and development rules for the CASA Next Generation Infrastructure
 
 ### Documentation
-API and User Manual: https://cngi-prototype.readthedocs.io  
+API and User Manual: 
+https://cngi-prototype.readthedocs.io  
   
-Visibility Processing Overview: https://colab.research.google.com/github/casangi/examples/blob/master/MeasurementSet_overview.ipynb  
+Visibility Processing Overview:
+https://colab.research.google.com/github/casangi/examples/blob/master/Visibility_overview.ipynb  
   
-Image Processing Overview: https://colab.research.google.com/github/casangi/examples/blob/master/Image_overview.ipynb  
+Image Processing Overview: 
+https://colab.research.google.com/github/casangi/examples/blob/master/Image_overview.ipynb  
   
 
 ### Organization
