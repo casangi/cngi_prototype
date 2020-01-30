@@ -94,7 +94,7 @@ def standard_grid_dask_sparse(vis_data, uvw, weight, flag_row, flag, freq_chan, 
       return grid_and_sum_weight
 
 
-@jit(nopython=True,cache=True)
+@jit(nopython=True,cache=True,nogil=True)
 def _standard_grid_jit(grid, sum_weight, vis_data, uvw, freq_chan, chan_map, pol_map, weight, flag_row, flag, cgk_1D, n_uv, delta_lm, support, oversampling):
       """
       Parameters
