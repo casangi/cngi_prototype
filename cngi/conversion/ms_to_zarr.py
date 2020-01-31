@@ -281,25 +281,28 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
             srcidx, spwidx = ms_meta.getcol('SOURCE_ID'), ms_meta.getcol('SPECTRAL_WINDOW_ID')
             tshape = (2, max_lines)
             for col in ms_meta.colnames():
-                if col in ['SOURCE_ID', 'SPECTRAL_WINDOW_ID']: continue
-                if not ms_meta.iscelldefined(col,0): continue
-                if ms_meta.isvarcol(col) and (tshape[1] > 0) and (col not in ['POSITION', 'SOURCE_MODEL', 'PULSAR_ID']):
-                    data = ms_meta.getvarcol(col)
-                    data = np.array([apad(data['r' + str(kk)][..., 0], tshape) for kk in np.arange(len(data)) + 1])
-                    metadata = np.full((len(mcoords['spw']), len(mcoords['source'])) + tshape, np.nan, dtype=data.dtype)
-                    metadata[spwidx, srcidx] = data
-                    mvars['SRC_' + col] = xarray.DataArray(metadata, dims=['spw', 'source', 'd' + str(max_lines)])
-                else:
-                    data = ms_meta.getcol(col).transpose()
-                    if col == 'TIME': data = convert_time(data)
-                    if data.ndim == 1:
-                        metadata = np.full((len(mcoords['spw']), len(mcoords['source'])), np.nan, dtype=data.dtype)
+                try:
+                    if col in ['SOURCE_ID', 'SPECTRAL_WINDOW_ID']: continue
+                    if not ms_meta.iscelldefined(col,0): continue
+                    if ms_meta.isvarcol(col) and (tshape[1] > 0) and (col not in ['POSITION', 'SOURCE_MODEL', 'PULSAR_ID']):
+                        data = ms_meta.getvarcol(col)
+                        data = np.array([apad(data['r' + str(kk)][..., 0], tshape) for kk in np.arange(len(data)) + 1])
+                        metadata = np.full((len(mcoords['spw']), len(mcoords['source'])) + tshape, np.nan, dtype=data.dtype)
                         metadata[spwidx, srcidx] = data
-                        mvars['SRC_' + col] = xarray.DataArray(metadata, dims=['spw', 'source'])
+                        mvars['SRC_' + col] = xarray.DataArray(metadata, dims=['spw', 'source', 'd' + str(max_lines)])
                     else:
-                        metadata = np.full((len(mcoords['spw']), len(mcoords['source']), data.shape[1]), np.nan, dtype=data.dtype)
-                        metadata[spwidx, srcidx] = data
-                        mvars['SRC_' + col] = xarray.DataArray(metadata, dims=['spw', 'source', 'd' + str(data.shape[1])])
+                        data = ms_meta.getcol(col).transpose()
+                        if col == 'TIME': data = convert_time(data)
+                        if data.ndim == 1:
+                            metadata = np.full((len(mcoords['spw']), len(mcoords['source'])), np.nan, dtype=data.dtype)
+                            metadata[spwidx, srcidx] = data
+                            mvars['SRC_' + col] = xarray.DataArray(metadata, dims=['spw', 'source'])
+                        else:
+                            metadata = np.full((len(mcoords['spw']), len(mcoords['source']), data.shape[1]), np.nan, dtype=data.dtype)
+                            metadata[spwidx, srcidx] = data
+                            mvars['SRC_' + col] = xarray.DataArray(metadata, dims=['spw', 'source', 'd' + str(data.shape[1])])
+                except Exception:
+                    print('WARNING : unable to process col %s of table %s' % (col, tables[-1]))
         ms_meta.close()
     
     ## STATE table
@@ -383,12 +386,15 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
         meta_attrs = {'DDI': ddi, 'AUTO_CORRELATIONS': int(np.any(ant1_col == ant2_col))}
         tb_tool_meta.open(os.path.join(infile, 'SPECTRAL_WINDOW'), nomodify=True, lockoptions={'option': 'usernoread'})
         for col in tb_tool_meta.colnames():
-            if not tb_tool_meta.iscelldefined(col, spw_id): continue
-            if col in ['FLAG_ROW']: continue
-            if col in ['CHAN_FREQ', 'CHAN_WIDTH', 'EFFECTIVE_BW', 'RESOLUTION']:
-                aux_coords[col.lower()] = ('chan', tb_tool_meta.getcol(col, spw_id, 1)[:, 0])
-            else:
-                meta_attrs[col] = tb_tool_meta.getcol(col, spw_id, 1).transpose()[0]
+            try:
+                if not tb_tool_meta.iscelldefined(col, spw_id): continue
+                if col in ['FLAG_ROW']: continue
+                if col in ['CHAN_FREQ', 'CHAN_WIDTH', 'EFFECTIVE_BW', 'RESOLUTION']:
+                    aux_coords[col.lower()] = ('chan', tb_tool_meta.getcol(col, spw_id, 1)[:, 0])
+                else:
+                    meta_attrs[col] = tb_tool_meta.getcol(col, spw_id, 1).transpose()[0]
+            except Exception:
+                print('WARNING : unable to process col %s of table %s' % (col, tables[-1]))
         tb_tool_meta.close()
 
         tb_tool_meta.open(os.path.join(infile, 'POLARIZATION'), nomodify=True, lockoptions={'option': 'usernoread'})
