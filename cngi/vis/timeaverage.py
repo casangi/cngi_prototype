@@ -14,21 +14,20 @@
 
 
 ################################################
-def timeaverage(xds, timebin=0.0, timespan=None, maxuvdistance=0.0):
+def timeaverage(xds, width=1, timebin=None, timespan='both'):
     """
-    .. todo::
-        This function is not yet implemented
-
     Average data across time axis
 
     Parameters
     ----------
     xds : xarray.core.dataset.Dataset
         input Visibility Dataset
-    timebin : float
-        Bin width for time averaging (in seconds). Default 0.0
-    timespan : str
-        Span the timebin. Allowed values are None, 'scan', 'state' or 'both'
+    width : int
+        number of adjacent times to average (fast), used when timebin is None. Default=1 (no change)
+    timebin (future) : float
+        time bin width to averaging (in seconds) (slow - requires interpolation). Default None uses width parameter
+    timespan (future) : str
+        Span of the timebin. Allowed values are 'scan', 'state' or 'both'
 
     Returns
     -------
@@ -36,19 +35,36 @@ def timeaverage(xds, timebin=0.0, timespan=None, maxuvdistance=0.0):
         New Visibility Dataset
     """
     import xarray
-
-    new_xds = xarray.Dataset(attrs=xds.attrs)
+    import numpy as np
 
     # find all variables with time dimension (vwtd)
-    vwtds = [dv for dv in xds.data_vars if 'chan' in xds[dv].dims]
-    
-    for dv in xds.data_vars:
-        xda = xds.data_vars[dv]
-    
-        # apply chan averaging to compatible variables
-        #if dv in vwtds:
-        #    xda = xda.coarsen(chan=width, boundary='trim').mean().astype(xda.dtype)
-    
-        new_xds = new_xds.assign(dict([(dv, xda)]))
+    vwtds = [dv for dv in xds.data_vars if 'time' in xds[dv].dims]
+
+    # create list of single-scan datasets from this parent dataset
+    ssds = [xds]
+    if 'scan' in xds.coords:
+        ssds = [xds.where(xds.scan == ss, drop=True) for ss in np.unique(xds.scan.values)]
+
+    ndss = []  # list of new datasets
+    for ss in ssds:
+        xdas = {}
+        for dv in ss.data_vars:
+            xda = ss.data_vars[dv]
+
+            # apply time averaging to compatible variables
+            if dv in vwtds:
+                if (dv == 'DATA') and ('SIGMA_SPECTRUM' in vwtds):
+                    xda = (xda.DATA * xda.SIGMA_SPECTRUM).rolling(time=width).sum() * xda.SIGMA_SPECTRUM.rolling(time=width).sum()
+                elif (dv == 'CORRECTED_DATA') and ('WEIGHT_SPECTRUM' in vwtds):
+                    xda = (xda.CORRECTED_DATA * xda.WEIGHT_SPECTRUM).rolling(time=width).sum() * xda.WEIGHT_SPECTRUM.rolling(time=width).sum()
+                else:
+                    xda = xda.rolling(time=width).mean()
+                xdas[dv] = xda
+
+        ndss += [xarray.Dataset(xdas)]
+
+    new_xds = xarray.concat(ndss, dim='time', coords='all')
+    new_xds = new_xds.thin({'time': width})
+    new_xds.attrs = xds.attrs
 
     return new_xds
