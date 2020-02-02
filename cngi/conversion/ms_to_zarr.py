@@ -48,6 +48,7 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
     from itertools import cycle
     import warnings
     warnings.filterwarnings('ignore', category=FutureWarning)
+    
 
     if compressor is None:
         compressor = Blosc(cname='zstd', clevel=2, shuffle=0)
@@ -481,14 +482,14 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
 
             if cc == 0:
                 encoding = dict(zip(list(x_dataset.data_vars), cycle([{'compressor': compressor}])))
-                x_dataset.to_zarr(outfile + '/' + str(ddi), mode='w', encoding=encoding)
+                x_dataset.to_zarr(outfile + '/' + str(ddi), mode='w', encoding=encoding, consolidated=True)
             else:
-                x_dataset.to_zarr(outfile + '/' + str(ddi), mode='a', append_dim='time', compute=True)
+                x_dataset.to_zarr(outfile + '/' + str(ddi), mode='a', append_dim='time', compute=True, consolidated=True)
         
         # Add non dimensional auxiliary coordinates and attributes
         aux_coords.update({'time': unique_times})
         x_dataset = xarray.Dataset(coords=aux_coords, attrs=meta_attrs)
-        x_dataset.to_zarr(outfile + '/' + str(ddi), mode='a')
+        x_dataset.to_zarr(outfile + '/' + str(ddi), mode='a', consolidated=True)
         
         ms_ddi.close()
         print('Completed ddi', ddi, ' process time ', time.time() - start_ddi)
