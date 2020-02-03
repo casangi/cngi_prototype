@@ -76,7 +76,7 @@ def image_to_zarr(infile, outfile=None, artifacts=None):
             rc = IA.open(prefix + '.' + imtype)
             summary = IA.summary(list=False)  # imhead would be better but chokes on big images
             ims = tuple(IA.shape())  # image shape
-            coord_names = [ss.replace(' ', '_').lower() for ss in summary['axisnames']]
+            coord_names = [ss.replace(' ', '_').lower().replace('stokes','pol') for ss in summary['axisnames']]
 
             # compute world coordinates for spherical dimensions
             # the only way to know is to check the units for angular types (i.e. radians)
