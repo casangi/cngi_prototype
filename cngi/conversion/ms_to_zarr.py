@@ -412,7 +412,7 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
         print('n_time:', n_time, '  n_baseline:', n_baseline,'  n_chan:', n_chan, '  n_pol:', n_pol, ' chunking: ', chunk_shape)
 
         coords = {'time': unique_times, 'baseline': np.arange(n_baseline), 'chan': aux_coords.pop('chan_freq')[1],
-                  'pol': aux_coords.pop('corr_type')[1], 'uvw': np.array(['uu', 'vv', 'ww'])}
+                  'pol': aux_coords.pop('corr_type')[1], 'uvw_index': np.array(['uu', 'vv', 'ww'])}
         
         ###################
         # main table loop over each column of each chunk
