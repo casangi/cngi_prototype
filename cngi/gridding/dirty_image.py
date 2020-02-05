@@ -40,6 +40,7 @@ def dirty_image(vis_dataset, grid_parms):
     import dask.array.fft as dafft
     import dask
     import copy, os
+    from numcodecs import Blosc
 
     # Parameter adjustments
     grid_parms_dirty_image = copy.deepcopy(grid_parms)
