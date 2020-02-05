@@ -39,7 +39,7 @@ def dirty_image(vis_dataset, grid_parms):
     from .grid import _graph_grid
     import dask.array.fft as dafft
     import dask
-    import copy
+    import copy, os
 
     # Parameter adjustments
     grid_parms_dirty_image = copy.deepcopy(grid_parms)
