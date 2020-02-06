@@ -24,4 +24,15 @@ setup(
                       'numcodecs==0.6.4',
                       'matplotlib==3.1.2',
                       'sparse==0.9.1'],
+    extras_require={
+        'dev': [
+            'pylint>=2.4.4'
+            #'black>=19.10.b0',
+            'pytest>=5.3.5',
+            #'pytest-pep8',
+            #'pytest-cov'
+            's3fs>=0.4.0',
+        ]
+    }
+
 )
