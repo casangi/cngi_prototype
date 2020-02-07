@@ -436,7 +436,7 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
                 if col in 'UVW':  # n_row x 3 -> n_time x n_baseline x 3
                     fulldata = np.full((len(chunk), n_baseline, data.shape[1]), np.nan, dtype=data.dtype)
                     fulldata[time_idxs[idx_range] - chunk[0], baseline_idxs[idx_range], :] = data
-                    chunkdata[col] = xarray.DataArray(fulldata, dims=['time', 'baseline', 'uvw'])
+                    chunkdata[col] = xarray.DataArray(fulldata, dims=['time', 'baseline', 'uvw_index'])
                 
                 elif data.ndim == 1:  # n_row -> n_time x n_baseline
                     if col == 'FIELD_ID' and 'field' in mxds.coords:
@@ -478,7 +478,7 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
                     chunkdata[col] = xarray.DataArray(fulldata, dims=['time', 'baseline', 'chan', 'pol'])
             
             x_dataset = xarray.Dataset(chunkdata, coords=coords).chunk({'time': chunk_shape[0], 'baseline': chunk_shape[1],
-                                                                        'chan': chunk_shape[2], 'pol': chunk_shape[3], 'uvw': None})
+                                                                        'chan': chunk_shape[2], 'pol': chunk_shape[3], 'uvw_index': None})
 
             if cc == 0:
                 encoding = dict(zip(list(x_dataset.data_vars), cycle([{'compressor': compressor}])))

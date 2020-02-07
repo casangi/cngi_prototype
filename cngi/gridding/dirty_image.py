@@ -83,13 +83,13 @@ def dirty_image(vis_dataset, grid_parms):
     chunks = vis_dataset.DATA.chunks
     n_imag_pol = chunks[3][0]
     dirty_image_dict = {}
-    coords = {'u': np.arange(grid_parms_dirty_image['imsize'][0]), 'v': np.arange(grid_parms_dirty_image['imsize'][1]),
+    coords = {'d0': np.arange(grid_parms_dirty_image['imsize'][0]), 'd1': np.arange(grid_parms_dirty_image['imsize'][1]),
               'chan': freq_coords, 'pol': np.arange(n_imag_pol)}
-    dirty_image_dict['CORRECTING_CGK'] = xr.DataArray(da.array(correcting_cgk_image), dims=['u', 'v'])
+    dirty_image_dict['CORRECTING_CGK'] = xr.DataArray(da.array(correcting_cgk_image), dims=['d0', 'd1'])
     # dirty_image_dict['VIS_GRID'] = xr.DataArray(grids_and_sum_weights[0], dims=['chan','pol','u', 'v'])
-    dirty_image_dict['VIS_GRID'] = xr.DataArray(grids_and_sum_weights[0], dims=['u', 'v', 'chan', 'pol'])
+    dirty_image_dict['VIS_GRID'] = xr.DataArray(grids_and_sum_weights[0], dims=['d0', 'd1', 'chan', 'pol'])
     dirty_image_dict['SUM_WEIGHT'] = xr.DataArray(grids_and_sum_weights[1], dims=['chan', 'pol'])
-    dirty_image_dict['DIRTY_IMAGE'] = xr.DataArray(corrected_dirty_image, dims=['u', 'v', 'chan', 'pol'])
+    dirty_image_dict['DIRTY_IMAGE'] = xr.DataArray(corrected_dirty_image, dims=['d0', 'd1', 'chan', 'pol'])
     dirty_image_xds = xr.Dataset(dirty_image_dict, coords=coords)
 
     if grid_parms['to_disk'] == True:
