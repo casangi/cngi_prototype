@@ -69,7 +69,7 @@ def preview(xds, variable='image', region=None, pol=0, channels=0, tsize=250):
                  xds[region][{'frequency':channels}]).thin({'d0':thinf,
                                                             'd1':thinf,
                                                             'pol':1,
-                                                            'frequency':1})
+                                                            'frequency':1}))
     
     vmin, vmax = txds.values.min(), txds.values.max()
     xx, yy = 'd0', 'd1'
