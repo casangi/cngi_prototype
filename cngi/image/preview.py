@@ -17,6 +17,9 @@ def preview(xds, variable='image', region=None, pol=0, channels=0, tsize=250):
     """
     Preview the selected image component
     
+    .. todo::
+        Convert default axis display from radians to hourr:minute:second format
+
     Parameters
     ----------
     xds : xarray.core.dataset.Dataset
@@ -39,20 +42,34 @@ def preview(xds, variable='image', region=None, pol=0, channels=0, tsize=250):
     import matplotlib.pyplot as plt
     from matplotlib import colors
     import numpy as np
-    
+    try:
+        import xrscipy
+    except ImportError as e:
+        print(e)
+
     #plt.clf()
     channels = np.atleast_1d(channels)
     rows, cols = [int(np.ceil(len(channels)/4.0)), min(len(channels),4)]
-    fig, axes = plt.subplots(rows, cols, figsize=(4*cols, 3*rows), constrained_layout=True)
+    fig, axes = plt.subplots(rows, cols, 
+                             figsize=(4*cols, 3*rows), 
+                             constrained_layout=True)
     axes = np.atleast_2d(axes)
     
-    # fast decimate to roughly the desired size
+    # heuristic to determine thinning factor
     thinf = int(np.max(np.array(np.ceil(np.array(xds[variable].shape[:2]) / tsize), dtype=int)))
+    
+    # fast decimate to roughly the desired size
     if region is None:
-        txds = xds[variable][{'frequency':channels}].thin({'d0':thinf,'d1':thinf,'pol':1,'frequency':1})
+        txds = xds[variable][{'frequency':channels}].thin({'d0':thinf,
+                                                           'd1':thinf,
+                                                           'pol':1,
+                                                           'frequency':1})
     else:
-        txds = (xds[variable][{'frequency':channels}] * xds[region][{'frequency':channels}]).thin(
-                                                          {'d0':thinf,'d1':thinf,'pol':1,'frequency':1})
+        txds = ((xds[variable][{'frequency':channels}] * 
+                 xds[region][{'frequency':channels}]).thin({'d0':thinf,
+                                                            'd1':thinf,
+                                                            'pol':1,
+                                                            'frequency':1})
     
     vmin, vmax = txds.values.min(), txds.values.max()
     xx, yy = 'd0', 'd1'
