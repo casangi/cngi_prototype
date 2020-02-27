@@ -37,7 +37,7 @@ def visualize(xda, axis=None, tsize=250):
     from pandas.plotting import register_matplotlib_converters
     register_matplotlib_converters()
 
-    plt.clf()
+    fig, axes = plt.subplots(1,1)
 
     # fast decimate to roughly the desired size
     thinf = int(np.ceil(np.max(xda.shape[0])/tsize))
@@ -66,13 +66,13 @@ def visualize(xda, axis=None, tsize=250):
     if (txda.ndim == 1) and (axis is None):
         dname = txda.name if txda.name is not None else 'value'
         pxda = xarray.DataArray(np.arange(len(txda)), dims=[dname], coords={dname:txda.values})
-        pxda.plot.line(y=pxda.dims[0], marker='.', linewidth=0.0)
+        pxda.plot.line(ax=axes, y=pxda.dims[0], marker='.', linewidth=0.0)
         plt.title(dname)
     elif (txda.ndim == 1):
-        txda.plot.line(x=axis[0], marker='.', linewidth=0.0)
+        txda.plot.line(ax=axes, x=axis[0], marker='.', linewidth=0.0)
         if txda.name is not None: plt.title(txda.name + ' vs ' + axis[0])
     else:  # more than 1-D
-        txda.plot.pcolormesh(x=axis[0], y=axis[1])
+        txda.plot.pcolormesh(ax=axes, x=axis[0], y=axis[1])
         plt.title(txda.name + ' ' + axis[1] + ' vs ' + axis[0])
 
     plt.show()
