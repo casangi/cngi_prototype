@@ -43,12 +43,15 @@ def chanaverage(xds, width=1):
         # apply chan averaging to compatible variables
         if dv in vwcds:
             if (dv == 'DATA') and ('SIGMA_SPECTRUM' in vwcds):
-                xda = (xds.DATA*xds.SIGMA_SPECTRUM).rolling(chan=width).sum() * xds.SIGMA_SPECTRUM.rolling(chan=width).sum()
+                xda = (xds.DATA*xds.SIGMA_SPECTRUM).rolling(chan=width, min_periods=1, center=True).sum() * \
+                      xds.SIGMA_SPECTRUM.rolling(chan=width, min_periods=1, center=True).sum()
             elif (dv == 'CORRECTED_DATA') and ('WEIGHT_SPECTRUM' in vwcds):
-                xda = (xds.CORRECTED_DATA * xds.WEIGHT_SPECTRUM).rolling(chan=width).sum() * xds.WEIGHT_SPECTRUM.rolling(chan=width).sum()
+                xda = (xds.CORRECTED_DATA * xds.WEIGHT_SPECTRUM).rolling(chan=width, min_periods=1, center=True).sum() * \
+                      xds.WEIGHT_SPECTRUM.rolling(chan=width, min_periods=1, center=True).sum()
             else:
-                xda = xda.rolling(chan=width).mean()
+                xda = xda.rolling(chan=width, min_periods=1, center=True).mean()
             xda = xda.thin({'chan':width})
+            xda = xda.astype(xds.data_vars[dv].dtype)  # make sure bool / int etc stay as such
         
         new_xds = new_xds.assign(dict([(dv,xda)]))
     
