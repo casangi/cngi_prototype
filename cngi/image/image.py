@@ -62,6 +62,9 @@ def contsub(ds):
     """
     .. todo::
         This function is not yet implemented
+        
+    .. note::
+        Potentially duplicates functionality of :py:func:`image.spxfit` and :py:func:`image.specfit`
     
     Continuum subtraction of an image cube
     
@@ -87,6 +90,9 @@ def specfit(ds):
     .. todo::
         This function is not yet implemented
     
+    .. note::
+        Potentially duplicates functionality of :py:func:`image.contsub` and :py:func:`image.spxfit`
+
     Perform polynomial, gaussian and lorentzian spectral line fits in the image cube
     
     Parameters
@@ -109,6 +115,9 @@ def spxfit(ds):
     .. todo::
         This function is not yet implemented
     
+    .. note::
+        Potentially duplicates functionality of :py:func:`image.contsub` and :py:func:`image.specfit`
+
     Fit a power logarithmic polynomial to pixel values along specified axis
     
     Parameters
