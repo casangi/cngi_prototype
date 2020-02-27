@@ -44,10 +44,10 @@ def chanaverage(xds, width=1):
         if dv in vwcds:
             if (dv == 'DATA') and ('SIGMA_SPECTRUM' in vwcds):
                 weight_spectrum = 1.0/xds.SIGMA_SPECTRUM**2
-                xda = (xds.DATA*weight_spectrum).rolling(chan=width, min_periods=1, center=True).sum() * \
+                xda = (xds.DATA*weight_spectrum).rolling(chan=width, min_periods=1, center=True).sum() / \
                       weight_spectrum.rolling(chan=width, min_periods=1, center=True).sum()
             elif (dv == 'CORRECTED_DATA') and ('WEIGHT_SPECTRUM' in vwcds):
-                xda = (xds.CORRECTED_DATA * xds.WEIGHT_SPECTRUM).rolling(chan=width, min_periods=1, center=True).sum() * \
+                xda = (xds.CORRECTED_DATA * xds.WEIGHT_SPECTRUM).rolling(chan=width, min_periods=1, center=True).sum() / \
                       xds.WEIGHT_SPECTRUM.rolling(chan=width, min_periods=1, center=True).sum()
             else:
                 xda = xda.rolling(chan=width, min_periods=1, center=True).mean()
