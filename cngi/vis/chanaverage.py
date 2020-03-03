@@ -31,7 +31,7 @@ def chanaverage(xds, width=1):
         New Visibility Dataset
     """
     import xarray
-    
+
     new_xds = xarray.Dataset(attrs=xds.attrs)
     
     # find all variables with chan dimension (vwcd)
@@ -43,16 +43,14 @@ def chanaverage(xds, width=1):
         # apply chan averaging to compatible variables
         if dv in vwcds:
             if (dv == 'DATA') and ('SIGMA_SPECTRUM' in vwcds):
-                weight_spectrum = 1.0/xds.SIGMA_SPECTRUM**2
-                xda = (xds.DATA*weight_spectrum).rolling(chan=width, min_periods=1, center=True).sum() / \
-                      weight_spectrum.rolling(chan=width, min_periods=1, center=True).sum()
+                xda = (xds.DATA / xds.SIGMA_SPECTRUM**2).coarsen(chan=width, boundary='trim').sum()
+                xda = xda * (xds.SIGMA_SPECTRUM**2).coarsen(chan=width, boundary='trim').sum()
             elif (dv == 'CORRECTED_DATA') and ('WEIGHT_SPECTRUM' in vwcds):
-                xda = (xds.CORRECTED_DATA * xds.WEIGHT_SPECTRUM).rolling(chan=width, min_periods=1, center=True).sum() / \
-                      xds.WEIGHT_SPECTRUM.rolling(chan=width, min_periods=1, center=True).sum()
+                xda = (xds.CORRECTED_DATA * xds.WEIGHT_SPECTRUM).coarsen(chan=width, boundary='trim').sum()
+                xda = xda / xds.WEIGHT_SPECTRUM.coarsen(chan=width, boundary='trim').sum()
             else:
-                xda = xda.rolling(chan=width, min_periods=1, center=True).mean()
-            xda = xda.thin({'chan':width})
-            xda = xda.astype(xds.data_vars[dv].dtype)  # make sure bool / int etc stay as such
+                # .mean() produces runtimewarning errors (still works though), using .sum() / width is cleaner
+                xda = (xda.coarsen(chan=width, boundary='trim').sum() / width).astype(xds.data_vars[dv].dtype)
         
         new_xds = new_xds.assign(dict([(dv,xda)]))
     
