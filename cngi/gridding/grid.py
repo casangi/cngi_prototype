@@ -11,9 +11,10 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
-from numba import jit
-import numpy as np
 import math
+
+import numpy as np
+from numba import jit
 
 
 def grid(vis_dataset, grid_parms):

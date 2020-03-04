@@ -18,10 +18,11 @@
 # and saving it to disk using zarr.
 ###################################################################################
 import os
+import time
+from itertools import cycle
+
 import numpy as np
 from numba import jit
-from itertools import cycle
-import time
 
 # print("numpy version: %s" % (np.__version__))
 
