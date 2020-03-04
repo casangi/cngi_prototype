@@ -42,10 +42,10 @@ def preview(xds, variable='image', region=None, pol=0, channels=0, tsize=250):
     import matplotlib.pyplot as plt
     from matplotlib import colors
     import numpy as np
-    try:
-        import xrscipy
-    except ImportError as e:
-        print(e)
+    # try:
+    #     import xrscipy
+    # except ImportError as e:
+    #     print(e)
 
     #plt.clf()
     channels = np.atleast_1d(channels)
