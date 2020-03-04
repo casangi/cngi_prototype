@@ -19,7 +19,7 @@ setup(
                       'dask==2.10.0',
                       'bokeh==1.4.0',
                       'pandas>=0.25.2',
-                      'xarray==0.14.1',
+                      'xarray==0.15.0',
                       'zarr==2.4.0',
                       'numcodecs==0.6.4',
                       'matplotlib==3.1.2',
