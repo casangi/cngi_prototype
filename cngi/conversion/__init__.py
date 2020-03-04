@@ -11,3 +11,4 @@ from .ms_to_zarr import *
 from .ms_to_zarr_numba import ms_to_zarr_numba
 from .image_to_zarr import *
 from .zarr_to_image import *
+from .convert_ms import *
