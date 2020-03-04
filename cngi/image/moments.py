@@ -83,7 +83,7 @@ def moment(ds, **kwargs):
     if code == -1:
         new_ds = ds.mean(dim=axis, keep_attrs=True)
     if code == 0:
-        new_ds = xds.sum(dim='frequency', keep_attrs=True)
+        new_ds = ds.sum(dim='frequency', keep_attrs=True)
     if code == 1:
         new_ds = (ds.sum('frequency', keep_attrs=True) / 
                   ds.integrate(dim=axis, keep_attrs=True))

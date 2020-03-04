@@ -39,7 +39,7 @@ def smooth(ds):
     """
     import xarray as xr
 
-    new_ds = xr.apply_ufunc(_filter_func, xds, dask='allowed',
+    new_ds = xr.apply_ufunc(_filter_func, ds, dask='allowed',
                             keep_attrs=True)
 
     return new_ds
@@ -69,6 +69,7 @@ def _filter_func(da, kernel='gaussian'):
         output array of image data                                                                                                                                                                                        
     """
     from astropy.convolution import convolve, Gaussian2DKernel
+    import numpy as np
 
     if kernel=='gaussian':
         pass
@@ -77,4 +78,4 @@ def _filter_func(da, kernel='gaussian'):
 
     kernel = Gaussian2DKernel(1)
 
-    return convolve(b.squeeze(), ker, boundary='extend')[np.newaxis,:,:]
+    return convolve(da.squeeze(), kernel, boundary='extend')[np.newaxis,:,:]

@@ -1,5 +1,6 @@
 from casatools import image as ia
 from cngi.dio import read_image
+from numpy import np
 
 IA = ia()
 rc = IA.open('~/dev/data/ALMA_smallcube.image.fits') 
