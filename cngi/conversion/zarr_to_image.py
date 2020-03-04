@@ -13,7 +13,6 @@
 #   limitations under the License.
 
 
-
 ###########################################
 def zarr_to_image(infile, outfile=None):
     """
@@ -33,4 +32,3 @@ def zarr_to_image(infile, outfile=None):
     -------
     """
     return True
-

@@ -14,8 +14,19 @@
 
 
 #####################################################
-def uvmodelfit(xds, field=None, spw=None, timerange=None, uvrange=None, antenna=None, scan=None, niter=5, comptype='p', sourcepar=[1, 0, 0],
-               varypar=[]):
+def uvmodelfit(
+    xds,
+    field=None,
+    spw=None,
+    timerange=None,
+    uvrange=None,
+    antenna=None,
+    scan=None,
+    niter=5,
+    comptype="p",
+    sourcepar=[1, 0, 0],
+    varypar=[],
+):
     """
     .. todo::
         This function is not yet implemented

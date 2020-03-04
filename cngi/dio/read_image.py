@@ -15,7 +15,7 @@
 
 #############################################
 def read_image(infile):
-  """
+    """
   Read xarray zarr format image from disk
 
   Parameters
@@ -28,10 +28,9 @@ def read_image(infile):
   xarray.core.dataset.Dataset
       New xarray Dataset of image contents
   """
-  import os
-  from xarray import open_zarr
-  
-  infile = os.path.expanduser(infile)
-  xds = open_zarr(infile)
-  return xds
+    import os
+    from xarray import open_zarr
 
+    infile = os.path.expanduser(infile)
+    xds = open_zarr(infile)
+    return xds

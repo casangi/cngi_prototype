@@ -17,7 +17,7 @@ from dask.distributed import Client, LocalCluster
 global_framework_client = None
 
 ########################
-def InitializeFramework(workers=2, memory='8GB', processes=True, **kwargs):
+def InitializeFramework(workers=2, memory="8GB", processes=True, **kwargs):
     """
     Initialize the CNGI framework
 
@@ -44,31 +44,38 @@ def InitializeFramework(workers=2, memory='8GB', processes=True, **kwargs):
 
     import socket
 
-    if 'threads_per_worker' in kwargs.keys():
-        tpw = kwargs['threads_per_worker']
-    else: # enforce default of 1 thread per process
+    if "threads_per_worker" in kwargs.keys():
+        tpw = kwargs["threads_per_worker"]
+    else:  # enforce default of 1 thread per process
         tpw = 1
-    
+
     global global_framework_client
-    
+
     if global_framework_client != None:
         global_framework_client.close()
-    
+
     # set up a cluster object to pass into Client
     # for now, only supporting single machine
-    cluster = LocalCluster(n_workers=workers, threads_per_worker=tpw,
-                           processes=processes, memory_limit=memory)
+    cluster = LocalCluster(
+        n_workers=workers,
+        threads_per_worker=tpw,
+        processes=processes,
+        memory_limit=memory,
+    )
 
     global_framework_client = Client(cluster)
-    
+
     print("Dask dashboard hosted at:")
     if processes == True:
         print(global_framework_client.cluster.dashboard_link)
     else:
-        print(socket.gethostbyname(socket.gethostname()) + '/' + 
-              str(global_framework_client.scheduler_info()['services']['dashboard']))
-    
-    return(global_framework_client)
+        print(
+            socket.gethostbyname(socket.gethostname())
+            + "/"
+            + str(global_framework_client.scheduler_info()["services"]["dashboard"])
+        )
+
+    return global_framework_client
 
 
 #########################
@@ -84,4 +91,4 @@ def GetFrameworkClient():
     distributed.client.Client
         Client from Dask Distributed for use by Dask objects
     """
-    return (global_framework_client)
+    return global_framework_client

@@ -32,20 +32,21 @@ def applyflags(xds, flags=None):
     import xarray
 
     new_xds = xarray.Dataset(attrs=xds.attrs)
-    
+
     # find all variables with bool data type to use as flags
     if flags is None:
-        flags = [dv for dv in xds.data_vars if xds.data_vars[dv].dtype == 'bool']
-    
+        flags = [dv for dv in xds.data_vars if xds.data_vars[dv].dtype == "bool"]
+
     # apply flags to each variable of compatible shape
     for dv in xds.data_vars:
-        if dv in flags: continue
-        
+        if dv in flags:
+            continue
+
         xda = xds.data_vars[dv]
         for flag in flags:
             if xds.data_vars[flag].ndim <= xda.ndim:
                 xda = xda.where(~xds.data_vars[flag])
-        
+
         new_xds = new_xds.assign(dict([(dv, xda)]))
-    
+
     return new_xds

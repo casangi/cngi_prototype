@@ -14,7 +14,7 @@
 
 
 #############################################
-def write_vis(xds, outfile='vis.zarr', ddi=0, append=True):
+def write_vis(xds, outfile="vis.zarr", ddi=0, append=True):
     """
     Write xarray Visibility Dataset to zarr format on disk
   
@@ -35,17 +35,17 @@ def write_vis(xds, outfile='vis.zarr', ddi=0, append=True):
     import os
     from numcodecs import Blosc
     from itertools import cycle
-    
+
     outfile = os.path.expanduser(outfile)
-    
+
     # need to manually remove existing parquet file (if any)
     if not append:
-      tmp = os.system("rm -fr " + outfile)
+        tmp = os.system("rm -fr " + outfile)
     else:  # still need to remove existing ddi (if any)
-      tmp = os.system("rm -fr " + outfile + '/' + str(ddi))
-    
+        tmp = os.system("rm -fr " + outfile + "/" + str(ddi))
+
     tmp = os.system("mkdir " + outfile)
-    
-    compressor = Blosc(cname='zstd', clevel=2, shuffle=0)
-    encoding = dict(zip(list(xds.data_vars), cycle([{'compressor': compressor}])))
-    xds.to_zarr(outfile + '/' + str(ddi), mode='w', encoding=encoding)
+
+    compressor = Blosc(cname="zstd", clevel=2, shuffle=0)
+    encoding = dict(zip(list(xds.data_vars), cycle([{"compressor": compressor}])))
+    xds.to_zarr(outfile + "/" + str(ddi), mode="w", encoding=encoding)

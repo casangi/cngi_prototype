@@ -14,7 +14,7 @@
 
 
 ##################################################
-def uvcontsub(xds, field=None, fitspw=None, combine=None, solint='int', fitorder=0):
+def uvcontsub(xds, field=None, fitspw=None, combine=None, solint="int", fitorder=0):
     """
     .. todo::
         This function is not yet implemented
@@ -42,4 +42,3 @@ def uvcontsub(xds, field=None, fitspw=None, combine=None, solint='int', fitorder
         New Visibility Dataset with updated data
     """
     return {}
-

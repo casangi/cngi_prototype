@@ -13,7 +13,7 @@
 #   limitations under the License.
 
 
-def preview(xds, variable='image', region=None, pol=0, channels=0, tsize=250):
+def preview(xds, variable="image", region=None, pol=0, channels=0, tsize=250):
     """
     Preview the selected image component
     
@@ -42,58 +42,68 @@ def preview(xds, variable='image', region=None, pol=0, channels=0, tsize=250):
     import matplotlib.pyplot as plt
     from matplotlib import colors
     import numpy as np
+
     # try:
     #     import xrscipy
     # except ImportError as e:
     #     print(e)
 
-    #plt.clf()
+    # plt.clf()
     channels = np.atleast_1d(channels)
-    rows, cols = [int(np.ceil(len(channels)/4.0)), min(len(channels),4)]
-    fig, axes = plt.subplots(rows, cols, 
-                             figsize=(4*cols, 3*rows), 
-                             constrained_layout=True)
+    rows, cols = [int(np.ceil(len(channels) / 4.0)), min(len(channels), 4)]
+    fig, axes = plt.subplots(
+        rows, cols, figsize=(4 * cols, 3 * rows), constrained_layout=True
+    )
     axes = np.atleast_2d(axes)
-    
+
     # heuristic to determine thinning factor
-    thinf = int(np.max(np.array(np.ceil(np.array(xds[variable].shape[:2]) / tsize), dtype=int)))
-    
+    thinf = int(
+        np.max(np.array(np.ceil(np.array(xds[variable].shape[:2]) / tsize), dtype=int))
+    )
+
     # fast decimate to roughly the desired size
     if region is None:
-        txds = xds[variable][{'frequency':channels}].thin({'d0':thinf,
-                                                           'd1':thinf,
-                                                           'pol':1,
-                                                           'frequency':1})
+        txds = xds[variable][{"frequency": channels}].thin(
+            {"d0": thinf, "d1": thinf, "pol": 1, "frequency": 1}
+        )
     else:
-        txds = ((xds[variable][{'frequency':channels}] * 
-                 xds[region][{'frequency':channels}]).thin({'d0':thinf,
-                                                            'd1':thinf,
-                                                            'pol':1,
-                                                            'frequency':1}))
-    
+        txds = (
+            xds[variable][{"frequency": channels}]
+            * xds[region][{"frequency": channels}]
+        ).thin({"d0": thinf, "d1": thinf, "pol": 1, "frequency": 1})
+
     vmin, vmax = txds.values.min(), txds.values.max()
-    xx, yy = 'd0', 'd1'
-    if 'right_ascension' in txds.coords:
-        xx, yy = 'right_ascension', 'declination'
-    
-    for ii,ch in enumerate(channels):
-      # plot as a colormesh
-      ixds = txds[dict(pol=pol, frequency=ii)]
-      im = ixds.plot.pcolormesh(ax=axes[ii//4,ii%4], x=xx, y=yy, add_colorbar=False,
-                                vmin=vmin, vmax=vmax, norm=colors.PowerNorm(1))
-      axes[ii//4,ii%4].set_title(variable + ' (' + str(pol) + ', ' + str(ch) +')')
-      axes[ii//4,ii%4].invert_xaxis()
-    
+    xx, yy = "d0", "d1"
+    if "right_ascension" in txds.coords:
+        xx, yy = "right_ascension", "declination"
+
+    for ii, ch in enumerate(channels):
+        # plot as a colormesh
+        ixds = txds[dict(pol=pol, frequency=ii)]
+        im = ixds.plot.pcolormesh(
+            ax=axes[ii // 4, ii % 4],
+            x=xx,
+            y=yy,
+            add_colorbar=False,
+            vmin=vmin,
+            vmax=vmax,
+            norm=colors.PowerNorm(1),
+        )
+        axes[ii // 4, ii % 4].set_title(
+            variable + " (" + str(pol) + ", " + str(ch) + ")"
+        )
+        axes[ii // 4, ii % 4].invert_xaxis()
+
     fig.colorbar(im, ax=axes, shrink=0.6)
-    
+
     # TODO
     # convert axes from radians to hr:minute:second format
-    #ra_ticks = np.array(plt.gca().get_xticks().tolist())
-    #ra_hrs = ra_ticks/(2*np.pi) * 24
-    #ra_min = np.abs(ra_hrs) % 1 * 60
-    #ra_sec = ra_min % 1 * 60
-    #ra_str = ['{:02.0f}:{:02.0f}:{:06.3f}'.format(np.floor(ra_hrs[0]),np.floor(ra_min[0]),ra_sec[0])]
-    #ra_str += ['{:06.3f}'.format(ra_sec[ii]) for ii in range(1,len(ra_hrs))]
-    #plt.gca().set_xticklabels(ra_str)
-    
+    # ra_ticks = np.array(plt.gca().get_xticks().tolist())
+    # ra_hrs = ra_ticks/(2*np.pi) * 24
+    # ra_min = np.abs(ra_hrs) % 1 * 60
+    # ra_sec = ra_min % 1 * 60
+    # ra_str = ['{:02.0f}:{:02.0f}:{:06.3f}'.format(np.floor(ra_hrs[0]),np.floor(ra_min[0]),ra_sec[0])]
+    # ra_str += ['{:06.3f}'.format(ra_sec[ii]) for ii in range(1,len(ra_hrs))]
+    # plt.gca().set_xticklabels(ra_str)
+
     plt.show(block=False)

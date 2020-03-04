@@ -36,9 +36,8 @@ def read_legacy_ms(infile, ddi=None):
     return True
 
 
-
 ###########################################
-def zarr_to_ms(infile, format='ms', outfile=None):
+def zarr_to_ms(infile, format="ms", outfile=None):
     """
     .. todo::
         This function is not yet implemented
@@ -62,7 +61,6 @@ def zarr_to_ms(infile, format='ms', outfile=None):
     return True
 
 
-
 ###########################################
 def asdm_to_zarr(infile, outfile=None):
     """
@@ -84,7 +82,6 @@ def asdm_to_zarr(infile, outfile=None):
         Success status
     """
     return True
-
 
 
 ###########################################

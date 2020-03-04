@@ -12,6 +12,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+
 def calc_image_cell_size(vis_xds, min_dish_diameter):
     """
     Calculates an appropriate number of pixels and and cell size for imaging a measurement set.
@@ -32,7 +33,8 @@ def calc_image_cell_size(vis_xds, min_dish_diameter):
         Cell size is arcseconds.
     """
     import numpy as np
-    import dask.array  as da
+    import dask.array as da
+
     rad_to_arc = (3600 * 180) / np.pi  # Radians to arcseconds
     c = 299792458
 
@@ -42,8 +44,16 @@ def calc_image_cell_size(vis_xds, min_dish_diameter):
     D_min = min_dish_diameter
 
     # Calculate cell size using 7 pixels per beam
-    cell = rad_to_arc * np.array(
-        [c / (da.nanmax(vis_xds.UVW[:, :, 0].data) * f_max), c / (da.nanmax(vis_xds.UVW[:, :, 1].data) * f_max)]) / 7
+    cell = (
+        rad_to_arc
+        * np.array(
+            [
+                c / (da.nanmax(vis_xds.UVW[:, :, 0].data) * f_max),
+                c / (da.nanmax(vis_xds.UVW[:, :, 1].data) * f_max),
+            ]
+        )
+        / 7
+    )
 
     # If cell sizes are within 20% of each other use the smaller cell size for both.
     if (cell[0] / cell[1] < 1.2) and (cell[1] / cell[0] < 1.2):

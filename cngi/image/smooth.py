@@ -12,7 +12,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-########################                                                                                                                                                                                    
+########################
 def smooth(ds):
     """                                                                                                                                                                                                     
     Smooth data along n-dimensions of the image cube
@@ -39,12 +39,12 @@ def smooth(ds):
     """
     import xarray as xr
 
-    new_ds = xr.apply_ufunc(_filter_func, ds, dask='allowed',
-                            keep_attrs=True)
+    new_ds = xr.apply_ufunc(_filter_func, ds, dask="allowed", keep_attrs=True)
 
     return new_ds
 
-def _filter_func(da, kernel='gaussian'):
+
+def _filter_func(da, kernel="gaussian"):
     """                                                                                                                                                                                                     
     .. warning::                                                                                                                                                                                               
         This function is still a test implementation
@@ -71,11 +71,11 @@ def _filter_func(da, kernel='gaussian'):
     from astropy.convolution import convolve, Gaussian2DKernel
     import numpy as np
 
-    if kernel=='gaussian':
+    if kernel == "gaussian":
         pass
     else:
         print(f"kernel parameter {kernel} is not supported yet, defaulting to Gaussian")
 
     kernel = Gaussian2DKernel(1)
 
-    return convolve(da.squeeze(), kernel, boundary='extend')[np.newaxis,:,:]
+    return convolve(da.squeeze(), kernel, boundary="extend")[np.newaxis, :, :]

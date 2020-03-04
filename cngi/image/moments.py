@@ -65,16 +65,17 @@ def moment(ds, **kwargs):
     """
 
     # input parameter checking
-    if 'axis' in kwargs.keys():
-        axis = kwargs['axis']
+    if "axis" in kwargs.keys():
+        axis = kwargs["axis"]
     else:
-        print("No axis specified."
-              "Defaulting to reducing along frequency dimension")
-        axis = 'frequency'
+        print("No axis specified." "Defaulting to reducing along frequency dimension")
+        axis = "frequency"
 
-    if 'code' in kwargs.keys():
-        code = int(kwargs['code'])
-        assert code in range(-1,12), "Input to 'code' parameter must be between -1 and 11"
+    if "code" in kwargs.keys():
+        code = int(kwargs["code"])
+        assert code in range(
+            -1, 12
+        ), "Input to 'code' parameter must be between -1 and 11"
     else:
         print("No valid input code detected, assuming default (-1)")
         code = -1
@@ -83,18 +84,16 @@ def moment(ds, **kwargs):
     if code == -1:
         new_ds = ds.mean(dim=axis, keep_attrs=True)
     if code == 0:
-        new_ds = ds.sum(dim='frequency', keep_attrs=True)
+        new_ds = ds.sum(dim="frequency", keep_attrs=True)
     if code == 1:
-        new_ds = (ds.sum('frequency', keep_attrs=True) / 
-                  ds.integrate(dim=axis, keep_attrs=True))
+        new_ds = ds.sum("frequency", keep_attrs=True) / ds.integrate(
+            dim=axis, keep_attrs=True
+        )
     if code == 8:
         new_ds = ds.max(dim=axis, keep_atrs=True)
     if code == 10:
-        new_ds = ds.reduce(func=min, dim='frequency', keepdims=True)
+        new_ds = ds.reduce(func=min, dim="frequency", keepdims=True)
     else:
         raise NotImplementedError(f"Moment code={code} is not yet supported")
 
     return new_ds
-
-
-

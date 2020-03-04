@@ -1,4 +1,4 @@
-#__init__.py
+# __init__.py
 from .applyflags import *
 from .chanaverage import *
 from .hanningsmooth import *

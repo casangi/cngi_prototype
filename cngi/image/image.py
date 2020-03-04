@@ -13,7 +13,6 @@
 #   limitations under the License.
 
 
-
 ########################
 def regrid(ds):
     """
@@ -33,7 +32,6 @@ def regrid(ds):
         output Image
     """
     return True
-
 
 
 ########################
@@ -83,7 +81,6 @@ def contsub(ds):
     return True
 
 
-
 ########################
 def specfit(ds):
     """
@@ -106,7 +103,6 @@ def specfit(ds):
         output Image
     """
     return True
-
 
 
 ########################
@@ -133,7 +129,6 @@ def spxfit(ds):
     return True
 
 
-
 ########################
 def specflux(ds):
     """
@@ -153,7 +148,6 @@ def specflux(ds):
         output Image
     """
     return True
-
 
 
 ########################
@@ -177,7 +171,6 @@ def rmfit(ds):
     return True
 
 
-
 ########################
 def ellipsefit(ds):
     """
@@ -197,6 +190,3 @@ def ellipsefit(ds):
         output Image
     """
     return True
-
-
-

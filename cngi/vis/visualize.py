@@ -35,44 +35,54 @@ def visualize(xda, axis=None, tsize=250):
     import numpy as np
     import dask.array as da
     from pandas.plotting import register_matplotlib_converters
+
     register_matplotlib_converters()
 
-    fig, axes = plt.subplots(1,1)
+    fig, axes = plt.subplots(1, 1)
 
     # fast decimate to roughly the desired size
-    thinf = int(np.ceil(np.max(xda.shape[0])/tsize))
+    thinf = int(np.ceil(np.max(xda.shape[0]) / tsize))
     txda = xda.thin(thinf)
 
     # can't plot complex numbers, bools (sometimes), or strings
-    if txda.dtype == 'complex128':
+    if txda.dtype == "complex128":
         txda = da.absolute(txda)
-    elif txda.dtype == 'bool':
+    elif txda.dtype == "bool":
         txda = txda.astype(int)
     elif txda.dtype.type is np.str_:
-        txda = xarray.DataArray(np.unique(txda, return_inverse=True)[1], dims=txda.dims, coords=txda.coords, name=txda.name)
+        txda = xarray.DataArray(
+            np.unique(txda, return_inverse=True)[1],
+            dims=txda.dims,
+            coords=txda.coords,
+            name=txda.name,
+        )
 
     # default pcolormesh plot axes
     if (txda.ndim > 1) and (axis is None):
         axis = np.array(txda.dims[:2])
-        if 'chan' in txda.dims: axis[-1] = 'chan'
+        if "chan" in txda.dims:
+            axis[-1] = "chan"
 
     # collapse data to 1-D or 2-D
     if axis is not None:
         axis = np.atleast_1d(axis)
         if txda.ndim > 1:
             txda = txda.max(dim=[dd for dd in txda.dims if dd not in axis])
-    
+
     # different types of plots depending on shape and parameters
     if (txda.ndim == 1) and (axis is None):
-        dname = txda.name if txda.name is not None else 'value'
-        pxda = xarray.DataArray(np.arange(len(txda)), dims=[dname], coords={dname:txda.values})
-        pxda.plot.line(ax=axes, y=pxda.dims[0], marker='.', linewidth=0.0)
+        dname = txda.name if txda.name is not None else "value"
+        pxda = xarray.DataArray(
+            np.arange(len(txda)), dims=[dname], coords={dname: txda.values}
+        )
+        pxda.plot.line(ax=axes, y=pxda.dims[0], marker=".", linewidth=0.0)
         plt.title(dname)
-    elif (txda.ndim == 1):
-        txda.plot.line(ax=axes, x=axis[0], marker='.', linewidth=0.0)
-        if txda.name is not None: plt.title(txda.name + ' vs ' + axis[0])
+    elif txda.ndim == 1:
+        txda.plot.line(ax=axes, x=axis[0], marker=".", linewidth=0.0)
+        if txda.name is not None:
+            plt.title(txda.name + " vs " + axis[0])
     else:  # more than 1-D
         txda.plot.pcolormesh(ax=axes, x=axis[0], y=axis[1])
-        plt.title(txda.name + ' ' + axis[1] + ' vs ' + axis[0])
+        plt.title(txda.name + " " + axis[1] + " vs " + axis[0])
 
     plt.show()

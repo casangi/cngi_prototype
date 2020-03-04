@@ -13,7 +13,7 @@
 #   limitations under the License.
 
 
-def region(xds, name='region1', ra=None, dec=None, pixels=None, pol=-1, channels=-1):
+def region(xds, name="region1", ra=None, dec=None, pixels=None, pol=-1, channels=-1):
     """
     Create a new region Data variable in the Dataset \n
     
@@ -43,50 +43,61 @@ def region(xds, name='region1', ra=None, dec=None, pixels=None, pol=-1, channels
     """
     import numpy as np
     import xarray as xr
-    
+
     # type checking/conversion
-    if not name.strip(): name = 'regionX'
-    if ra is None: ra=[0.0, 0.0]
-    if dec is None: dec=[0.0, 0.0]
-    if pixels is None: pixels = np.zeros((1,2), dtype=int)-1
+    if not name.strip():
+        name = "regionX"
+    if ra is None:
+        ra = [0.0, 0.0]
+    if dec is None:
+        dec = [0.0, 0.0]
+    if pixels is None:
+        pixels = np.zeros((1, 2), dtype=int) - 1
     pixels = np.array(pixels, dtype=int)
     if (pixels.ndim != 2) or (pixels.shape[1] != 2):
-      print('ERROR: pixels parameter not a (N,2) array')
-      return None
+        print("ERROR: pixels parameter not a (N,2) array")
+        return None
     pol = np.array(np.atleast_1d(pol), dtype=int)
-    if pol[0] == -1: pol = list(range(len(xds['pol'])))
+    if pol[0] == -1:
+        pol = list(range(len(xds["pol"])))
     channels = np.array(np.atleast_1d(channels), dtype=int)
-    if channels[0] == -1: channels = list(range(len(xds['frequency'])))
-    
+    if channels[0] == -1:
+        channels = list(range(len(xds["frequency"])))
+
     # TBD: allow arbitrary pixels, not just rectangles
-    #ind_x = xr.DataArray(list(pixels[:,0]), dims=['d0'])
-    #ind_y = xr.DataArray(list(pixels[:,1]), dims=['d1'])
-    #region = xds.image[ind_x, ind_y]
-    
+    # ind_x = xr.DataArray(list(pixels[:,0]), dims=['d0'])
+    # ind_y = xr.DataArray(list(pixels[:,1]), dims=['d1'])
+    # region = xds.image[ind_x, ind_y]
+
     # TESTING only
     # ra = [2.88788, 2.88793]
     # dec = [-0.60573, -0.60568]
     # pixels = np.array([[20,40],[80,500]])
-    
+
     # define region within ra/dec range
-    region = xr.ones_like(xds.image,dtype=bool).where((xds.right_ascension > np.min(ra)) & 
-                                                      (xds.right_ascension < np.max(ra)) &
-                                                      (xds.declination > np.min(dec)) & 
-                                                      (xds.declination < np.max(dec)), False)
-    
+    region = xr.ones_like(xds.image, dtype=bool).where(
+        (xds.right_ascension > np.min(ra))
+        & (xds.right_ascension < np.max(ra))
+        & (xds.declination > np.min(dec))
+        & (xds.declination < np.max(dec)),
+        False,
+    )
+
     # OR pixel values with ra/dec values
-    #region = region | xr.ones_like(xds.image,dtype=bool).where(xds.d0.isin(pixels[:,0]) &
+    # region = region | xr.ones_like(xds.image,dtype=bool).where(xds.d0.isin(pixels[:,0]) &
     #                                                           xds.d1.isin(pixels[:,1]), False)
-    region = region | xr.ones_like(xds.image,dtype=bool).where((xds.d0 > np.min(pixels[:,0])) &
-                                                               (xds.d0 < np.max(pixels[:,0])) &
-                                                               (xds.d1 > np.min(pixels[:,1])) &
-                                                               (xds.d1 < np.max(pixels[:,1])), False)
-    
+    region = region | xr.ones_like(xds.image, dtype=bool).where(
+        (xds.d0 > np.min(pixels[:, 0]))
+        & (xds.d0 < np.max(pixels[:, 0]))
+        & (xds.d1 > np.min(pixels[:, 1]))
+        & (xds.d1 < np.max(pixels[:, 1])),
+        False,
+    )
+
     # apply polarization and channels selections
     region = region.where(xds.pol.isin(xds.pol[pol]), False)
     region = region.where(xds.frequency.isin(xds.frequency[channels]), False)
-    
+
     # assign region to a rest of image dataset
-    xds = xds.assign(dict([(name,region)]))
+    xds = xds.assign(dict([(name, region)]))
     return xds
-    

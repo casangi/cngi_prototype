@@ -1,4 +1,4 @@
-#__init__.py
+# __init__.py
 from .image import *
 from .region import *
 from .mask import *

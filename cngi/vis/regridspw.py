@@ -14,8 +14,24 @@
 
 
 ###############################################
-def regridspw(xds, field=None, spw=None, timerange=None, uvrange=None, antenna=None, scan=None, mode='channel', nchan=None, start=0, width=1,
-              interpolation='linear', phasecenter=None, restfreq=None, outframe=None, veltype='radio'):
+def regridspw(
+    xds,
+    field=None,
+    spw=None,
+    timerange=None,
+    uvrange=None,
+    antenna=None,
+    scan=None,
+    mode="channel",
+    nchan=None,
+    start=0,
+    width=1,
+    interpolation="linear",
+    phasecenter=None,
+    restfreq=None,
+    outframe=None,
+    veltype="radio",
+):
     """
     .. todo::
         This function is not yet implemented
@@ -63,4 +79,3 @@ def regridspw(xds, field=None, spw=None, timerange=None, uvrange=None, antenna=N
         New Visibility Dataset with updated data
     """
     return {}
-

@@ -15,7 +15,7 @@
 
 #############################################
 def read_vis(infile, ddi=0):
-  """
+    """
   Read zarr format Visibility data from disk to xarray Dataset
 
   Parameters
@@ -30,10 +30,9 @@ def read_vis(infile, ddi=0):
   xarray.core.dataset.Dataset
       New xarray Dataset of Visibility data contents
   """
-  import os
-  from xarray import open_zarr
+    import os
+    from xarray import open_zarr
 
-  infile = os.path.expanduser(infile)
-  xds = open_zarr(infile + '/' + str(ddi))
-  return xds
-
+    infile = os.path.expanduser(infile)
+    xds = open_zarr(infile + "/" + str(ddi))
+    return xds

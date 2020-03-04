@@ -14,7 +14,9 @@
 
 
 ##########################
-def hanningsmooth(xds, field=None, spw=None, timerange=None, uvrange=None, antenna=None, scan=None):
+def hanningsmooth(
+    xds, field=None, spw=None, timerange=None, uvrange=None, antenna=None, scan=None
+):
     """
     .. todo::
         This function is not yet implemented
@@ -44,4 +46,3 @@ def hanningsmooth(xds, field=None, spw=None, timerange=None, uvrange=None, anten
         New Visibility Dataset with updated data
     """
     return {}
-

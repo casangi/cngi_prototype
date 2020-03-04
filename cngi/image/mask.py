@@ -13,7 +13,7 @@
 #   limitations under the License.
 
 
-def mask(xds, name='mask1', ra=None, dec=None, pixels=None, pol=-1, channels=-1):
+def mask(xds, name="mask1", ra=None, dec=None, pixels=None, pol=-1, channels=-1):
     """
     Create a new mask Data variable in the Dataset \n
     .. note:: This function currently only supports rectangles and integer pixel boundaries
@@ -44,36 +44,52 @@ def mask(xds, name='mask1', ra=None, dec=None, pixels=None, pol=-1, channels=-1)
     import xarray as xr
 
     # type checking/conversion
-    if not name.strip(): name = 'maskX'
-    if ra is None: ra = [0.0, 0.0]
-    if dec is None: dec = [0.0, 0.0]
-    if pixels is None: pixels = np.zeros((1,2), dtype=int)-1
+    if not name.strip():
+        name = "maskX"
+    if ra is None:
+        ra = [0.0, 0.0]
+    if dec is None:
+        dec = [0.0, 0.0]
+    if pixels is None:
+        pixels = np.zeros((1, 2), dtype=int) - 1
     pixels = np.array(pixels, dtype=int)
     if (pixels.ndim != 2) or (pixels.shape[1] != 2):
-        print('ERROR: pixels parameter not a (N,2) array')
+        print("ERROR: pixels parameter not a (N,2) array")
         return None
     pol = np.array(np.atleast_1d(pol), dtype=int)
-    if pol[0] == -1: pol = [-1]
+    if pol[0] == -1:
+        pol = [-1]
     channels = np.array(np.atleast_1d(channels), dtype=int)
-    if channels[0] == -1: channels = [-1]
+    if channels[0] == -1:
+        channels = [-1]
 
     # define mask within ra/dec range
-    mask = xr.zeros_like(xds.image, dtype=bool).where((xds.right_ascension > np.min(ra)) &
-                                                       (xds.right_ascension < np.max(ra)) &
-                                                       (xds.declination > np.min(dec)) &
-                                                       (xds.declination < np.max(dec)), True)
+    mask = xr.zeros_like(xds.image, dtype=bool).where(
+        (xds.right_ascension > np.min(ra))
+        & (xds.right_ascension < np.max(ra))
+        & (xds.declination > np.min(dec))
+        & (xds.declination < np.max(dec)),
+        True,
+    )
 
     # AND pixel values with ra/dec values
-    mask = mask & xr.zeros_like(xds.image, dtype=bool).where((xds.d0 > np.min(pixels[:, 0])) &
-                                                                (xds.d0 < np.max(pixels[:, 0])) &
-                                                                (xds.d1 > np.min(pixels[:, 1])) &
-                                                                (xds.d1 < np.max(pixels[:, 1])), True)
+    mask = mask & xr.zeros_like(xds.image, dtype=bool).where(
+        (xds.d0 > np.min(pixels[:, 0]))
+        & (xds.d0 < np.max(pixels[:, 0]))
+        & (xds.d1 > np.min(pixels[:, 1]))
+        & (xds.d1 < np.max(pixels[:, 1])),
+        True,
+    )
 
     # apply polarization and channels selections
     if pol[0] >= 0:
-      mask = mask & xr.zeros_like(xds.image, dtype=bool).where(xds.pol.isin(xds.pol[pol]), True)
+        mask = mask & xr.zeros_like(xds.image, dtype=bool).where(
+            xds.pol.isin(xds.pol[pol]), True
+        )
     if channels[0] >= 0:
-      mask = mask & xr.zeros_like(xds.image, dtype=bool).where(xds.frequency.isin(xds.frequency[channels]), True)
+        mask = mask & xr.zeros_like(xds.image, dtype=bool).where(
+            xds.frequency.isin(xds.frequency[channels]), True
+        )
 
     # assign region to a rest of image dataset
     xds = xds.assign(dict([(name, mask)]))

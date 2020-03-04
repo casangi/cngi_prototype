@@ -44,31 +44,28 @@ def rebin(ds, **kwargs):
     xarray.core.dataset.Dataset
         output Image
     """
-    
-    if 'factor' in kwargs.keys():
-        factor = kwargs['factor']
+
+    if "factor" in kwargs.keys():
+        factor = kwargs["factor"]
     else:
         factor = 1
-        
-    if 'axis' in  kwargs.keys():
-        axis = kwargs['axis']
+
+    if "axis" in kwargs.keys():
+        axis = kwargs["axis"]
         if axis in ds.dims:
             pass
         else:
             print("Requested axis not a dimension of input dataset.")
     else:
         print("Defaulting to rebinning dataset by frequency dimension")
-        axis = 'frequency'
+        axis = "frequency"
 
     # works best with threads
     try:
-        new_ds = ds.coarsen({axis:factor}).mean(keep_attrs=True)
+        new_ds = ds.coarsen({axis: factor}).mean(keep_attrs=True)
     except ValueError as exception:
         print(f"{exception}")
         print(f"Using requested scaling factor and padding with NaN")
-        new_ds = ds.coarsen({axis:factor}, boundary='pad').mean(keep_attrs=True)
+        new_ds = ds.coarsen({axis: factor}, boundary="pad").mean(keep_attrs=True)
 
     return new_ds
-
-
-
