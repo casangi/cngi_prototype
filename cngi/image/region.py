@@ -42,7 +42,6 @@ def region(xds, name='region1', ra=None, dec=None, pixels=None, pol=-1, channels
         New Dataset
     """
     import numpy as np
-    import dask.array as da
     import xarray as xr
     
     # type checking/conversion

@@ -38,13 +38,12 @@ def ms_to_zarr(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
     """
     import os
     from casatools import table as tb
-    from casatools import measures
     from numcodecs import Blosc
-    import pandas as pd
+    # import pandas as pd
     import xarray
     import numpy as np
     import time
-    import datetime
+    # import datetime
     from itertools import cycle
     import warnings
     warnings.filterwarnings('ignore', category=FutureWarning)

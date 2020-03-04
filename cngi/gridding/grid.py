@@ -36,7 +36,6 @@ def grid(vis_dataset, grid_parms):
     from itertools import cycle
     import dask.array as da
     import xarray as xr
-    import dask
     import time
     import copy
 
@@ -96,8 +95,6 @@ def grid(vis_dataset, grid_parms):
 def _graph_grid(vis_dataset, grid_parms):
     import dask
     import dask.array as da
-    import xarray as xr
-    import time
     import itertools
     from cngi.gridding import gridding_convolutional_kernels as gck
 

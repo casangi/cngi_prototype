@@ -31,14 +31,12 @@ def test_standard_gridder(show_plots=False):
     """
     
     import xarray as xr
-    import cngi
     import os
     import tests.gridding_convolutional_kernels as gck
     from cngi.gridding import serial_grid
     from cngi.gridding import standard_grid
     import matplotlib.pylab as plt
     import numpy as np
-    from scipy.fftpack import fft2, ifft2, fftshift, ifftshift
     import time
 
     # Load measurement dataset

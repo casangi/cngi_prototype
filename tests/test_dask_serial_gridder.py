@@ -39,7 +39,7 @@ def test_dask_serial_gridder(show_plots=False):
     import numpy as np
     from dask.distributed import Client
     import dask.array as da
-    from scipy.fftpack import fft2, ifft2, fftshift, ifftshift
+    from scipy.fftpack import ifft2, fftshift, ifftshift
     import time
     
     cngi_path = os.path.dirname(cngi.__file__)

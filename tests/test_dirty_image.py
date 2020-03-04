@@ -31,12 +31,9 @@ def test_dirty_image(show_plots=False):
     """
     
     import xarray as xr
-    import cngi
     import os
     import matplotlib.pylab as plt
     import numpy as np
-    from scipy.fftpack import fft2, ifft2, fftshift, ifftshift
-    import time
     from cngi.gridding import dirty_image
     
 

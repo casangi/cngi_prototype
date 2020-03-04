@@ -37,7 +37,7 @@ def test_serial_gridder(show_plots=False):
     from cngi.gridding import serial_grid
     import matplotlib.pylab as plt
     import numpy as np
-    from scipy.fftpack import fft2, ifft2, fftshift, ifftshift
+    from scipy.fftpack import ifft2, fftshift, ifftshift
     
     cngi_path = os.path.dirname(cngi.__file__)
     cngi_prototype_path = cngi_path[:cngi_path.rfind('/')]

@@ -11,10 +11,9 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
-import numpy as np
-from numba import jit
-import math
 
+#from numba import jit
+import numpy as np
 
 def _coordinates(npixel: int):
     """ 1D array which spans [-.5,.5[ with 0 at position npixel/2

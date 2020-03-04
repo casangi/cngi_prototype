@@ -31,7 +31,6 @@ def calc_image_cell_size(vis_xds, min_dish_diameter):
     cell : list of ints
         Cell size is arcseconds.
     """
-    import xarray
     import numpy as np
     import dask.array  as da
     rad_to_arc = (3600 * 180) / np.pi  # Radians to arcseconds

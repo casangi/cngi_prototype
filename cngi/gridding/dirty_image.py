@@ -29,16 +29,11 @@ def dirty_image(vis_dataset, grid_parms):
     """
 
     import numpy as np
-    from numba import jit
     import time
-    import math
     import dask.array.fft as dafft
     import xarray as xr
     import dask.array as da
-    import matplotlib.pylab as plt
     from .grid import _graph_grid
-    import dask.array.fft as dafft
-    import dask
     import copy, os
     from numcodecs import Blosc
     from itertools import cycle
