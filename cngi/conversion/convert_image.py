@@ -187,6 +187,10 @@ def convert_image(infile, outfile=None, artifacts=None, compressor=None, chunk_s
 
         chunking = dict([(meta['dims'][ii], chunk_shape[ii]) for ii in range(len(meta['dims'])) if chunk_shape[ii] > 0])
         xds = xd(xdas, coords=chunk_coords, attrs=meta['attrs']).chunk(chunking)
+
+        # for everyone's sanity, lets make sure the dimensions are ordered the same way as visibility data
+        if ('pol' in xds.dims): xds = xds.transpose(xds.image.dims[0], xds.image.dims[1], 'chan', 'pol')
+
         if (chan == 0) and (not nofile):
             # xds = xd(xdas, coords=chunk_coords, attrs=nested_to_record(meta['attrs'], sep='_'))
             encoding = dict(zip(list(xds.data_vars), cycle([{'compressor': compressor}])))
