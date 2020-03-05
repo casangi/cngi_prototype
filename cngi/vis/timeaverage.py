@@ -37,8 +37,15 @@ def timeaverage(xds, width=1, timespan='state', timebin=None):
     import xarray
     import numpy as np
 
+    # save names of coordinates, then reset them all to variables
+    coords = [cc for cc in list(xds.coords) if cc not in xds.dims]
+    xds = xds.reset_coords()
+
     # find all variables with time dimension (vwtd)
     vwtds = [dv for dv in xds.data_vars if 'time' in xds[dv].dims]
+
+    # find all remaining coordinates and variables without a time dimension
+    remaining = [dv for dv in list(xds.data_vars) + list(xds.coords) if 'time' not in xds[dv].dims]
 
     # create list of single-span datasets from this parent dataset
     ssds = []
@@ -53,36 +60,43 @@ def timeaverage(xds, width=1, timespan='state', timebin=None):
     else:  # span across both
         ssds = [xds]
 
+    # loop over each single-span dataset and average within that span
+    # build up a list of new averaged single span datasets
+    # only time-dependent variables are included here, non-time variables will be added back later
     ndss = []  # list of new datasets
-    for ss in ssds:  # loop over each single-span dataset and average within that span
+    for ss in ssds:
         xdas = {}
         for dv in ss.data_vars:
-            xda = ss.data_vars[dv]
+            xda = ss.data_vars[dv].astype(xds[dv].dtype)
 
             # apply time averaging to compatible variables
-            if dv in vwtds:
+            if (dv in vwtds) and (xda.dtype.type != np.str_):
                 if (dv == 'DATA') and ('SIGMA_SPECTRUM' in ss.data_vars):
-                    weight_spectrum = 1.0 / ss.SIGMA_SPECTRUM**2
-                    xda = (ss.DATA * weight_spectrum).rolling(time=width, min_periods=1, center=True).sum() / \
-                          weight_spectrum.rolling(time=width, min_periods=1, center=True).sum()
+                    xda = (ss.DATA / ss.SIGMA_SPECTRUM**2).coarsen(time=width, boundary='trim').sum()
+                    xdas[dv] = xda * (ss.SIGMA_SPECTRUM**2).coarsen(time=width, boundary='trim').sum()
                 elif (dv == 'CORRECTED_DATA') and ('WEIGHT_SPECTRUM' in ss.data_vars):
-                    xda = (ss.CORRECTED_DATA * ss.WEIGHT_SPECTRUM).rolling(time=width, min_periods=1, center=True).sum() / \
-                          ss.WEIGHT_SPECTRUM.rolling(time=width, min_periods=1, center=True).sum()
+                    xda = (ss.CORRECTED_DATA * ss.WEIGHT_SPECTRUM).coarsen(time=width, boundary='trim').sum()
+                    xdas[dv] = xda / ss.WEIGHT_SPECTRUM.coarsen(time=width, boundary='trim').sum()
                 elif (dv == 'DATA') and ('SIGMA' in ss.data_vars):
-                    weight = 1.0 / ss.SIGMA**2
-                    xda = (ss.DATA * weight).rolling(time=width, min_periods=1, center=True).sum() / \
-                          weight.rolling(time=width, min_periods=1, center=True).sum()
+                    xda = (ss.DATA / ss.SIGMA**2).coarsen(time=width, boundary='trim').sum()
+                    xdas[dv] = xda * (ss.SIGMA**2).coarsen(time=width, boundary='trim').sum()
                 elif (dv == 'CORRECTED_DATA') and ('WEIGHT' in ss.data_vars):
-                    xda = (ss.CORRECTED_DATA * ss.WEIGHT).rolling(time=width, min_periods=1, center=True).sum() / \
-                          ss.WEIGHT.rolling(time=width, min_periods=1, center=True).sum()
+                    xda = (ss.CORRECTED_DATA * ss.WEIGHT).coarsen(time=width, boundary='trim').sum()
+                    xdas[dv] = xda / ss.WEIGHT.coarsen(time=width, boundary='trim').sum()
                 else:
-                    xda = xda.rolling(time=width, min_periods=1, center=True).mean()
-                xdas[dv] = xda.astype(ss.data_vars[dv].dtype)
+                    xdas[dv] = (xda.coarsen(time=width, boundary='trim').sum() / width).astype(ss.data_vars[dv].dtype)
+
+            # decimate variables with string types
+            elif dv in vwtds:
+                xdas[dv] = xda.thin(width)
 
         ndss += [xarray.Dataset(xdas)]
 
+    # concatenate back to a single dataset of all scans/states
+    # then merge with a dataset of non-time dependent variables
     new_xds = xarray.concat(ndss, dim='time', coords='all')
-    new_xds = new_xds.thin({'time': width})
-    new_xds.attrs = xds.attrs
+    new_xds = xarray.merge([new_xds, xds[remaining]])
+    new_xds = new_xds.assign_attrs(xds.attrs)
+    new_xds = new_xds.set_coords(coords)
 
     return new_xds
