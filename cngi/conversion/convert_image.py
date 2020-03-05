@@ -16,7 +16,7 @@
 ##########################################
 def convert_image(infile, outfile=None, artifacts=None, compressor=None, chunk_shape=(-1, -1, 1, 1), nofile=False):
     """
-    Convert legacy format Image or FITS format image to xarray Image Dataset compatible zarr format
+    Convert legacy CASA or FITS format Image to xarray Image Dataset and zarr storage format
 
     This function requires CASA6 casatools module.
 
@@ -32,7 +32,7 @@ def convert_image(infile, outfile=None, artifacts=None, compressor=None, chunk_s
         The blosc compressor to use when saving the converted data to disk using zarr.
         If None the zstd compression algorithm used with compression level 2.
     chunk_shape: 4-D tuple of ints
-        Shape of desired chunking in the form of (x, y, polarization, channels), use -1 for entire axis in one chunk. Default is (-1, -1, 1, 1)
+        Shape of desired chunking in the form of (x, y, channels, polarization), use -1 for entire axis in one chunk. Default is (-1, -1, 1, 1)
         Note: chunk size is the product of the four numbers (up to the actual size of the dimension)
     nofile : bool
         Allows legacy Image to be directly read without file conversion. If set to true, no output file will be written and entire Image will be held in memory.
