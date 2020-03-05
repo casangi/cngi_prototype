@@ -32,8 +32,13 @@ def chanaverage(xds, width=1):
     """
     import xarray
 
-    new_xds = xarray.Dataset(attrs=xds.attrs)
-    
+    # save names of coordinates, then reset them all to variables
+    coords = [cc for cc in list(xds.coords) if cc not in xds.dims]
+    xds = xds.reset_coords()
+
+    # use remaining non-chan coordinates and attributes to initialize new return xds
+    new_xds = xds[[cc for cc in list(xds.coords) if cc not in ['chan']]]
+
     # find all variables with chan dimension (vwcd)
     vwcds = [dv for dv in xds.data_vars if 'chan' in xds[dv].dims]
     
@@ -53,5 +58,8 @@ def chanaverage(xds, width=1):
                 xda = (xda.coarsen(chan=width, boundary='trim').sum() / width).astype(xds.data_vars[dv].dtype)
         
         new_xds = new_xds.assign(dict([(dv,xda)]))
-    
+
+    # return the appropriate variables to coordinates
+    new_xds = new_xds.set_coords(coords)
+
     return new_xds
