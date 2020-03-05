@@ -25,7 +25,7 @@ def moment(ds, **kwargs):
     ds : xarray.core.dataset.Dataset
         input Image
     axis : str, optional
-        specified axis along which to reduce for moment generation, Default='frequency'
+        specified axis along which to reduce for moment generation, Default='chan'
     code : int, optional
         number that selects which moment to calculate from the following list
 
@@ -70,7 +70,7 @@ def moment(ds, **kwargs):
     else:
         print("No axis specified."
               "Defaulting to reducing along frequency dimension")
-        axis = 'frequency'
+        axis = 'chan'
 
     if 'code' in kwargs.keys():
         code = int(kwargs['code'])
@@ -83,14 +83,14 @@ def moment(ds, **kwargs):
     if code == -1:
         new_ds = ds.mean(dim=axis, keep_attrs=True)
     if code == 0:
-        new_ds = xds.sum(dim='frequency', keep_attrs=True)
+        new_ds = xds.sum(dim='chan', keep_attrs=True)
     if code == 1:
-        new_ds = (ds.sum('frequency', keep_attrs=True) / 
+        new_ds = (ds.sum('chan', keep_attrs=True) /
                   ds.integrate(dim=axis, keep_attrs=True))
     if code == 8:
         new_ds = ds.max(dim=axis, keep_atrs=True)
     if code == 10:
-        new_ds = ds.reduce(func=min, dim='frequency', keepdims=True)
+        new_ds = ds.reduce(func=min, dim='chan', keepdims=True)
     else:
         raise NotImplementedError(f"Moment code={code} is not yet supported")
 

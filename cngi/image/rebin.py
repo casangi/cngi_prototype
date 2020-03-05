@@ -35,7 +35,7 @@ def rebin(ds, **kwargs):
     factor : int, optional
         scaling factor for binning, Default=1
     axis : str, optional
-        dataset dimension upon which to rebin, Default='frequency'
+        dataset dimension upon which to rebin, Default='chan'
     **kwargs
         Arbitrary keyword arguments
     
@@ -58,7 +58,7 @@ def rebin(ds, **kwargs):
             print("Requested axis not a dimension of input dataset.")
     else:
         print("Defaulting to rebinning dataset by frequency dimension")
-        axis = 'frequency'
+        axis = 'chan'
 
     # works best with threads
     try:

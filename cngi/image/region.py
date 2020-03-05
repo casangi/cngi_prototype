@@ -57,7 +57,7 @@ def region(xds, name='region1', ra=None, dec=None, pixels=None, pol=-1, channels
     pol = np.array(np.atleast_1d(pol), dtype=int)
     if pol[0] == -1: pol = list(range(len(xds['pol'])))
     channels = np.array(np.atleast_1d(channels), dtype=int)
-    if channels[0] == -1: channels = list(range(len(xds['frequency'])))
+    if channels[0] == -1: channels = list(range(len(xds['chan'])))
     
     # TBD: allow arbitrary pixels, not just rectangles
     #ind_x = xr.DataArray(list(pixels[:,0]), dims=['d0'])
@@ -85,7 +85,7 @@ def region(xds, name='region1', ra=None, dec=None, pixels=None, pol=-1, channels
     
     # apply polarization and channels selections
     region = region.where(xds.pol.isin(xds.pol[pol]), False)
-    region = region.where(xds.frequency.isin(xds.frequency[channels]), False)
+    region = region.where(xds.chan.isin(xds.chan[channels]), False)
     
     # assign region to a rest of image dataset
     xds = xds.assign(dict([(name,region)]))

@@ -73,7 +73,7 @@ def mask(xds, name='mask1', ra=None, dec=None, pixels=None, pol=-1, channels=-1)
     if pol[0] >= 0:
       mask = mask & xr.zeros_like(xds.image, dtype=bool).where(xds.pol.isin(xds.pol[pol]), True)
     if channels[0] >= 0:
-      mask = mask & xr.zeros_like(xds.image, dtype=bool).where(xds.frequency.isin(xds.frequency[channels]), True)
+      mask = mask & xr.zeros_like(xds.image, dtype=bool).where(xds.chan.isin(xds.chan[channels]), True)
 
     # assign region to a rest of image dataset
     xds = xds.assign(dict([(name, mask)]))

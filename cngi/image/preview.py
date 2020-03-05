@@ -60,16 +60,16 @@ def preview(xds, variable='image', region=None, pol=0, channels=0, tsize=250):
     
     # fast decimate to roughly the desired size
     if region is None:
-        txds = xds[variable][{'frequency':channels}].thin({'d0':thinf,
+        txds = xds[variable][{'chan':channels}].thin({'d0':thinf,
                                                            'd1':thinf,
                                                            'pol':1,
-                                                           'frequency':1})
+                                                           'chan':1})
     else:
-        txds = ((xds[variable][{'frequency':channels}] * 
-                 xds[region][{'frequency':channels}]).thin({'d0':thinf,
+        txds = ((xds[variable][{'chan':channels}] *
+                 xds[region][{'chan':channels}]).thin({'d0':thinf,
                                                             'd1':thinf,
                                                             'pol':1,
-                                                            'frequency':1}))
+                                                            'chan':1}))
     
     vmin, vmax = txds.values.min(), txds.values.max()
     xx, yy = 'd0', 'd1'
@@ -78,7 +78,7 @@ def preview(xds, variable='image', region=None, pol=0, channels=0, tsize=250):
     
     for ii,ch in enumerate(channels):
       # plot as a colormesh
-      ixds = txds[dict(pol=pol, frequency=ii)]
+      ixds = txds[dict(pol=pol, chan=ii)]
       im = ixds.plot.pcolormesh(ax=axes[ii//4,ii%4], x=xx, y=yy, add_colorbar=False,
                                 vmin=vmin, vmax=vmax, norm=colors.PowerNorm(1))
       axes[ii//4,ii%4].set_title(variable + ' (' + str(pol) + ', ' + str(ch) +')')
