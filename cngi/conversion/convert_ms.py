@@ -31,7 +31,7 @@ def convert_ms(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
         The blosc compressor to use when saving the converted data to disk using zarr.
         If None the zstd compression algorithm used with compression level 2.
     chunk_shape: 4-D tuple of ints
-        Shape of desired chunking in the form of (time, baseline, channel, polarization). Default is (100, 400, 20, 1)
+        Shape of desired chunking in the form of (time, baseline, channel, polarization), use -1 for entire axis in one chunk. Default is (100, 400, 20, 1)
         Note: chunk size is the product of the four numbers, and data is batch processed by time axis, so that will drive memory needed for conversion.
     nofile : bool
         Allows legacy MS to be directly read without file conversion. If set to true, no output file will be written and entire MS will be held in memory.
@@ -418,10 +418,12 @@ def convert_ms(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
         n_chan = len(aux_coords['chan_freq'][1])
         n_pol = len(aux_coords['corr_type'][1])
 
+        # overwrite chunk shape axis with -1 values
+        ddi_chunk_shape = [cs if cs > 0 else [n_time,n_baseline,n_chan,n_pol][ci] for ci,cs in enumerate(chunk_shape)]
         # if not writing to file, entire main table will be read in to memory at once
-        batchsize = n_time if nofile else chunk_shape[0]
+        batchsize = n_time if nofile else ddi_chunk_shape[0]
 
-        print('n_time:', n_time, '  n_baseline:', n_baseline, '  n_chan:', n_chan, '  n_pol:', n_pol, ' chunking: ', chunk_shape, ' batchsize: ', batchsize)
+        print('n_time:', n_time, '  n_baseline:', n_baseline, '  n_chan:', n_chan, '  n_pol:', n_pol, ' chunking: ', ddi_chunk_shape, ' batchsize: ', batchsize)
 
         coords = {'time': unique_times, 'baseline': np.arange(n_baseline), 'chan': aux_coords.pop('chan_freq')[1],
                   'pol': aux_coords.pop('corr_type')[1], 'uvw_index': np.array(['uu', 'vv', 'ww'])}
@@ -488,8 +490,8 @@ def convert_ms(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
                     fulldata[time_idxs[idx_range] - chunk[0], baseline_idxs[idx_range], :, :] = data
                     chunkdata[col] = xarray.DataArray(fulldata, dims=['time', 'baseline', 'chan', 'pol'])
 
-            x_dataset = xarray.Dataset(chunkdata, coords=coords).chunk({'time': chunk_shape[0], 'baseline': chunk_shape[1],
-                                                                        'chan': chunk_shape[2], 'pol': chunk_shape[3], 'uvw_index': None})
+            x_dataset = xarray.Dataset(chunkdata, coords=coords).chunk({'time': ddi_chunk_shape[0], 'baseline': ddi_chunk_shape[1],
+                                                                        'chan': ddi_chunk_shape[2], 'pol': ddi_chunk_shape[3], 'uvw_index': None})
 
             if (not nofile) and (cc == 0):
                 encoding = dict(zip(list(x_dataset.data_vars), cycle([{'compressor': compressor}])))
