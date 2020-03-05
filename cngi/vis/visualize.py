@@ -40,8 +40,8 @@ def visualize(xda, axis=None, tsize=250):
     fig, axes = plt.subplots(1,1)
 
     # fast decimate to roughly the desired size
-    thinf = int(np.ceil(np.max(xda.shape[0])/tsize))
-    txda = xda.thin(thinf)
+    thinf = np.ceil(np.array(xda.shape)/tsize)
+    txda = xda.thin(dict([(xda.dims[ii], int(thinf[ii])) for ii in range(len(thinf))]))
 
     # can't plot complex numbers, bools (sometimes), or strings
     if txda.dtype == 'complex128':
