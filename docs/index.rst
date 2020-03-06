@@ -12,4 +12,3 @@ CASA Next Generation Infrastructure
    vis
    images
    direct
-   gridding
