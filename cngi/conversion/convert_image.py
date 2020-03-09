@@ -156,13 +156,13 @@ def convert_image(infile, outfile=None, artifacts=None, compressor=None, chunk_s
     # partition by channel, read each image artifact for each channel
     dsize, chan_dim = meta['dsize'], meta['dims'].index('chan')
     pt1, pt2 = [-1 for _ in range(len(dsize))], [-1 for _ in range(len(dsize))]
-    if chunk_shape[3] <= 0: chunk_shape[3] = dsize[chan_dim]
-    chan_batch = dsize[chan_dim] if nofile else chunk_shape[3]
+    if chunk_shape[2] <= 0: chunk_shape[2] = dsize[chan_dim]
+    chan_batch = dsize[chan_dim] if nofile else chunk_shape[2]
     for chan in range(0, dsize[chan_dim], chan_batch):
         print('processing channel ' + str(chan + 1) + ' of ' + str(dsize[chan_dim]), end='\r')
         pt1[chan_dim], pt2[chan_dim] = chan, chan + chan_batch-1
         chunk_coords = dict(meta['coords'])  # only want one freq channel coord
-        chunk_coords['chan'] = np.arange(chan_batch) + chan
+        chunk_coords['chan'] = np.arange(chan, min(chan+chan_batch, dsize[chan_dim]))
         xdas = {}
         for imtype in imtypes:
             rc = IA.open(prefix + '.' + imtype)
@@ -171,25 +171,25 @@ def convert_image(infile, outfile=None, artifacts=None, compressor=None, chunk_s
             imchunk = IA.getchunk(pt1, pt2)
             if imtype == 'fits': imtype = 'image'
             if imtype == 'mask':
-                xdas['deconvolve'] = xa(imchunk.astype(bool), dims=meta['dims'])
+                xdas['DECONVOLVE'] = xa(imchunk.astype(bool), dims=meta['dims'])
             elif imtype == 'sumwt':
-                xdas[imtype] = xa(imchunk.reshape(imchunk.shape[2], 1), dims=['pol', 'chan'])
+                xdas[imtype.upper()] = xa(imchunk.reshape(imchunk.shape[2], 1), dims=['pol', 'chan'])
             else:
-                xdas[imtype] = xa(imchunk, dims=meta['dims'])
+                xdas[imtype.upper()] = xa(imchunk, dims=meta['dims'])
 
             # extract mask
             summary = IA.summary(list=False)
             if len(summary['masks']) > 0:
                 imchunk = IA.getchunk(pt1, pt2, getmask=True)
-                xdas['mask'] = xa(imchunk.astype(bool), dims=meta['dims'])
+                xdas['MASK'] = xa(imchunk.astype(bool), dims=meta['dims'])
 
             rc = IA.close()
 
-        chunking = dict([(meta['dims'][ii], chunk_shape[ii]) for ii in range(len(meta['dims'])) if chunk_shape[ii] > 0])
+        chunking = dict([(dd, chunk_shape[ii]) for ii,dd in enumerate(['d0','d1','chan','pol']) if chunk_shape[ii] > 0])
         xds = xd(xdas, coords=chunk_coords, attrs=meta['attrs']).chunk(chunking)
 
         # for everyone's sanity, lets make sure the dimensions are ordered the same way as visibility data
-        if ('pol' in xds.dims): xds = xds.transpose(xds.image.dims[0], xds.image.dims[1], 'chan', 'pol')
+        if ('pol' in xds.dims): xds = xds.transpose(xds.IMAGE.dims[0], xds.IMAGE.dims[1], 'chan', 'pol')
 
         if (chan == 0) and (not nofile):
             # xds = xd(xdas, coords=chunk_coords, attrs=nested_to_record(meta['attrs'], sep='_'))
