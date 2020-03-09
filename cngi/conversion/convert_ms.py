@@ -341,10 +341,10 @@ def convert_ms(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
             if ms_meta.isvarcol(col):
                 data = ms_meta.getvarcol(col)
                 data = [data['r' + str(kk)].tolist() if not isinstance(data['r' + str(kk)], bool) else [] for kk in np.arange(len(data)) + 1]
-                mattrs[other_tables[tt] + col] = data
+                mattrs[(other_tables[tt] + col).lower()] = data
             else:
                 data = ms_meta.getcol(col).transpose()
-                mattrs[other_tables[tt] + col] = data.tolist()
+                mattrs[(other_tables[tt] + col).lower()] = data.tolist()
         ms_meta.close()
 
     # write the global meta data to a separate global partition in the zarr output directory
@@ -393,7 +393,7 @@ def convert_ms(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
         ###################
         # build metadata structure from remaining spw-specific table fields
         aux_coords = {'time': unique_times, 'spw': np.array([spw_id]), 'antennas': (['baseline', 'pair'], unique_baselines)}
-        meta_attrs = {'DDI': ddi, 'AUTO_CORRELATIONS': int(np.any(ant1_col == ant2_col))}
+        meta_attrs = {'ddi': ddi, 'auto_correlations': int(np.any(ant1_col == ant2_col))}
         tb_tool_meta.open(os.path.join(infile, 'SPECTRAL_WINDOW'), nomodify=True, lockoptions={'option': 'usernoread'})
         for col in tb_tool_meta.colnames():
             try:
@@ -402,7 +402,7 @@ def convert_ms(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
                 if col in ['CHAN_FREQ', 'CHAN_WIDTH', 'EFFECTIVE_BW', 'RESOLUTION']:
                     aux_coords[col.lower()] = ('chan', tb_tool_meta.getcol(col, spw_id, 1)[:, 0])
                 else:
-                    meta_attrs[col] = tb_tool_meta.getcol(col, spw_id, 1).transpose()[0]
+                    meta_attrs[col.lower()] = tb_tool_meta.getcol(col, spw_id, 1).transpose()[0]
             except Exception:
                 print('WARNING : unable to process col %s of table %s' % (col, tables[-1]))
         tb_tool_meta.close()
