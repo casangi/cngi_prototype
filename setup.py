@@ -15,7 +15,7 @@ setup(
     license='Apache-2.0',
     packages=find_packages(),
     install_requires=['numpy==1.18.1',
-                      'numba==0.47.0',
+                      'numba==0.48.0',
                       'dask==2.10.0',
                       'bokeh==1.4.0',
                       'pandas>=0.25.2',

@@ -22,7 +22,6 @@ input / output, Visibility data operations, and Image data operations.
 - vis
 - image
 - direct
-- gridding
 
 ### Installation Requirements
 Conversion functions depend on casatools from [CASA 6](https://open-bitbucket.nrao.edu/projects/CASA/repos/casa6/browse) which is currently compatible with Python 3.6 only.  CASA 6 also requires FORTRAN libraries be installed in the OS.
