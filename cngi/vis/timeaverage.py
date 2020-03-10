@@ -67,10 +67,10 @@ def timeaverage(xds, width=1, timespan='state', timebin=None):
     for ss in ssds:
         xdas = {}
         for dv in ss.data_vars:
-            xda = ss.data_vars[dv].astype(xds[dv].dtype)
+            xda = ss.data_vars[dv]
 
             # apply time averaging to compatible variables
-            if (dv in vwtds) and (xda.dtype.type != np.str_):
+            if (dv in vwtds) and (xds[dv].dtype.type != np.str_):
                 if (dv == 'DATA') and ('SIGMA_SPECTRUM' in ss.data_vars):
                     xda = (ss.DATA / ss.SIGMA_SPECTRUM**2).coarsen(time=width, boundary='trim').sum()
                     xdas[dv] = xda * (ss.SIGMA_SPECTRUM**2).coarsen(time=width, boundary='trim').sum()
@@ -84,11 +84,11 @@ def timeaverage(xds, width=1, timespan='state', timebin=None):
                     xda = (ss.CORRECTED_DATA * ss.WEIGHT).coarsen(time=width, boundary='trim').sum()
                     xdas[dv] = xda / ss.WEIGHT.coarsen(time=width, boundary='trim').sum()
                 else:
-                    xdas[dv] = (xda.coarsen(time=width, boundary='trim').sum() / width).astype(ss.data_vars[dv].dtype)
+                    xdas[dv] = (xda.coarsen(time=width, boundary='trim').sum() / width)
 
             # decimate variables with string types
             elif dv in vwtds:
-                xdas[dv] = xda.thin(width)
+                xdas[dv] = xda.thin(width).astype(xds[dv].dtype)
 
         ndss += [xarray.Dataset(xdas)]
 
@@ -96,6 +96,11 @@ def timeaverage(xds, width=1, timespan='state', timebin=None):
     # then merge with a dataset of non-time dependent variables
     new_xds = xarray.concat(ndss, dim='time', coords='all')
     new_xds = xarray.merge([new_xds, xds[remaining]])
+
+    # merge/concat can change int/bool dtypes to float, so they need to be manually set back
+    for dv in new_xds.data_vars:
+        new_xds[dv] = new_xds[dv].astype(xds[dv].dtype)
+
     new_xds = new_xds.assign_attrs(xds.attrs)
     new_xds = new_xds.set_coords(coords)
 
