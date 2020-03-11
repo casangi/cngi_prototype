@@ -37,71 +37,56 @@ def timeaverage(xds, width=1, timespan='state', timebin=None):
     import xarray
     import numpy as np
 
-    # save names of coordinates, then reset them all to variables
-    coords = [cc for cc in list(xds.coords) if cc not in xds.dims]
-    xds = xds.reset_coords()
+    # function to be mapped out over time groups
+    def group_average(gxds):
 
-    # find all variables with time dimension (vwtd)
-    vwtds = [dv for dv in xds.data_vars if 'time' in xds[dv].dims]
+        # function to be mapped out over variables in a group
+        def var_average(xda):
+            if ('time' in xda.dims) and (xda.dtype.type != np.str_) and (xda.dtype.type != np.bool_):
+                xda = xda.coarsen(time=width, boundary='pad').sum() / width
+            elif 'time' in xda.dims:
+                xda = xda.coarsen(time=width, boundary='pad').max()
+            return xda
 
-    # find all remaining coordinates and variables without a time dimension
-    remaining = [dv for dv in list(xds.data_vars) + list(xds.coords) if 'time' not in xds[dv].dims]
+        nxds = gxds.map(var_average, keep_attrs=False)
 
-    # create list of single-span datasets from this parent dataset
-    ssds = []
+        if ('DATA' in gxds.data_vars) and ('SIGMA_SPECTRUM' in gxds.data_vars):
+            xda = (gxds.DATA * gxds.SIGMA_SPECTRUM ** 2).coarsen(time=width, boundary='pad').sum()
+            nxds['DATA'] = xda / (gxds.SIGMA_SPECTRUM ** 2).coarsen(time=width, boundary='pad').sum()
+        elif ('DATA' in gxds.data_vars) and ('SIGMA' in gxds.data_vars):
+            xda = (gxds.DATA * gxds.SIGMA ** 2).coarsen(time=width, boundary='pad').sum()
+            nxds['DATA'] = xda / (gxds.SIGMA ** 2).coarsen(time=width, boundary='pad').sum()
+
+        if ('CORRECTED_DATA' in gxds.data_vars) and ('WEIGHT_SPECTRUM' in gxds.data_vars):
+            xda = (gxds.CORRECTED_DATA * gxds.WEIGHT_SPECTRUM).coarsen(time=width, boundary='pad').sum()
+            nxds['CORRECTED_DATA'] = xda / gxds.WEIGHT_SPECTRUM.coarsen(time=width, boundary='pad').sum()
+        elif ('CORRECTED_DATA' in gxds.data_vars) and ('WEIGHT' in gxds.data_vars):
+            xda = (gxds.CORRECTED_DATA * gxds.WEIGHT).coarsen(time=width, boundary='pad').sum()
+            nxds['CORRECTED_DATA'] = xda / gxds.WEIGHT.coarsen(time=width, boundary='pad').sum()
+
+        return nxds
+    ########### end def group_average
+
+    # push time coords in to data_vars and remove non-time coords
+    time_coords = [cc for cc in list(xds.coords) if (cc not in xds.dims) and ('time' in xds[cc].dims)]
+    notime_coords = [cc for cc in list(xds.coords) if (cc not in xds.dims) and ('time' not in xds[cc].dims)]
+    nxds = xds.reset_coords(time_coords)
+    nxds = nxds.reset_coords(notime_coords, drop=True)
+
     if timespan == 'none':
-        scans = [xds.where(xds.scan == ss, drop=True) for ss in np.unique(xds.scan.values)]
-        for scan in scans:
-            ssds += [scan.where(scan.state == ss, drop=True) for ss in np.unique(scan.state.values)]
+        cgps = [group_average(nxds)]
     elif timespan == 'scan':  # span across scans by separating out states
-        ssds = [xds.where(xds.state == ss, drop=True) for ss in np.unique(xds.state.values)]
+        cgps = [group_average(gp[1]) for gp in nxds.groupby('state')]
     elif timespan == 'state':  # span across state by separating out scans
-        ssds = [xds.where(xds.scan == ss, drop=True) for ss in np.unique(xds.scan.values)]
+        cgps = [group_average(gp[1]) for gp in nxds.groupby('scan')]
     else:  # span across both
-        ssds = [xds]
+        cgps = [group_average(nxds)]
 
-    # loop over each single-span dataset and average within that span
-    # build up a list of new averaged single span datasets
-    # only time-dependent variables are included here, non-time variables will be added back later
-    ndss = []  # list of new datasets
-    for ss in ssds:
-        xdas = {}
-        for dv in ss.data_vars:
-            xda = ss.data_vars[dv]
+    txds = xarray.concat(cgps, dim='time')
+    txds = xarray.merge([xds[notime_coords], txds]).assign_attrs(xds.attrs).set_coords(time_coords)
 
-            # apply time averaging to compatible variables
-            if (dv in vwtds) and (xds[dv].dtype.type != np.str_):
-                if (dv == 'DATA') and ('SIGMA_SPECTRUM' in ss.data_vars):
-                    xda = (ss.DATA / ss.SIGMA_SPECTRUM**2).coarsen(time=width, boundary='trim').sum()
-                    xdas[dv] = xda * (ss.SIGMA_SPECTRUM**2).coarsen(time=width, boundary='trim').sum()
-                elif (dv == 'CORRECTED_DATA') and ('WEIGHT_SPECTRUM' in ss.data_vars):
-                    xda = (ss.CORRECTED_DATA * ss.WEIGHT_SPECTRUM).coarsen(time=width, boundary='trim').sum()
-                    xdas[dv] = xda / ss.WEIGHT_SPECTRUM.coarsen(time=width, boundary='trim').sum()
-                elif (dv == 'DATA') and ('SIGMA' in ss.data_vars):
-                    xda = (ss.DATA / ss.SIGMA**2).coarsen(time=width, boundary='trim').sum()
-                    xdas[dv] = xda * (ss.SIGMA**2).coarsen(time=width, boundary='trim').sum()
-                elif (dv == 'CORRECTED_DATA') and ('WEIGHT' in ss.data_vars):
-                    xda = (ss.CORRECTED_DATA * ss.WEIGHT).coarsen(time=width, boundary='trim').sum()
-                    xdas[dv] = xda / ss.WEIGHT.coarsen(time=width, boundary='trim').sum()
-                else:
-                    xdas[dv] = (xda.coarsen(time=width, boundary='trim').sum() / width)
+    # coarsen can change int/bool dtypes to float, so they need to be manually set back
+    for dv in txds.data_vars:
+        txds[dv] = txds[dv].astype(xds[dv].dtype)
 
-            # decimate variables with string types
-            elif dv in vwtds:
-                xdas[dv] = xda.thin(width).astype(xds[dv].dtype)
-
-        ndss += [xarray.Dataset(xdas)]
-
-    # concatenate back to a single dataset of all scans/states
-    # then merge with a dataset of non-time dependent variables
-    new_xds = xarray.concat(ndss, dim='time', coords='all')
-    new_xds = xarray.merge([new_xds, xds[remaining]])
-
-    # merge/concat can change int/bool dtypes to float, so they need to be manually set back
-    for dv in new_xds.data_vars:
-        new_xds[dv] = new_xds[dv].astype(xds[dv].dtype)
-
-    new_xds = new_xds.assign_attrs(xds.attrs)
-    new_xds = new_xds.set_coords(coords)
-
-    return new_xds
+    return txds
