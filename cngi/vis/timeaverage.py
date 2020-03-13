@@ -73,8 +73,8 @@ def timeaverage(xds, width=1, timespan='state', timebin=None):
     nxds = xds.reset_coords(time_coords)
     nxds = nxds.reset_coords(notime_coords, drop=True)
 
-    if timespan == 'none':
-        cgps = [group_average(nxds)]
+    if (timespan == 'none') or (timespan is None):
+        cgps = [group_average(sgp[1]) for gp in nxds.groupby('scan') for sgp in gp[1].groupby('state')]
     elif timespan == 'scan':  # span across scans by separating out states
         cgps = [group_average(gp[1]) for gp in nxds.groupby('state')]
     elif timespan == 'state':  # span across state by separating out scans
