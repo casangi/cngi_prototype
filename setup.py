@@ -26,12 +26,14 @@ setup(
                       'sparse==0.9.1'],
     extras_require={
         'dev': [
-            'pylint>=2.4.4'
-            #'black>=19.10.b0',
             'pytest>=5.3.5',
+            'black>=19.10.b0',
+            'flake8>=3.7.9',
+            'isort>=4.3.21',
+            's3fs>=0.4.0',
+            'pylint>=2.4.4',
             #'pytest-pep8',
             #'pytest-cov'
-            's3fs>=0.4.0',
         ]
     }
 
