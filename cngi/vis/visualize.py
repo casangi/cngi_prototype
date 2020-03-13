@@ -13,7 +13,7 @@
 #   limitations under the License.
 
 
-def visualize(xda, axis=None, overplot=False, tsize=250):
+def visualize(xda, axis=None, overplot=False, drawplot=True, tsize=250):
     """
     Plot a preview of any xarray DataArray contents
 
@@ -25,6 +25,9 @@ def visualize(xda, axis=None, overplot=False, tsize=250):
         DataArray coordinate(s) to plot against data. Default None uses range
     overplot : bool
         Overlay new plot on to existing window. Default of False makes a new window for each plot
+    drawplot : bool
+        Display plot window. Should pretty much always be True unless you want to overlay things
+        in a Jupyter notebook.
     tsize : int
         target size of the preview plot (might be smaller). Default is 250 points per axis
 
@@ -80,4 +83,5 @@ def visualize(xda, axis=None, overplot=False, tsize=250):
         txda.plot.pcolormesh(ax=axes, x=axis[0], y=axis[1])
         plt.title(txda.name + ' ' + axis[1] + ' vs ' + axis[0])
 
-    plt.show()
+    if drawplot:
+        plt.show()
