@@ -16,7 +16,7 @@
 ################################################
 def timeaverage(xds, width=1, timespan='state', timebin=None):
     """
-    Average data across time axis
+    Average data across the time axis
 
     Parameters
     ----------
