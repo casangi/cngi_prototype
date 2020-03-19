@@ -1,7 +1,7 @@
 #__init__.py
 from .applyflags import *
 from .chanaverage import *
-from .hanningsmooth import *
+from .chansmooth import *
 from .joinspw import *
 from .recalculateuvw import *
 from .regridspw import *
