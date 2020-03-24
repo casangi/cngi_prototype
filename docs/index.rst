@@ -1,11 +1,6 @@
 CASA Next Generation Infrastructure
 ===================================
 
-.. mdinclude:: README.md
-
-Table of Contents
-=================
-
 .. toctree::
    :maxdepth: 3
 
