@@ -13,7 +13,7 @@
 #   limitations under the License.
 
 
-def preview(xds, variable='image', region=None, pol=0, channels=0, tsize=250):
+def preview(xds, variable='IMAGE', region=None, pol=0, channels=0, tsize=250):
     """
     Preview the selected image component
     
