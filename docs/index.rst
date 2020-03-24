@@ -1,14 +1,19 @@
 CASA Next Generation Infrastructure
 ===================================
 
-.. mdinclude:: ../README.md
+.. mdinclude:: README.md
+
+Table of Contents
+=================
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 3
 
-   readme
-   conversion
-   dio
-   vis
+   README
+   visibilities
    images
-   direct
+   api
+   verification
+   development
+   help
+   about

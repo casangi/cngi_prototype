@@ -39,6 +39,7 @@ release = u'0.1b'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    'nbsphinx',
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
     'sphinx.ext.todo',
@@ -53,6 +54,7 @@ extensions = [
 todo_include_todos = True
 add_module_names = False
 numpy_show_class_members = False
+nbsphinx_codecell_lexer = 'python3'
 
 # Napoleon settings
 #napoleon_google_docstring = True
@@ -91,7 +93,7 @@ language = None
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = [u'_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ['build', 'Thumbs.db', '.DS_Store']
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'
@@ -104,11 +106,18 @@ pygments_style = 'sphinx'
 #
 html_theme = 'sphinx_rtd_theme'
 
+html_logo = 'casa_logo-small.png'
+
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
-# html_theme_options = {}
+html_theme_options = {
+    'collapse_navigation': True,
+    'navigation_depth': 3,
+    'style_nav_header_background': 'white',
+    'logo_only': True
+}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -157,7 +166,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'CASANextGenerationInfrastructure.tex', u'CASA Next Generation Infrastructure Documentation',
-     u'Ryan Raba', 'manual'),
+     u'National Radio Astronomy Observatory', 'manual'),
 ]
 
 
@@ -211,3 +220,5 @@ epub_exclude_files = ['search.html']
 #autodoc_default_flags = ['members', 'inherited-members']
 
 
+def setup(app):
+    app.add_css_file('customization.css')

@@ -14,6 +14,7 @@ docutils==0.15.2
 fsspec==0.6.2
 graphviz==0.13.2
 HeapDict==1.0.1
+ipykernel==5.2.0
 idna==2.8
 imagesize==1.1.0
 Jinja2==2.10.3
@@ -22,10 +23,12 @@ m2r==0.2.1
 MarkupSafe==1.1.1
 matplotlib==3.1.2
 msgpack==0.6.2
+nbsphinx==0.5.1
 numba==0.48.0
 numpy==1.18.1
 packaging==19.2
 pandas==0.25.3
+pandoc==1.0.2
 Pillow==6.2.1
 psutil==5.7.0
 Pygments==2.4.2

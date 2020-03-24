@@ -1,11 +1,11 @@
 from setuptools import setup, find_packages
 
-with open('README.md', "r") as fid:   #encoding='utf-8'
+with open('docs/README.md', "r") as fid:   #encoding='utf-8'
     long_description = fid.read()
 
 setup(
     name='cngi_prototype',
-    version='0.0.40',
+    version='0.0.41',
     description='CASA Next Generation Infrastructure Prototype',
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -17,6 +17,7 @@ setup(
     install_requires=['numpy>=1.18.1',
                       'numba>=0.48.0',
                       'dask>=2.12.0',
+                      'distributed>=2.9.3',
                       'bokeh>=1.4.0',
                       'pandas>=0.25.2',
                       'xarray>=0.15.0',
