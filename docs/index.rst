@@ -4,7 +4,7 @@ CASA Next Generation Infrastructure
 .. toctree::
    :maxdepth: 3
 
-   README
+   readme
    visibilities
    images
    api

@@ -1,11 +1,11 @@
 from setuptools import setup, find_packages
 
-with open('docs/README.md', "r") as fid:   #encoding='utf-8'
+with open('README.md', "r") as fid:   #encoding='utf-8'
     long_description = fid.read()
 
 setup(
     name='cngi_prototype',
-    version='0.0.41',
+    version='0.0.42',
     description='CASA Next Generation Infrastructure Prototype',
     long_description=long_description,
     long_description_content_type="text/markdown",
