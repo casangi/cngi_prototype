@@ -23,19 +23,16 @@ def chansmooth(xds, type='triang', size=3, gain=1.0, window=None):
     xds : xarray.core.dataset.Dataset
         input Visibility Dataset
     type : str or tuple
-        type of window function to use: 'rectangle', 'triang', 'hann' etc. Default is 'triang'.
-        
-        scipy.signal is used to generate the window weights, refer to
-        https://docs.scipy.org/doc/scipy/reference/signal.windows.html#module-scipy.signal.windows for a complete list
-        of supported windows.
-        
-        If your window choice requires additional parameters, use a tuple. example: ('exponential', None, 0.6)
+        type of window function to use: 'rectangle', 'triang', 'hann' etc. Default is 'triang'.  Scipy.signal is used to generate the
+        window weights, refer to https://docs.scipy.org/doc/scipy/reference/signal.windows.html#module-scipy.signal.windows for a
+        complete list of supported windows. If your window choice requires additional parameters, use a tuple e.g. ('exponential', None, 0.6)
     size : int
         width of window (# of channels). Default is 3
     gain : float
         gain factor after convolution. Used to set weights. Default is unity gain (1.0)
     window : list of floats
         user defined window weights to apply (all other options ignored if this is supplied). Default is None
+        
     Returns
     -------
     xarray.core.dataset.Dataset
