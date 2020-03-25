@@ -42,11 +42,9 @@ def preview(xds, variable='IMAGE', region=None, pol=0, channels=0, tsize=250):
     import matplotlib.pyplot as plt
     from matplotlib import colors
     import numpy as np
-    # try:
-    #     import xrscipy
-    # except ImportError as e:
-    #     print(e)
-
+    import warnings
+    warnings.simplefilter("ignore", category=RuntimeWarning)  # suppress warnings about nan-slices
+    
     #plt.clf()
     channels = np.atleast_1d(channels)
     rows, cols = [int(np.ceil(len(channels)/4.0)), min(len(channels),4)]
