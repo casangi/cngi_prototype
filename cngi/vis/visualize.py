@@ -39,6 +39,8 @@ def visualize(xda, axis=None, overplot=False, drawplot=True, tsize=250):
     import xarray
     import numpy as np
     import dask.array as da
+    import warnings
+    warnings.simplefilter("ignore", category=RuntimeWarning)  # suppress warnings about nan-slices
     from pandas.plotting import register_matplotlib_converters
     register_matplotlib_converters()
 
