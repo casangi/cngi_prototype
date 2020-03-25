@@ -45,14 +45,14 @@ def convert_image(infile, outfile=None, artifacts=None, compressor=None, chunk_s
     """
     from casatools import image as ia
     import numpy as np
-    import os
-    import time
     from itertools import cycle
     from pandas.io.json._normalize import nested_to_record
     import xarray
     from xarray import Dataset as xd
     from xarray import DataArray as xa
     from numcodecs import Blosc
+    import time, os, warnings
+    warnings.simplefilter("ignore", category=FutureWarning)  # suppress noisy warnings about bool types
 
     print("converting Image...")
 
