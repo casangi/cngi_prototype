@@ -83,7 +83,7 @@ def timeaverage(xds, width=1, timespan='state', timebin=None):
         cgps = [group_average(nxds)]
 
     txds = xarray.concat(cgps, dim='time')
-    txds = xarray.merge([xds[notime_coords], txds]).assign_attrs(xds.attrs).set_coords(time_coords)
+    txds = xarray.merge([xds[[cc for cc in list(xds.coords) if 'time' not in xds[cc].dims]], txds]).assign_attrs(xds.attrs).set_coords(time_coords)
 
     # coarsen can change int/bool dtypes to float, so they need to be manually set back
     for dv in txds.data_vars:
