@@ -351,7 +351,7 @@ def convert_ms(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
     mxds = xarray.Dataset(mvars, coords=mcoords, attrs=mattrs)
     if not nofile:
         print('writing global partition')
-        mxds.to_zarr(outfile + '/global', mode='w')
+        mxds.to_zarr(outfile + '/global', mode='w', consolidated=True)
 
     xds_list += [mxds]  # first item returned is always the global metadata
     print('meta data processing time ', time.time() - start)
