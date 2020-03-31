@@ -23,7 +23,7 @@ def chansmooth(xds, type='triang', size=3, gain=1.0, window=None):
     xds : xarray.core.dataset.Dataset
         input Visibility Dataset
     type : str or tuple
-        type of window function to use: 'rectangle', 'triang', 'hann' etc. Default is 'triang'.  Scipy.signal is used to generate the
+        type of window function to use: 'boxcar', 'triang', 'hann' etc. Default is 'triang'.  Scipy.signal is used to generate the
         window weights, refer to https://docs.scipy.org/doc/scipy/reference/signal.windows.html#module-scipy.signal.windows for a
         complete list of supported windows. If your window choice requires additional parameters, use a tuple e.g. ('exponential', None, 0.6)
     size : int
@@ -43,13 +43,12 @@ def chansmooth(xds, type='triang', size=3, gain=1.0, window=None):
     from scipy.signal import get_window
     
     if window is None:
-        if (type is None) or (type == 'rectangle'):
-            window = xarray.DataArray(gain / size*np.ones(size))
-        else:
-            window = xarray.DataArray(gain * get_window(type, size, False) / (np.sum(get_window(type, size, False))), dims=['window'])
+        window = gain * get_window(type, size, False) / (np.sum(get_window(type, size, False)))
     else:
         window = np.atleast_1d(window)
         
+    window = xarray.DataArray(window, dims=['window'])
+    
     # save names of coordinates, then reset them all to variables
     coords = [cc for cc in list(xds.coords) if cc not in xds.dims]
     new_xds = xds.reset_coords()
