@@ -13,9 +13,9 @@
 #   limitations under the License.
 
 
-def visualize(xda, axis=None, overplot=False, drawplot=True, tsize=250):
+def visplot(xda, axis=None, overplot=False, drawplot=True, tsize=250):
     """
-    Plot a preview of any xarray DataArray contents
+    Plot a preview of Visibility xarray DataArray contents
 
     Parameters
     ----------
@@ -63,7 +63,7 @@ def visualize(xda, axis=None, overplot=False, drawplot=True, tsize=250):
 
     # default pcolormesh plot axes
     if (txda.ndim > 1) and (axis is None):
-        axis = np.array(txda.dims[:2])
+        axis = list(txda.dims[:2])
         if 'chan' in txda.dims: axis[-1] = 'chan'
 
     # collapse data to 1-D or 2-D

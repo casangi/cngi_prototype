@@ -15,6 +15,9 @@
 ########################
 def moment(ds, **kwargs):
     """
+    .. todo::
+        This function is not yet implemented
+    
     Collapse an n-dimensional image cube into a moment by taking a linear combination of individual planes
     
     .. note::

@@ -8,4 +8,4 @@ from .regridspw import *
 from .timeaverage import *
 from .uvcontsub import *
 from .uvmodelfit import *
-from .visualize import *
+from .visplot import *

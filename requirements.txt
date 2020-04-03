@@ -6,7 +6,7 @@ certifi==2019.9.11
 chardet==3.0.4
 Click==7.0
 cloudpickle==1.2.2
-dask==2.12.0
+dask==2.13.0
 dask-gateway==0.6.1
 datashader==0.10.0
 distributed==2.9.3

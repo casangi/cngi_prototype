@@ -121,7 +121,7 @@ def convert_image(infile, outfile=None, artifacts=None, compressor=None, chunk_s
             tm['dims'] = [coord_names[di] if di in cart_dims else 'd' + str(di) for di in range(len(ims))]
 
             # store rest of image meta data as attributes
-            omits = ['axisnames', 'incr', 'hasmask', 'masks', 'defaultmask', 'ndim', 'refpix', 'refval', 'shape',
+            omits = ['axisnames', 'hasmask', 'masks', 'defaultmask', 'ndim', 'refpix', 'refval', 'shape',
                      'tileshape', 'messages']
             nested = [kk for kk in summary.keys() if isinstance(summary[kk], dict)]
             tm['attrs'] = dict([(kk.lower(), summary[kk]) for kk in summary.keys() if kk not in omits + nested])
@@ -162,7 +162,7 @@ def convert_image(infile, outfile=None, artifacts=None, compressor=None, chunk_s
         print('processing channel ' + str(chan + 1) + ' of ' + str(dsize[chan_dim]), end='\r')
         pt1[chan_dim], pt2[chan_dim] = chan, chan + chan_batch-1
         chunk_coords = dict(meta['coords'])  # only want one freq channel coord
-        chunk_coords['chan'] = np.arange(chan, min(chan+chan_batch, dsize[chan_dim]))
+        chunk_coords['chan'] = coords['chan'][np.arange(chan, min(chan+chan_batch, dsize[chan_dim]))]
         xdas = {}
         for imtype in imtypes:
             rc = IA.open(prefix + '.' + imtype)
