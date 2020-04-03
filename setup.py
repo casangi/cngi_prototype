@@ -5,7 +5,7 @@ with open('README.md', "r") as fid:   #encoding='utf-8'
 
 setup(
     name='cngi_prototype',
-    version='0.0.44',
+    version='0.0.45',
     description='CASA Next Generation Infrastructure Prototype',
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -15,7 +15,6 @@ setup(
     license='Apache-2.0',
     packages=find_packages(),
     install_requires=['numpy>=1.18.1',
-                      'numba>=0.48.0',
                       'dask>=2.13.0',
                       'distributed>=2.9.3',
                       'bokeh>=1.4.0',

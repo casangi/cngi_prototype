@@ -42,6 +42,8 @@ def visplot(xda, axis=None, chans=None, pols=None, overplot=False, drawplot=True
     import matplotlib.pyplot as plt
     import xarray
     import numpy as np
+    import warnings
+    warnings.simplefilter("ignore", category=RuntimeWarning)  # suppress warnings about nan-slices
     from pandas.plotting import register_matplotlib_converters
     register_matplotlib_converters()
 

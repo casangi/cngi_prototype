@@ -13,7 +13,7 @@
 #   limitations under the License.
 
 
-def implot(xda, axis=['right_ascension', 'declination'], chans=None, pols=None, overplot=False, drawplot=True, tsize=250):
+def implot(xda, axis=['d0', 'd1'], chans=None, pols=None, overplot=False, drawplot=True, tsize=250):
     """
     Plot a preview of Image xarray DataArray contents
     
@@ -22,7 +22,7 @@ def implot(xda, axis=['right_ascension', 'declination'], chans=None, pols=None, 
     xda : xarray.core.dataarray.DataArray
         input DataArray
     axis : str or list
-        DataArray coordinate(s) to plot against data. Default None uses range. All other coordinates will be averaged
+        DataArray coordinate(s) to plot against data. Default ['d0', 'd1']. All other coordinates will be averaged
     chans = int or list of ints
         channel axis indices to select prior to averaging
     pols = int or list of ints
@@ -42,6 +42,8 @@ def implot(xda, axis=['right_ascension', 'declination'], chans=None, pols=None, 
     import matplotlib.pyplot as plt
     import xarray
     import numpy as np
+    import warnings
+    warnings.simplefilter("ignore", category=RuntimeWarning)  # suppress warnings about nan-slices
     from pandas.plotting import register_matplotlib_converters
     register_matplotlib_converters()
     
