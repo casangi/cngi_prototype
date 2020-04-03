@@ -13,7 +13,7 @@
 #   limitations under the License.
 
 
-def visplot(xda, axis=None, overplot=False, drawplot=True, tsize=250):
+def visplot(xda, axis=None, chans=None, pols=None, overplot=False, drawplot=True, tsize=250):
     """
     Plot a preview of Visibility xarray DataArray contents
 
@@ -22,7 +22,11 @@ def visplot(xda, axis=None, overplot=False, drawplot=True, tsize=250):
     xda : xarray.core.dataarray.DataArray
         input DataArray
     axis : str or list
-        DataArray coordinate(s) to plot against data. Default None uses range
+        DataArray coordinate(s) to plot against data. Default None uses range. All other coordinates will be averaged
+    chans = int or list of ints
+        channel axis indices to select prior to averaging
+    pols = int or list of ints
+        polarization axis indices to select prior to averaging
     overplot : bool
         Overlay new plot on to existing window. Default of False makes a new window for each plot
     drawplot : bool
@@ -30,7 +34,7 @@ def visplot(xda, axis=None, overplot=False, drawplot=True, tsize=250):
         in a Jupyter notebook.
     tsize : int
         target size of the preview plot (might be smaller). Default is 250 points per axis
-
+    
     Returns
     -------
       Open matplotlib window
@@ -38,52 +42,58 @@ def visplot(xda, axis=None, overplot=False, drawplot=True, tsize=250):
     import matplotlib.pyplot as plt
     import xarray
     import numpy as np
-    import dask.array as da
-    import warnings
-    warnings.simplefilter("ignore", category=RuntimeWarning)  # suppress warnings about nan-slices
     from pandas.plotting import register_matplotlib_converters
     register_matplotlib_converters()
 
     if overplot:
         axes = None
     else:
-        fig, axes = plt.subplots(1,1)
+        fig, axes = plt.subplots(1, 1)
+
+    axis = np.atleast_1d(axis)
+    if chans is not None:
+        xda = xda.isel(chan=chans)
+    if pols is not None:
+        xda = xda.isel(pol=pols)
 
     # fast decimate to roughly the desired size
-    thinf = np.ceil(np.array(xda.shape)/tsize)
+    thinf = np.ceil(np.array(xda.shape) / tsize)
     txda = xda.thin(dict([(xda.dims[ii], int(thinf[ii])) for ii in range(len(thinf))]))
 
     # can't plot complex numbers, bools (sometimes), or strings
     if txda.dtype == 'complex128':
-        txda = da.absolute(txda)
+        txda = (txda.real ** 2 + txda.imag ** 2) ** 0.5
     elif txda.dtype == 'bool':
         txda = txda.astype(int)
     elif txda.dtype.type is np.str_:
         txda = xarray.DataArray(np.unique(txda, return_inverse=True)[1], dims=txda.dims, coords=txda.coords, name=txda.name)
 
-    # default pcolormesh plot axes
-    if (txda.ndim > 1) and (axis is None):
-        axis = list(txda.dims[:2])
-        if 'chan' in txda.dims: axis[-1] = 'chan'
+    # no axis - plot against range of data
+    # collapse all but first dimension
+    if axis[0] is None:
+        collapse = [ii for ii in range(1, txda.ndim)]
+        if len(collapse) > 0: txda = txda.max(axis=collapse)
+        txda[txda.dims[0]] = np.arange(txda.shape[0])
+        txda.plot.line(ax=axes, marker='.', linewidth=0.0)
 
-    # collapse data to 1-D or 2-D
-    if axis is not None:
-        axis = np.atleast_1d(axis)
-        if txda.ndim > 1:
-            txda = txda.max(dim=[dd for dd in txda.dims if dd not in axis])
-    
-    # different types of plots depending on shape and parameters
-    if (txda.ndim == 1) and (axis is None):
-        dname = txda.name if txda.name is not None else 'value'
-        pxda = xarray.DataArray(np.arange(len(txda)), dims=[dname], coords={dname:txda.values})
-        pxda.plot.line(ax=axes, y=pxda.dims[0], marker='.', linewidth=0.0)
-        plt.title(dname)
-    elif (txda.ndim == 1):
+    # single axis, coord ndim is 1
+    elif (len(axis) == 1) and (txda[axis[0]].ndim == 1):
+        collapse = [ii for ii in range(txda.ndim) if txda.dims[ii] not in txda[axis[0]].dims]
+        if len(collapse) > 0: txda = txda.max(axis=collapse)
         txda.plot.line(ax=axes, x=axis[0], marker='.', linewidth=0.0)
-        if txda.name is not None: plt.title(txda.name + ' vs ' + axis[0])
-    else:  # more than 1-D
-        txda.plot.pcolormesh(ax=axes, x=axis[0], y=axis[1])
-        plt.title(txda.name + ' ' + axis[1] + ' vs ' + axis[0])
 
+    # single axis, coord ndim is 2
+    elif (len(axis) == 1) and (txda[axis[0]].ndim == 2):
+        collapse = [ii for ii in range(txda.ndim) if txda.dims[ii] not in txda[axis[0]].dims]
+        if len(collapse) > 0: txda = txda.max(axis=collapse)
+        txda.plot.pcolormesh(ax=axes, x=axis[0], y=txda.dims[0])
+
+    # two axes
+    elif (len(axis) == 2):
+        collapse = [ii for ii in range(txda.ndim) if txda.dims[ii] not in (txda[axis[0]].dims + txda[axis[1]].dims)]
+        if len(collapse) > 0: txda = txda.max(axis=collapse)
+        txda.plot.pcolormesh(ax=axes, x=axis[0], y=axis[1])
+
+    plt.title(txda.name)
     if drawplot:
         plt.show()
