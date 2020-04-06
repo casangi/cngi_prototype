@@ -65,7 +65,7 @@ def smooth(xds, dv='IMAGE', kernel='gaussian', size=(1., 1., 30.), ktype='target
     if da_beam.ndim < 4: da_beam = da_beam[:,:,:,None]
     beam_norm = da.sum(da_beam, axis=[0,1])
     beam = beam * scale
-    ft_beam = da.absolute(da.fft.fft2(da_beam*scale, axes=[0, 1]) / beam_norm)
+    ft_beam = da.fft.fft2(da_beam*scale, axes=[0, 1]) / beam_norm
 
     # compute the correcting beam if necessary
     if (kernel not in xds.data_vars) and (ktype == 'target') and (current is not None):
@@ -74,18 +74,17 @@ def smooth(xds, dv='IMAGE', kernel='gaussian', size=(1., 1., 30.), ktype='target
         if da_beam_curr.ndim < 4: da_beam_curr = da_beam_curr[:, :, :, None]
         beam_curr_norm = da.sum(da_beam_curr, axis=[0, 1])
         ft_beam_curr = da.fft.fft2(da_beam_curr, axes=[0, 1]) / beam_curr_norm
-        # zero out noise - this throws an expected runtime warning for divide by zero
-        ft_beam = da.absolute(ft_beam).astype(np.float16).astype(np.float64)
-        ft_beam_curr = da.absolute(ft_beam_curr).astype(np.float16).astype(np.float64)
-        ft_beam = da.nan_to_num(ft_beam / ft_beam_curr)
+        ft_beam = ft_beam / ft_beam_curr
         beam = da.absolute(da.fft.fftshift(da.fft.ifft2(ft_beam, axes=[0,1]), axes=[0,1]))
         beam = xarray.DataArray(beam, dims=[xds[dv].dims[dd] for dd in range(beam.ndim)], name=name)
     
     # FFT the image, multiply by the kernel beam FFT, then inverse FFT it back
     xda_image = da.from_array(xds[dv], chunks=(-1,-1,1,1))
-    ft_image = da.absolute(da.fft.fft2(xda_image, axes=[0, 1])) #/ da.sum(xda_image, axis=[0,1])
+    ft_image = da.fft.fft2(xda_image, axes=[0, 1])
     ft_smooth = ft_image * ft_beam
-    ift_smooth = da.fft.fftshift(da.fft.ifft2(ft_smooth, axes=[0,1]), axes=[0,1])
+    ift_smooth = da.fft.ifft2(ft_smooth, axes=[0,1])
+    if (kernel in xds.data_vars) or (ktype == 'correcting') or (current is None):
+        ift_smooth = da.fft.fftshift(ift_smooth, axes=[0,1])
     
     # store the smooth image and kernel beam back in the xds
     xda_smooth = xarray.DataArray(da.absolute(ift_smooth), dims=xds[dv].dims, coords=xds[dv].coords)
