@@ -40,8 +40,8 @@ def gaussianbeam(xds, source='perplanebeams', scale=1.0, name='BEAM'):
     
     # build beam from specified shape
     if type(source) is tuple:
-        beam = chb.synthesizedbeam(source[0], source[1], source[2], len(xds.d0), len(xds.d1), xds.incr[:2])
-        beam_xda = xarray.DataArray(da.from_array(beam), dims=['d0', 'd1'], name=name)*scale
+        beam = scale * chb.synthesizedbeam(source[0], source[1], source[2], len(xds.d0), len(xds.d1), xds.incr[:2])[0]
+        beam_xda = xarray.DataArray(da.from_array(beam), dims=['d0', 'd1'], name=name)
         
     # otherwise put it together from attributes section
     else:
@@ -68,7 +68,7 @@ def gaussianbeam(xds, source='perplanebeams', scale=1.0, name='BEAM'):
                 np_beam = scale*chb.synthesizedbeam(beam['major.value'],
                                                     beam['minor.value'],
                                                     beam['positionangle.value'],
-                                                    len(xds.d0), len(xds.d1), xds.incr[:2])[:,:,None,None]
+                                                    len(xds.d0), len(xds.d1), xds.incr[:2])[0][:,:,None,None]
                 
                 da_beam = da.from_array(np_beam, chunks=[xds.chunks['d0'][0], xds.chunks['d1'][0], xds.chunks['chan'][0], xds.chunks['pol'][0]])
                 pol_list += [xarray.DataArray(da_beam, dims=['d0','d1','chan','pol']).assign_coords(

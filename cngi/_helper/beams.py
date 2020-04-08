@@ -38,6 +38,6 @@ def synthesizedbeam(d1, d2, theta, x_dim, y_dim, incr):
     
     f_xy = np.exp(-((alpha * xy[:,0]**2) + (beta*xy[:,1]*xy[:,0]) + (gamma * xy[:,1]**2)))
     f_xy = f_xy.reshape(x_dim, y_dim)
-    return f_xy
+    return f_xy, np.array([alpha, beta, gamma])
 
 
