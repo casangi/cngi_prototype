@@ -5,6 +5,8 @@ A project to replace the MeasurementSet and Image data manipulation and processi
 infrastructure of CASA with a parallel, scalable, and largely off-the-shelf solution.
 
 .. image:: casa_logo.png
+   :width: 250px
+   :align: center
 
 
 Table of Contents
@@ -16,7 +18,7 @@ Table of Contents
    visibilities
    images
    units
-   externel
+   external
    api
    verification
    development
