@@ -8,9 +8,9 @@ description will be populated.
 .. toctree::
    :maxdepth: 1
 
-   api-conversion
-   api-dio
-   api-vis
-   api-images
-   api-direct
+   _api/conversion
+   _api/dio
+   _api/vis
+   _api/images
+   _api/direct
 

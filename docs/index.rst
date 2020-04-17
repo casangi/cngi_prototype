@@ -6,18 +6,16 @@ infrastructure of CASA with a parallel, scalable, and largely off-the-shelf solu
 
 .. image:: casa_logo.png
    :width: 250px
-   :align: center
+   :align: left
 
-
-Table of Contents
-=================
 .. toctree::
+   :hidden:
    :maxdepth: 3
 
    readme
    visibilities
    images
-   units
+   coordinates
    external
    api
    verification
