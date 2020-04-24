@@ -501,7 +501,8 @@ def convert_ms(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
 
         # Add non dimensional auxiliary coordinates and attributes
         aux_coords.update({'time': unique_times})
-        aux_dataset = xarray.Dataset(coords=aux_coords, attrs=meta_attrs)
+        aux_dataset = xarray.Dataset(coords=aux_coords, attrs=meta_attrs).chunk({'time': chunk_shape[0], 'baseline': chunk_shape[1],
+                                                                                 'chan': chunk_shape[2], 'pol': chunk_shape[3]})
         if nofile:
             x_dataset = xarray.merge([x_dataset, aux_dataset]).assign_attrs(meta_attrs) # merge seems to drop attrs
         else:
