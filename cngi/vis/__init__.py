@@ -6,6 +6,6 @@ from .joinspw import *
 from .recalculateuvw import *
 from .regridspw import *
 from .timeaverage import *
-from .uvcontsub import *
+from .uvcontfit import *
 from .uvmodelfit import *
 from .visplot import *

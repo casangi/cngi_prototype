@@ -24,6 +24,7 @@ setup(
                       'numcodecs>=0.6.4',
                       'matplotlib>=3.1.2',
                       'scipy>=1.4.1',
+                      'scikit-learn>=0.22.2',
                       'sparse>=0.9.1',
                       'toolz>=0.10.0'],
     extras_require={
