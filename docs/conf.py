@@ -142,6 +142,7 @@ htmlhelp_basename = 'CASANextGenerationInfrastructuredoc'
 
 
 # -- Options for LaTeX output ------------------------------------------------
+latex_engine = 'pdflatex'
 
 latex_elements = {
     # The paper size ('letterpaper' or 'a4paper').
@@ -159,7 +160,11 @@ latex_elements = {
     # Latex figure (float) alignment
     #
     # 'figure_align': 'htbp',
+    'extraclassoptions': 'openany,oneside',
+    'sphinxsetup': 'hmargin={0.5in,0.5in}, vmargin={0.7in,0.7in}'
 }
+
+latex_logo = 'casa_logo-small.png'
 
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title,
