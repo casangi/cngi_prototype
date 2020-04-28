@@ -160,8 +160,8 @@ latex_elements = {
     # Latex figure (float) alignment
     #
     # 'figure_align': 'htbp',
-    'extraclassoptions': 'openany,oneside',
-    'sphinxsetup': 'hmargin={0.5in,0.5in}, vmargin={0.7in,0.7in}'
+    'extraclassoptions': 'openany,oneside'
+    #'sphinxsetup': 'hmargin={0.5in,0.5in}, vmargin={0.7in,0.7in}'
 }
 
 latex_logo = 'casa_logo-small.png'
