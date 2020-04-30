@@ -125,7 +125,7 @@ def convert_image(infile, outfile=None, artifacts=None, compressor=None, chunk_s
                      'tileshape', 'messages', 'perplanebeams']
             nested = [kk for kk in summary.keys() if isinstance(summary[kk], dict)]
             tm['attrs'] = dict([(kk.lower(), summary[kk]) for kk in summary.keys() if kk not in omits + nested])
-            tm['attrs'].update(dict([(kk, list(nested_to_record(summary[kk], sep='.').items())) for kk in nested]))
+            tm['attrs'].update(dict([(kk, list(nested_to_record(summary[kk], sep='.').items())) for kk in nested if kk not in omits]))
             
             # check for common and restoring beams
             rb = IA.restoringbeam()
