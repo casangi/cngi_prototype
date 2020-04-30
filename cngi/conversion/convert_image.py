@@ -82,12 +82,12 @@ def convert_image(infile, outfile=None, artifacts=None, compressor=None, chunk_s
     # all image artifacts will go in same zarr file and share common dimensions if possible
     # check for meta data compatibility
     # store necessary coordinate conversion data
-    if artifacts == None:
+    imtypes = artifacts
+    if artifacts is None:
         imtypes = ['image.pbcor', 'mask', 'model', 'pb', 'psf', 'residual', 'sumwt', 'weight']
-        if suffix not in imtypes: imtypes = [suffix] + imtypes
-    else:
-        imtypes = [suffix] + artifacts
+    if suffix not in imtypes: imtypes = [suffix] + imtypes
     meta, tm, diftypes, difmeta, xds = {}, {}, [], [], []
+    
     for imtype in imtypes:
         if os.path.exists(prefix + '.' + imtype):
             rc = IA.open(prefix + '.' + imtype)
@@ -122,11 +122,28 @@ def convert_image(infile, outfile=None, artifacts=None, compressor=None, chunk_s
 
             # store rest of image meta data as attributes
             omits = ['axisnames', 'hasmask', 'masks', 'defaultmask', 'ndim', 'refpix', 'refval', 'shape',
-                     'tileshape', 'messages']
+                     'tileshape', 'messages', 'perplanebeams']
             nested = [kk for kk in summary.keys() if isinstance(summary[kk], dict)]
             tm['attrs'] = dict([(kk.lower(), summary[kk]) for kk in summary.keys() if kk not in omits + nested])
             tm['attrs'].update(dict([(kk, list(nested_to_record(summary[kk], sep='.').items())) for kk in nested]))
-
+            
+            # check for common and restoring beams
+            rb = IA.restoringbeam()
+            if len(rb) > 0:
+                beams = []
+                for rbc in rb['beams'].keys():
+                    cbeams = []
+                    for rbi in rb['beams'][rbc].keys():
+                        cb = rb['beams'][rbc][rbi]
+                        cbeams += [[cb['major']['value'], cb['minor']['value'], cb['positionangle']['value']]]
+                    beams += [cbeams]
+                tm['attrs'].update({'restoringbeam': np.array(beams)})
+            
+                # if there is a restoring beam, this should work
+                cb = IA.commonbeam()
+                tm['attrs'].update({'commonbeam':[cb['major']['value'], cb['minor']['value'], cb['pa']['value']]})
+                tm['attrs'].update({'commonbeam_units': [cb['major']['unit'], cb['minor']['unit'], cb['pa']['unit']]})
+                
             # parse messages for additional keys, drop duplicate info
             omits = ['image_name', 'image_type', 'image_quantity', 'pixel_mask(s)', 'region(s)', 'image_units']
             for msg in summary['messages']:
