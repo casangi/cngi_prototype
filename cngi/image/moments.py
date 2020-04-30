@@ -26,7 +26,7 @@ def moment(ds, **kwargs):
     Parameters
     ----------
     ds : xarray.core.dataset.Dataset
-        input Image
+        input Image Dataset
     axis : str, optional
         specified axis along which to reduce for moment generation, Default='chan'
     code : int, optional

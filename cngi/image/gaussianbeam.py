@@ -20,7 +20,7 @@ def gaussianbeam(xds, source='commonbeam', scale=1.0, name='BEAM'):
     Parameters
     ----------
     xds : xarray.core.dataset.Dataset
-        input Visibility Dataset
+        input Image Dataset
     source : str or list of floats
         Source xds attr name to find the beam information, or a list describing the major axis, minor axis, and position angle
         of the desired gaussian in (arcsec, arcsec, degrees), for example [1., 1., 30.].  Default is 'commonbeam'

@@ -21,7 +21,7 @@ def mask(xds, name='MASK1', ra=None, dec=None, pixels=None, pol=-1, channels=-1)
     Parameters
     ----------
     xds : xarray.core.dataset.Dataset
-        input Image
+        input Image Dataset
     name : str
         dataset variable name for mask, overwrites if already present
     ra : list

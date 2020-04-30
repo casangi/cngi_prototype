@@ -21,7 +21,7 @@ def rebin(xds, factor=1, axis='chan'):
     Parameters
     ----------
     xds : xarray.core.dataset.Dataset
-        input Image
+        input Image Dataset
     factor : int
         scaling factor for binning, Default=1 (no change)
     axis : str
