@@ -130,20 +130,22 @@ def convert_image(infile, outfile=None, artifacts=None, compressor=None, chunk_s
             # check for common and restoring beams
             rb = IA.restoringbeam()
             if len(rb) > 0:
-                beams = []
-                for rbc in rb['beams'].keys():
-                    cbeams = []
-                    for rbi in rb['beams'][rbc].keys():
-                        cb = rb['beams'][rbc][rbi]
-                        cbeams += [[cb['major']['value'], cb['minor']['value'], cb['positionangle']['value']]]
-                    beams += [cbeams]
-                tm['attrs'].update({'restoringbeam': np.array(beams)})
-            
                 # if there is a restoring beam, this should work
                 cb = IA.commonbeam()
-                tm['attrs'].update({'commonbeam':[cb['major']['value'], cb['minor']['value'], cb['pa']['value']]})
+                tm['attrs'].update({'commonbeam': [cb['major']['value'], cb['minor']['value'], cb['pa']['value']]})
                 tm['attrs'].update({'commonbeam_units': [cb['major']['unit'], cb['minor']['unit'], cb['pa']['unit']]})
+                tm['attrs'].update({'restoringbeam': [cb['major']['value'], cb['minor']['value'], cb['pa']['value']]})
                 
+                if 'beams' in rb:
+                    beams = []
+                    for rbc in rb['beams'].keys():
+                        cbeams = []
+                        for rbi in rb['beams'][rbc].keys():
+                            cb = rb['beams'][rbc][rbi]
+                            cbeams += [[cb['major']['value'], cb['minor']['value'], cb['positionangle']['value']]]
+                        beams += [cbeams]
+                    tm['attrs'].update({'restoringbeam': np.array(beams)})
+                    
             # parse messages for additional keys, drop duplicate info
             omits = ['image_name', 'image_type', 'image_quantity', 'pixel_mask(s)', 'region(s)', 'image_units']
             for msg in summary['messages']:
