@@ -14,4 +14,6 @@ from .specflux import *
 from .rmfit import *
 from .ellipsefit import *
 from .gaussianbeam import *
+from .statistics import *
+
 
