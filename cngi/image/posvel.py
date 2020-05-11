@@ -1,4 +1,4 @@
-#   Copyright 2019 AUI, Inc. Washington DC, USA
+#   Copyright 2020 AUI, Inc. Washington DC, USA
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -13,31 +13,22 @@
 #   limitations under the License.
 
 
-#############################################
-def recalculateuvw(xds, field=None, refcode=None, reuse=True, phasecenter=None):
+########################
+def posvel(xds):
     """
     .. todo::
         This function is not yet implemented
 
-    Recalulate UVW and shift data to new phase center
+    Create a position-velocity image
 
     Parameters
     ----------
     xds : xarray.core.dataset.Dataset
-        input Visibility Dataset
-    field : int
-        fields to operate on. None = all
-    refcode : str
-        reference frame to convert UVW coordinates to
-    reuse : bool
-        base UVW calculation on the old values
-    phasecenter : float
-        direction of new phase center. None = no change
+        input Image
 
     Returns
     -------
     xarray.core.dataset.Dataset
-        New Visibility Dataset with updated data
+        output Image
     """
-    return {}
-
+    return True

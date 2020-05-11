@@ -13,30 +13,24 @@
 #   limitations under the License.
 
 
-#####################################################
-def uvmodelfit(xds, niter=5, comptype='p', sourcepar=[1, 0, 0], varypar=[]):
+########################
+def ddijoin(xds1, xds2):
     """
     .. todo::
         This function is not yet implemented
 
-    Fit simple analytic source component models directly to visibility data
+    Concatenate together two Visibility Datasets of compatible shape
 
     Parameters
     ----------
-    xds : xarray.core.dataset.Dataset
-        input Visibility Dataset
-    niter : int
-        number of fitting iteractions to execute
-    comptype : str
-        component type (p=point source, g=ell. gauss. d=ell. disk)
-    sourcepar : list
-        starting fuess (flux, xoff, yoff, bmajaxrat, bpa)
-    varypar : list
-        parameters that may vary in the fit
+    xds1 : xarray.core.dataset.Dataset
+        first Visibility Dataset to join
+    xds2 : xarray.core.dataset.Dataset
+        second Visibility Dataset to join
 
     Returns
     -------
     xarray.core.dataset.Dataset
-        New Visibility Dataset with updated data
+        New Visibility Dataset with combined contents
     """
     return {}

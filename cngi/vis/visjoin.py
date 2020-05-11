@@ -13,24 +13,25 @@
 #   limitations under the License.
 
 
-########################
-def joinspw(xds1, xds2):
+###############################################
+def visjoin(zarr1, zarr2, outdir=None):
     """
     .. todo::
         This function is not yet implemented
 
-    Concatenate together two Visibility Datasets of compatible shape
+    Join together two visibility zarr directory
 
     Parameters
     ----------
-    xds1 : xarray.core.dataset.Dataset
-        first Visibility Dataset to join
-    xds2 : xarray.core.dataset.Dataset
-        second Visibility Dataset to join
+    zarr1 : str
+        first zarr directory to join
+    zarr2 : str
+        second zarr directory to join
+    outdir : str
+        output directory of joined data. Default None will overwrite first directory
 
     Returns
     -------
-    xarray.core.dataset.Dataset
-        New Visibility Dataset with combined contents
     """
     return {}
+

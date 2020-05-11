@@ -18,10 +18,7 @@ def contsub(xds):
     """
     .. todo::
         This function is not yet implemented
-
-    .. note::
-        Potentially duplicates functionality of :py:func:`image.spxfit` and :py:func:`image.specfit`
-
+    
     Continuum subtraction of an image cube
 
     Perform a polynomial baseline fit to the specified channels from an image and subtract it from all channels

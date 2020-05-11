@@ -15,5 +15,7 @@ from .rmfit import *
 from .ellipsefit import *
 from .gaussianbeam import *
 from .statistics import *
+from .posvel import *
+from .sdfixscan import *
 
 

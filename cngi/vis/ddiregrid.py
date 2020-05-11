@@ -14,8 +14,7 @@
 
 
 ###############################################
-def regridspw(xds, field=None, spw=None, timerange=None, uvrange=None, antenna=None, scan=None, mode='channel', nchan=None, start=0, width=1,
-              interpolation='linear', phasecenter=None, restfreq=None, outframe=None, veltype='radio'):
+def ddiregrid(xds, mode='channel', nchan=None, start=0, width=1, interpolation='linear', phasecenter=None, restfreq=None, outframe=None, veltype='radio'):
     """
     .. todo::
         This function is not yet implemented
@@ -26,18 +25,6 @@ def regridspw(xds, field=None, spw=None, timerange=None, uvrange=None, antenna=N
     ----------
     xds : xarray.core.dataset.Dataset
         input Visibility Dataset
-    field : int
-        field selection. If None, use all fields
-    spw : int
-        spw selection. If None, use all spws
-    timerange : int
-        time selection. If None, use all times
-    uvrange : int
-        uvrange selection. If None, use all uvranges
-    antenna : int
-        antenna selection. If None, use all antennas
-    scan : int
-        scan selection. If None, use all scans
     mode : str
         regridding mode
     nchan : int
