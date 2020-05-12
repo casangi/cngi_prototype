@@ -90,10 +90,13 @@ def append_zarr(dataset,outfile,list_dask_array,list_data_variable_name,list_arr
     print('Time to append and execute graph ', graph_name, time_to_calc_and_store)
     dataset_group.attrs[graph_name+'_time'] = time_to_calc_and_store
     
+    #Consolidate metadata
+    zarr.consolidate_metadata(outfile)
+    
     # Open dataset from zarr array preserving the chunking in dataset
     # Must be a beter way to get dict from SortedKeyDict
     current_dataset_chunk_size = {}
     for dim_key in dataset.chunks:
         current_dataset_chunk_size[dim_key] = dataset.chunks[dim_key][0]
     
-    return xr.open_zarr(outfile,chunks=current_dataset_chunk_size,overwrite_encoded_chunks=True)
+    return xr.open_zarr(outfile,chunks=current_dataset_chunk_size,overwrite_encoded_chunks=True,consolidated=True)
