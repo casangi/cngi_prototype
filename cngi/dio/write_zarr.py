@@ -13,7 +13,7 @@
 #   limitations under the License.
 
 
-def write_zarr(dataset, outfile=None, compressor=None, graph_name='save_zarr'):
+def write_zarr(dataset, outfile, compressor=None, graph_name='save_zarr'):
     """
     Write xarray dataset to zarr format on disk.
 
