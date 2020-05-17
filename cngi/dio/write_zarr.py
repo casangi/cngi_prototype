@@ -13,16 +13,22 @@
 #   limitations under the License.
 
 
-def write_zarr(dataset, outfile=None, compressor=None, graph_name='save_zarr'):
+def write_zarr(dataset, outfile, chunks_return={}, chunks_on_disk={}, compressor=None, graph_name='write_zarr'):
     """
-    Write xarray dataset to zarr format on disk.
-
+    Write xarray dataset to zarr format on disk. When chunks_on_disk is not specified the chunking in the input dataset is used.
+    When chunks_on_disk is specified that dataset is saved using that chunking. The dataset on disk is then opened and rechunked using chunks_return or the chunking of dataset.
     Parameters
     ----------
     dataset : xarray.core.dataset.Dataset
         Dataset to write to disk
     outfile : str
-        output filename, generally ends in .zarr
+        outfile filename, generally ends in .zarr
+    chunks_return : dict of int
+        A dictionary with the chunk size that will be returned. For example {'time': 20, 'chan': 6}.
+        If chunks_return is not specified the chunking of dataset will be used.
+    chunks_on_disk : dict of int
+        A dictionary with the chunk size that will be used when writing to disk. For example {'time': 20, 'chan': 6}.
+        If chunks_on_disk is not specified the chunking of dataset will be used.
     compressor : numcodecs.blosc.Blosc
         The blosc compressor to use when saving the converted data to disk using zarr.
         If None the zstd compression algorithm used with compression level 2.
@@ -33,22 +39,43 @@ def write_zarr(dataset, outfile=None, compressor=None, graph_name='save_zarr'):
     -------
     """
     import xarray as xr
-    import zarr as zr
+    import zarr
     import time
     from numcodecs import Blosc
     from itertools import cycle
+    from zarr.meta import json_dumps, json_loads
+    from zarr.creation import normalize_store_arg, open_array
+    
+    #Check if disk chunking is specified
+    if chunks_on_disk is {}:
+        dataset_for_disk = dataset
+    else:
+        dataset_for_disk = dataset.chunk(chunks=chunks_on_disk)
+        
     
     if compressor is None:
         compressor = Blosc(cname='zstd', clevel=2, shuffle=0)
     
-    encoding = dict(zip(list(dataset.data_vars), cycle([{'compressor': compressor}])))
+    #Create compression encoding for each datavariable
+    encoding = dict(zip(list(dataset_for_disk.data_vars), cycle([{'compressor': compressor}])))
     start = time.time()
-    xr.Dataset.to_zarr(dataset, store=outfile, mode='w', encoding=encoding,consolidated=True)
+    #Consolidated is set to False so that the timing information is included in the consolidate metadata.
+    xr.Dataset.to_zarr(dataset_for_disk, store=outfile, mode='w', encoding=encoding,consolidated=False)
     time_to_calc_and_store = time.time() - start
     print('Time to store and execute graph ', graph_name, time_to_calc_and_store)
     
-    dataset_group = zr.open_group(outfile,mode='a')
+    #Add timing information
+    dataset_group = zarr.open_group(outfile,mode='a')
     dataset_group.attrs[graph_name+'_time'] = time_to_calc_and_store
     
-    dataset = xr.open_zarr(outfile,consolidated=True,overwrite_encoded_chunks=True)
-    return dataset
+    #Consolidate metadata
+    zarr.consolidate_metadata(outfile)
+    
+    #Get input dataset chunking
+    if chunks_return is {}:
+        for dim_key in dataset.chunks:
+            chunks_return[dim_key] = dataset.chunks[dim_key][0]
+        return xr.open_zarr(outfile,chunks=chunks_return,consolidated=True,overwrite_encoded_chunks=True)
+    else:
+        return xr.open_zarr(outfile,chunks=chunks_return,consolidated=True,overwrite_encoded_chunks=True)
+    
