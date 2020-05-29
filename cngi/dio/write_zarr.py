@@ -12,6 +12,10 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+'''
+To Do:
+1. zarr.consolidate_metadata(outfile) is very slow for a zarr group (datatset) with many chunks (there is a python for loop that checks each file). We might have to implement our own version. This is also important for cngi.dio.append_zarr
+'''
 
 def write_zarr(dataset, outfile, chunks_return={}, chunks_on_disk={}, compressor=None, graph_name='write_zarr'):
     """
@@ -47,12 +51,11 @@ def write_zarr(dataset, outfile, chunks_return={}, chunks_on_disk={}, compressor
     from zarr.creation import normalize_store_arg, open_array
     
     #Check if disk chunking is specified
-    if chunks_on_disk is {}:
-        dataset_for_disk = dataset
-    else:
+    if bool(chunks_on_disk):
         dataset_for_disk = dataset.chunk(chunks=chunks_on_disk)
+    else:
+        dataset_for_disk = dataset
         
-    
     if compressor is None:
         compressor = Blosc(cname='zstd', clevel=2, shuffle=0)
     
@@ -71,11 +74,11 @@ def write_zarr(dataset, outfile, chunks_return={}, chunks_on_disk={}, compressor
     #Consolidate metadata
     zarr.consolidate_metadata(outfile)
     
-    #Get input dataset chunking
-    if chunks_return is {}:
+    if bool(chunks_return):
+        return xr.open_zarr(outfile,consolidated=True,overwrite_encoded_chunks=True)
+    else:
+        #Get input dataset chunking
         for dim_key in dataset.chunks:
             chunks_return[dim_key] = dataset.chunks[dim_key][0]
-        return xr.open_zarr(outfile,chunks=chunks_return,consolidated=True,overwrite_encoded_chunks=True)
-    else:
         return xr.open_zarr(outfile,chunks=chunks_return,consolidated=True,overwrite_encoded_chunks=True)
     

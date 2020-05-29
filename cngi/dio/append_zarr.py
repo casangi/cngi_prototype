@@ -14,7 +14,14 @@
 
 
 #############################################
-def append_zarr(list_xarray_data_variables,outfile,chunks_return={},graph_name='append_zarr'):
+'''
+To Do:
+1. Allow users to specify the compressor used. Is this even allowed with Dask, Xarray and Zarr (having a zarr group (datatset) where the data variables are compressed differently).
+2. zarr.consolidate_metadata(outfile) is very slow for a zarr group (datatset) with many chunks (there is a python for loop that checks each file). We might have to implement our own version. We could also look at just appending to the json file the information of the new data variables. This is also important for cngi.dio.write_zarr
+3. Appending data variables with a dim that does not yet exist. Common dimentions must still be the same size and have the same chunking. This would have to be done carefully.
+'''
+
+def append_zarr(list_xarray_data_variables,outfile,chunks_return={},compressor=None,graph_name='append_zarr'):
     """
     Append a list of dask arrays to a zarr file on disk. If a data variable with the same name is found it will be overwritten.
     Data will probably be corrupted if append_zarr overwrites the data variable from which the dask array gets its data.
@@ -30,6 +37,9 @@ def append_zarr(list_xarray_data_variables,outfile,chunks_return={},graph_name='
     chunks_return : dict of int
         A dictionary with the chunk size that will be returned. For example {'time': 20, 'chan': 6}.
         If chunks_return is not specified the chunking on disk will be used.
+    compressor : #Not Yet Implemented# numcodecs.blosc.Blosc
+        The blosc compressor to use when saving the converted data to disk using zarr.
+        If None the zstd compression algorithm used with compression level 2.
     graph_name : string
         The time taken to execute the graph and save the dataset is measured and saved as an attribute in the zarr file.
         The graph_name is the label for this timing information.
@@ -52,9 +62,6 @@ def append_zarr(list_xarray_data_variables,outfile,chunks_return={},graph_name='
         disk_dataset = xr.open_zarr(outfile)
     except ValueError:
         print("######### ERROR: Could not open " + outfile)
-    
-    print(list_xarray_data_variables[0].dims)
-    
     
     #Create a list of delayed zarr.create commands for each dask array in ist_dask_array.
     list_target_zarr = []
@@ -97,7 +104,7 @@ def append_zarr(list_xarray_data_variables,outfile,chunks_return={},graph_name='
     #Consolidate metadata #Can be improved by only adding appended metadata
     zarr.consolidate_metadata(outfile)
     
-    if chunks_return is {}:
-        return xr.open_zarr(outfile,overwrite_encoded_chunks=True,consolidated=True)
-    else:
+    if bool(chunks_return):
         return xr.open_zarr(outfile,chunks=chunks_return,overwrite_encoded_chunks=True,consolidated=True)
+    else:
+        return xr.open_zarr(outfile,overwrite_encoded_chunks=True,consolidated=True)
