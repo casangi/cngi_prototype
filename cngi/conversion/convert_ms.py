@@ -110,6 +110,7 @@ def convert_ms(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
     tables = ['DATA_DESCRIPTION', 'SPECTRAL_WINDOW', 'POLARIZATION', 'SORTED_TABLE']  # initialize to things we don't want to process now
     ms_meta = tb()
 
+    
     ## ANTENNA table
     tables += ['ANTENNA']
     print('processing support table %s' % tables[-1], end='\r')
@@ -140,27 +141,36 @@ def convert_ms(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
                 if not ms_meta.iscelldefined(col, 0): continue
                 if col in ['SPECTRAL_WINDOW_ID', 'ANTENNA_ID', 'FEED_ID']: continue
                 if ms_meta.isvarcol(col):
-                    tshape, tdim = (len(mcoords['receptors']),), ('receptors',)
-                    if col == 'BEAM_OFFSET':
-                        tshape, tdim = (2, len(mcoords['receptors'])), ('d2', 'receptors')
-                    elif col == 'POL_RESPONSE':
-                        tshape, tdim = (len(mcoords['receptors']), len(mcoords['receptors'])), ('receptors', 'receptors')
-                    data = ms_meta.getvarcol(col)
-                    data = np.array([apad(data['r' + str(kk)][..., 0], tshape) for kk in np.arange(len(data)) + 1])
-                    metadata = np.full((len(mcoords['spw']), len(mcoords['antenna']), len(mcoords['feed'])) + tshape, np.nan, dtype=data.dtype)
-                    metadata[spwidx, antidx, feedidx] = data
-                    mvars['FEED_' + col] = xarray.DataArray(metadata, dims=['spw', 'antenna', 'feed'] + list(tdim))
+                    try:
+                        tshape, tdim = (len(mcoords['receptors']),), ('receptors',)
+                        if col == 'BEAM_OFFSET':
+                            tshape, tdim = (2, len(mcoords['receptors'])), ('d2', 'receptors')
+                        elif col == 'POL_RESPONSE':
+                            tshape, tdim = (len(mcoords['receptors']), len(mcoords['receptors'])), ('receptors', 'receptors')
+                        data = ms_meta.getvarcol(col)
+                        data = np.array([apad(data['r' + str(kk)][..., 0], tshape) for kk in np.arange(len(data)) + 1])
+                        metadata = np.full((len(mcoords['spw']), len(mcoords['antenna']), len(mcoords['feed'])) + tshape, np.nan, dtype=data.dtype)
+                        metadata[spwidx, antidx, feedidx] = data
+                        mvars['FEED_' + col] = xarray.DataArray(metadata, dims=['spw', 'antenna', 'feed'] + list(tdim))
+                    except Exception:
+                        print('WARNING : unable to process col %s of table %s' % (col, tables[-1]))
                 else:
                     data = ms_meta.getcol(col).transpose()
                     if col == 'TIME': data = convert_time(data)
                     if data.ndim == 1:
-                        metadata = np.full((len(mcoords['spw']), len(mcoords['antenna']), len(mcoords['feed'])), np.nan, dtype=data.dtype)
-                        metadata[spwidx, antidx, feedidx] = data
-                        mvars['FEED_' + col] = xarray.DataArray(metadata, dims=['spw', 'antenna', 'feed'])
+                        try:
+                            metadata = np.full((len(mcoords['spw']), len(mcoords['antenna']), len(mcoords['feed'])), np.nan, dtype=data.dtype)
+                            metadata[spwidx, antidx, feedidx] = data
+                            mvars['FEED_' + col] = xarray.DataArray(metadata, dims=['spw', 'antenna', 'feed'])
+                        except Exception:
+                            print('WARNING : unable to process col %s of table %s' % (col, tables[-1]))
                     else:  # only POSITION should trigger this
-                        metadata = np.full((len(mcoords['spw']), len(mcoords['antenna']), len(mcoords['feed']), data.shape[1]), np.nan, dtype=data.dtype)
-                        metadata[spwidx, antidx, feedidx] = data
-                        mvars['FEED_' + col] = xarray.DataArray(metadata, dims=['spw', 'antenna', 'feed', 'd' + str(data.shape[1])])
+                        try:
+                            metadata = np.full((len(mcoords['spw']), len(mcoords['antenna']), len(mcoords['feed']), data.shape[1]), np.nan, dtype=data.dtype)
+                            metadata[spwidx, antidx, feedidx] = data
+                            mvars['FEED_' + col] = xarray.DataArray(metadata, dims=['spw', 'antenna', 'feed', 'd' + str(data.shape[1])])
+                        except Exception:
+                            print('WARNING : unable to process col %s of table %s' % (col, tables[-1]))
         ms_meta.close()
 
     ## FIELD table
@@ -355,7 +365,7 @@ def convert_ms(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
 
     xds_list += [mxds]  # first item returned is always the global metadata
     print('meta data processing time ', time.time() - start)
-
+    
 
     ####################################################################
     # process each selected DDI from the input MS, assume a fixed shape within the ddi (should always be true)
@@ -445,7 +455,7 @@ def convert_ms(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
                 if not ms_ddi.iscelldefined(col, idx_range[0]): continue
 
                 data = ms_ddi.getcol(col, idx_range[0], len(idx_range)).transpose()
-
+                print('idx_range,', col, idx_range[0],len(idx_range), data.shape)
                 if col in 'UVW':  # n_row x 3 -> n_time x n_baseline x 3
                     fulldata = np.full((len(chunk), n_baseline, data.shape[1]), np.nan, dtype=data.dtype)
                     fulldata[time_idxs[idx_range] - chunk[0], baseline_idxs[idx_range], :] = data
@@ -468,6 +478,11 @@ def convert_ms(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
                         fulldata = np.full((len(chunk), n_baseline), np.nan, dtype=data.dtype)
                         if col == 'FLAG_ROW':
                             fulldata = np.ones((len(chunk), n_baseline), dtype=data.dtype)
+                        
+                        print('col name',col)
+                        print('full datashape', fulldata.shape)
+                        print('data.shape',data.shape)
+                        print('full data subshape',fulldata[time_idxs[idx_range] - chunk[0], baseline_idxs[idx_range]].shape)
                         fulldata[time_idxs[idx_range] - chunk[0], baseline_idxs[idx_range]] = data
                         chunkdata[col] = xarray.DataArray(fulldata, dims=['time', 'baseline'])
 
