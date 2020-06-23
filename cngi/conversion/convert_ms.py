@@ -25,8 +25,8 @@ def convert_ms(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
         Input MS filename
     outfile : str
         Output zarr filename. If None, will use infile name with .vis.zarr extension
-    ddi : int
-        Specific ddi to convert. Leave as None to convert entire MS
+    ddi : int or string
+        Specific DDI to convert. DDI's are integer values, or use 'global' string for metadata table. Leave as None to convert entire MS
     compressor : numcodecs.blosc.Blosc
         The blosc compressor to use when saving the converted data to disk using zarr.
         If None the zstd compression algorithm used with compression level 2.
