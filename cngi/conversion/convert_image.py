@@ -44,6 +44,7 @@ def convert_image(infile, outfile=None, artifacts=None, compressor=None, chunk_s
         new xarray Datasets of Image data contents
     """
     from casatools import image as ia
+    from casatools import quanta as qa
     import numpy as np
     from itertools import cycle
     from pandas.io.json._normalize import nested_to_record
@@ -78,26 +79,30 @@ def convert_image(infile, outfile=None, artifacts=None, compressor=None, chunk_s
         compressor = Blosc(cname='zstd', clevel=2, shuffle=0)
 
     IA = ia()
+    QA = qa()
 
     # all image artifacts will go in same zarr file and share common dimensions if possible
     # check for meta data compatibility
     # store necessary coordinate conversion data
     imtypes = artifacts
     if artifacts is None:
-        imtypes = ['image.pbcor', 'mask', 'model', 'pb', 'psf', 'residual', 'sumwt', 'weight']
+        imtypes = ['pb', 'psf', 'residual', 'mask', 'model', 'sumwt', 'weight', 'image.pbcor']
     if suffix not in imtypes: imtypes = [suffix] + imtypes
     meta, tm, diftypes, difmeta, xds = {}, {}, [], [], []
     
+    # must start with the main image to convert
+    # main image must have two spatial coordinates
     for imtype in imtypes:
         if os.path.exists(prefix + '.' + imtype):
             rc = IA.open(prefix + '.' + imtype)
             summary = IA.summary(list=False)  # imhead would be better but chokes on big images
             ims = tuple(IA.shape())  # image shape
             coord_names = [ss.replace(' ', '_').lower().replace('stokes', 'pol').replace('frequency', 'chan') for ss in summary['axisnames']]
-
+            missing_coords = [ss for ss in ['chan','pol'] if ss not in coord_names]
+            
             # compute world coordinates for spherical dimensions
             # the only way to know is to check the units for angular types (i.e. radians)
-            sphr_dims = [dd for dd in range(len(ims)) if summary['axisunits'][dd] == 'rad']
+            sphr_dims = [dd for dd in range(len(ims)) if QA.isangle(summary['axisunits'][dd])]
             coord_idxs = np.mgrid[[range(ims[dd]) if dd in sphr_dims else range(1) for dd in range(len(ims))]]
             coord_idxs = coord_idxs.reshape(len(ims), -1)
             coord_world = IA.coordsys().toworldmany(coord_idxs.astype(float))['numeric']
@@ -113,8 +118,8 @@ def convert_image(infile, outfile=None, artifacts=None, compressor=None, chunk_s
             coord_world = coord_world[cart_dims].reshape((len(cart_dims),) + tuple(np.array(ims)[cart_dims]))
             for dd, cs in enumerate(list(coord_world)):
                 spi = tuple([slice(None) if di == dd else slice(1) for di in range(cs.ndim)])
-                coords.update(dict([(coord_names[cart_dims[dd]], cs[spi][0])]))
-
+                coords.update(dict([(coord_names[cart_dims[dd]], cs[spi].reshape(-1))]))
+                
             # store metadata for later
             tm['coords'] = coords
             tm['dsize'] = np.array(summary['shape'])
@@ -188,13 +193,13 @@ def convert_image(infile, outfile=None, artifacts=None, compressor=None, chunk_s
 
             # extract pixel data
             imchunk = IA.getchunk(pt1, pt2)
-            if imtype == 'fits': imtype = 'image'
+            if imtype == suffix: imtype = 'image'
             if imtype == 'mask':
-                xdas['DECONVOLVE'] = xa(imchunk.astype(bool), dims=meta['dims'])
+                xdas['AUTOMASK'] = xa(imchunk.astype(bool), dims=meta['dims']).expand_dims(missing_coords)
             elif imtype == 'sumwt':
                 xdas[imtype.upper()] = xa(imchunk.reshape(imchunk.shape[2], 1), dims=['pol', 'chan'])
             else:
-                xdas[imtype.upper()] = xa(imchunk, dims=meta['dims'])
+                xdas[imtype.upper()] = xa(imchunk, dims=meta['dims']).expand_dims(missing_coords)
 
             # extract mask
             summary = IA.summary(list=False)
@@ -203,13 +208,13 @@ def convert_image(infile, outfile=None, artifacts=None, compressor=None, chunk_s
                 xdas['MASK'] = xa(imchunk.astype(bool), dims=meta['dims'])
 
             rc = IA.close()
-
+        
         chunking = dict([(dd, chunk_shape[ii]) for ii,dd in enumerate(['d0','d1','chan','pol']) if chunk_shape[ii] > 0])
         xds = xd(xdas, coords=chunk_coords, attrs=meta['attrs']).chunk(chunking)
-
+        
         # for everyone's sanity, lets make sure the dimensions are ordered the same way as visibility data
-        if ('pol' in xds.dims): xds = xds.transpose(xds.IMAGE.dims[0], xds.IMAGE.dims[1], 'chan', 'pol')
-
+        xds = xds.transpose('d0','d1','chan','pol')
+        
         if (chan == 0) and (not nofile):
             # xds = xd(xdas, coords=chunk_coords, attrs=nested_to_record(meta['attrs'], sep='_'))
             encoding = dict(zip(list(xds.data_vars), cycle([{'compressor': compressor}])))
