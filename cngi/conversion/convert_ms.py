@@ -78,10 +78,7 @@ def convert_ms(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
         MS.open(infile, nomodify=True, lockoptions={'option': 'usernoread'})
         ddis = MS.taql('select distinct DATA_DESC_ID from %s' % prefix + '.ms').getcol('DATA_DESC_ID')
         MS.close()
-
-    if compressor is None:
-        compressor = Blosc(cname='zstd', clevel=2, shuffle=0)
-
+    
     # initialize list of xarray datasets to be returned by this function
     xds_list = []
 
