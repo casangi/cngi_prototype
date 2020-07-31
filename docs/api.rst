@@ -12,5 +12,11 @@ description will be populated.
    _api/dio
    _api/vis
    _api/images
+   _api/calibration
+   _api/flagging
+   _api/imaging
+   _api/deconvolution
+   _api/simulator
    _api/direct
+
 

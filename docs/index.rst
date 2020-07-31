@@ -16,9 +16,16 @@ infrastructure of CASA with a parallel, scalable, and largely off-the-shelf solu
    visibilities
    images
    coordinates
+   calibration
+   flagging
+   imaging
+   simulation
+   prototypes
+   benchmark
    external
    api
    verification
+   design
    development
    help
    about

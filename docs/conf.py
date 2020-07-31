@@ -55,6 +55,14 @@ todo_include_todos = True
 add_module_names = False
 numpy_show_class_members = False
 nbsphinx_codecell_lexer = 'python3'
+nbsphinx_execute = 'never'
+
+nbsphinx_prolog = """
+Open in Colab: https://colab.research.google.com/github/casangi/cngi_prototype/blob/master/docs/{{ env.doc2path(env.docname, base=None) }}
+
+----
+"""
+
 
 # Napoleon settings
 #napoleon_google_docstring = True

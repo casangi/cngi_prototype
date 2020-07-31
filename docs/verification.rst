@@ -18,3 +18,4 @@ Visibility and Image regression sections demonstrate functional equivalence.
    verification/performance
    verification/vis_regression
    verification/image_regression
+   verification/mapping

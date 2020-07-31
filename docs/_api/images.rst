@@ -1,4 +1,4 @@
-Image
+Images
 ====================
 
 These functions examine or manipulate Image data in the xarray Dataset (xds) format.  They
