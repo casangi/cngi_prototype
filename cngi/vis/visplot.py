@@ -23,9 +23,9 @@ def visplot(xda, axis=None, chans=None, pols=None, overplot=False, drawplot=True
         input DataArray
     axis : str or list
         DataArray coordinate(s) to plot against data. Default None uses range. All other coordinates will be averaged
-    chans = int or list of ints
+    chans : int or list of ints
         channel axis indices to select prior to averaging
-    pols = int or list of ints
+    pols : int or list of ints
         polarization axis indices to select prior to averaging
     overplot : bool
         Overlay new plot on to existing window. Default of False makes a new window for each plot
