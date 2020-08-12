@@ -43,7 +43,6 @@ scipy==1.4.1
 six==1.12.0
 snowballstemmer==2.0.0
 sortedcontainers==2.1.0
-sparse>=0.9.1
 Sphinx==2.2.0
 sphinx-automodapi==0.12
 sphinx-rtd-theme==0.4.3
