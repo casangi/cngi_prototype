@@ -17,54 +17,63 @@
 import numpy as np
 from ngcasa._ngcasa_utils._check_parms import _check_parms, _check_dataset, _check_storage_parms
 
-def _check_grid_params(vis_dataset, grid_parms, default_image_name='DIRTY_IMAGE', default_sum_weight_name='SUM_WEIGHT'):
+
+def _check_grid_parms(grid_parms):
     import numbers
     parms_passed = True
     arc_sec_to_rad = np.pi / (3600 * 180)
-
-    n_chunks_in_each_dim = vis_dataset.DATA.data.numblocks
     
-    if n_chunks_in_each_dim[3] != 1:
-        print('######### ERROR chunking along polarization is not supported')
-        return False
-    
-    if not(_check_parms(grid_parms, 'data_name', [str], default='DATA')): parms_passed = False
-    if not(_check_dataset(vis_dataset,grid_parms['data_name'])): parms_passed = False
-    
-    if not(_check_parms(grid_parms, 'uvw_name', [str], default='UVW')): parms_passed = False
-    if not(_check_dataset(vis_dataset,grid_parms['uvw_name'])): parms_passed = False
-    
-    if not(_check_parms(grid_parms, 'imaging_weight_name', [str], default='IMAGING_WEIGHT')): parms_passed = False
-    if not(_check_dataset(vis_dataset,grid_parms['imaging_weight_name'])): parms_passed = False
-    
-    if not(_check_parms(grid_parms, 'image_name', [str], default=default_image_name)): parms_passed = False
-    
-    if not(_check_parms(grid_parms, 'sum_weight_name', [str], default=default_sum_weight_name)): parms_passed = False
-    
+    if not(_check_parms(grid_parms, 'image_size', [list], list_acceptable_data_types=[np.int], list_len=2)): parms_passed = False
+    if not(_check_parms(grid_parms, 'image_center', [list], list_acceptable_data_types=[np.int], list_len=2, default = np.array(grid_parms['image_size'])//2)): parms_passed = False
+    if not(_check_parms(grid_parms, 'cell_size', [list], list_acceptable_data_types=[numbers.Number], list_len=2)): parms_passed = False
+    if not(_check_parms(grid_parms, 'fft_padding', [numbers.Number], default=1.2,acceptable_range=[1,2])): parms_passed = False
     if not(_check_parms(grid_parms, 'chan_mode', [str], acceptable_data=['cube','continuum'], default='cube')): parms_passed = False
     
-    if not(_check_parms(grid_parms, 'imsize', [list], list_acceptable_data_types=[np.int], list_len=2)): parms_passed = False
-    
-    if not(_check_parms(grid_parms, 'cell', [list], list_acceptable_data_types=[numbers.Number], list_len=2)): parms_passed = False
-    
-    if not(_check_parms(grid_parms, 'oversampling', [np.int], default=100)): parms_passed = False
-    
-    if not(_check_parms(grid_parms, 'support', [np.int], default=7)): parms_passed = False
-    
-    if not(_check_parms(grid_parms, 'fft_padding', [numbers.Number], default=1.2,acceptable_range=[1,100])): parms_passed = False
-    
     if parms_passed == True:
-        grid_parms['imsize'] = np.array(grid_parms['imsize']).astype(int)
-        grid_parms['imsize_padded'] = (grid_parms['fft_padding']* grid_parms['imsize']).astype(int)
-
-        grid_parms['cell'] = arc_sec_to_rad * np.array(grid_parms['cell'])
-        grid_parms['cell'][0] = -grid_parms['cell'][0]
-        
-        grid_parms['complex_grid'] = True
+        grid_parms['image_size'] = np.array(grid_parms['image_size']).astype(int)
+        grid_parms['image_size_padded'] = (grid_parms['fft_padding']* grid_parms['image_size']).astype(int)
+        grid_parms['image_center'] = np.array(grid_parms['image_center'])
+        grid_parms['cell_size'] = arc_sec_to_rad * np.array(grid_parms['cell_size'])
+        grid_parms['cell_size'][0] = -grid_parms['cell_size'][0]
     
     return parms_passed
-
-#########################################################################################################################################################################################
+    
+    
+##################### Function Specific Parms #####################
+def _check_gcf_parms(gcf_parms):
+    import numbers
+    parms_passed = True
+    
+    if not(_check_parms(gcf_parms, 'oversampling', [list], list_acceptable_data_types=[np.int], list_len=2)): parms_passed = False
+    
+    if not(_check_parms(gcf_parms, 'max_support', [list], list_acceptable_data_types=[np.int], list_len=2)): parms_passed = False
+    
+    if parms_passed == True:
+        gcf_parms['oversampling'] = np.array(gcf_parms['oversampling']).astype(int)
+        gcf_parms['max_support'] = np.array(gcf_parms['max_support']).astype(int)
+        
+    return parms_passed
+    
+def _check_mosaic_pb_parms(pb_mosaic_parms):
+    import numbers
+    parms_passed = True
+    
+    if not(_check_parms(pb_mosaic_parms, 'pb_name', [str], default='PB')): parms_passed = False
+    
+    if not(_check_parms(pb_mosaic_parms, 'weight_name', [str], default='WEIGHT_PB')): parms_passed = False
+    
+    return parms_passed
+    
+    
+def _check_norm_parms(norm_parms):
+    import numbers
+    parms_passed = True
+    
+    if not(_check_parms(norm_parms, 'norm_type', [str], default='flat_noise', acceptable_data=['flat_noise','flat_sky','pb_square'])): parms_passed = False
+    
+    return parms_passed
+    
+    
 def _check_imaging_weights_parms(vis_dataset, imaging_weights_parms):
     import numbers
     parms_passed = True
@@ -98,7 +107,6 @@ def _check_imaging_weights_parms(vis_dataset, imaging_weights_parms):
         
     return parms_passed
 
-#########################################################################################################################################################################################
 def _check_pb_parms(img_dataset, pb_parms):
     import numbers
     parms_passed = True
@@ -126,3 +134,57 @@ def _check_pb_parms(img_dataset, pb_parms):
         pb_parms['cell'][0] = -pb_parms['cell'][0]
         
     return parms_passed
+    
+'''
+def _check_grid_params(vis_dataset, grid_parms, default_image_name='DIRTY_IMAGE', default_sum_weight_name='SUM_WEIGHT'):
+    import numbers
+    parms_passed = True
+    arc_sec_to_rad = np.pi / (3600 * 180)
+
+    n_chunks_in_each_dim = vis_dataset.DATA.data.numblocks
+    
+    if n_chunks_in_each_dim[3] != 1:
+        print('######### ERROR chunking along polarization is not supported')
+        return False
+    
+    if not(_check_parms(grid_parms, 'data_name', [str], default='DATA')): parms_passed = False
+    if not(_check_dataset(vis_dataset,grid_parms['data_name'])): parms_passed = False
+    
+    if not(_check_parms(grid_parms, 'uvw_name', [str], default='UVW')): parms_passed = False
+    if not(_check_dataset(vis_dataset,grid_parms['uvw_name'])): parms_passed = False
+    
+    if not(_check_parms(grid_parms, 'imaging_weight_name', [str], default='IMAGING_WEIGHT')): parms_passed = False
+    if not(_check_dataset(vis_dataset,grid_parms['imaging_weight_name'])): parms_passed = False
+    
+    if not(_check_parms(grid_parms, 'image_name', [str], default=default_image_name)): parms_passed = False
+    
+    if not(_check_parms(grid_parms, 'sum_weight_name', [str], default=default_sum_weight_name)): parms_passed = False
+    
+    if not(_check_parms(grid_parms, 'chan_mode', [str], acceptable_data=['cube','continuum'], default='cube')): parms_passed = False
+    
+    if not(_check_parms(grid_parms, 'imsize', [list], list_acceptable_data_types=[np.int], list_len=2)): parms_passed = False
+    
+    if not(_check_parms(grid_parms, 'cell', [list], list_acceptable_data_types=[numbers.Number], list_len=2)): parms_passed = False
+    
+    #if not(_check_parms(grid_parms, 'oversampling', [np.int], default=100)): parms_passed = False
+    if not(_check_parms(grid_parms, 'oversampling', [list], list_acceptable_data_types=[np.int], list_len=2)): parms_passed = False
+    
+    if not(_check_parms(grid_parms, 'support', [np.int], default=7)): parms_passed = False
+    
+    if not(_check_parms(grid_parms, 'fft_padding', [numbers.Number], default=1.2,acceptable_range=[1,100])): parms_passed = False
+    
+    if parms_passed == True:
+        grid_parms['oversampling'] = np.array(grid_parms['oversampling']).astype(int)
+    
+        grid_parms['imsize'] = np.array(grid_parms['imsize']).astype(int)
+        grid_parms['imsize_padded'] = (grid_parms['fft_padding']* grid_parms['imsize']).astype(int)
+
+        grid_parms['cell'] = arc_sec_to_rad * np.array(grid_parms['cell'])
+        grid_parms['cell'][0] = -grid_parms['cell'][0]
+        
+        grid_parms['complex_grid'] = True
+    
+    return parms_passed
+'''
+
+

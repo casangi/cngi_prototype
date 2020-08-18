@@ -20,11 +20,11 @@ import numpy as np
 # Give option for ps_term and a_term false (nearest pixel gridding)
 # Don't allow append
 # imsize must be larger then ps_term
-# special cas for ps_term = True and a_term = False
-# fix nomralization by sum_weight remove = 0 (use deep copy)
 
-def make_gridding_convolution_function(gcf_parms, grid_parms, storage_parms):
+def make_gridding_convolution_function(vis_dataset,img_cf_dataset, gridding_convolution_parms, storage_parms):
     """
+    .. todo::
+        This function is not yet implemented
     
     Calculate gridding convolution functions (GCF) as specified for standard, widefield and mosaic imaging.
     Construct a GCF cache (persistent or on-the-fly)
@@ -45,7 +45,7 @@ def make_gridding_convolution_function(gcf_parms, grid_parms, storage_parms):
     from ngcasa._ngcasa_utils._store import _store
     from ngcasa._ngcasa_utils._check_parms import _check_storage_parms
     from ._imaging_utils._check_imaging_parms import _check_pb_parms
-    from ._imaging_utils._check_imaging_parms import _check_grid_parms, _check_gcf_parms
+    from ._imaging_utils._check_imaging_parms import _check_grid_params
     from ._imaging_utils._gridding_convolutional_kernels import _create_prolate_spheroidal_kernel_2D, _create_prolate_spheroidal_image_2D
     from ._imaging_utils._remove_padding import _remove_padding
     import numpy as np
@@ -58,56 +58,78 @@ def make_gridding_convolution_function(gcf_parms, grid_parms, storage_parms):
     
     import matplotlib.pylab as plt
     
-    _gcf_parms = copy.deepcopy(gcf_parms)
-    _grid_parms = copy.deepcopy(grid_parms)
+    _gridding_convolution_parms =  copy.deepcopy(gridding_convolution_parms)
     _storage_parms = copy.deepcopy(storage_parms)
     
-    assert(_check_gcf_parms(_gcf_parms)), "######### ERROR: gcf_parms checking failed"
-    assert(_check_grid_parms(_grid_parms)), "######### ERROR: grid_parms checking failed"
+    assert(_check_grid_params(vis_dataset,_gridding_convolution_parms)), "######### ERROR: grid_parms checking failed"
     assert(_check_storage_parms(_storage_parms,'dataset.gcf.zarr','make_gcf')), "######### ERROR: user_storage_parms checking failed"
     
-    
-    
-    
-    if _gcf_parms['function'] == 'airy':
+
+    if _gridding_convolution_parms['function'] == 'airy':
         from ._imaging_utils._make_pb_1d import _airy_disk_rorder
         pb_func = _airy_disk
-    if _gcf_parms['function'] == 'alma_airy':
+    if _gridding_convolution_parms['function'] == 'alma_airy':
         from ._imaging_utils._make_pb_1d import _alma_airy_disk_rorder
         pb_func = _alma_airy_disk_rorder
     else:
-        print('Only the airy function and alma airy function has been implemented')
+        print('Only the airy function has been implemented')
         
-    _gcf_parms['resize_conv_size'] = (_gcf_parms['max_support'] + 1)*_gcf_parms['oversampling']
-    #resize_conv_size = _gcf_parms['resize_conv_size']
+    _gridding_convolution_parms['resize_conv_size'] = (_gridding_convolution_parms['max_support'] + 1)*_gridding_convolution_parms['oversampling']
+    resize_conv_size = _gridding_convolution_parms['resize_conv_size']
     
-    
-    
-    if _gcf_parms['ps_term'] == True:
-        ps_term = _create_prolate_spheroidal_kernel_2D(_gcf_parms['oversampling'],np.array([7,7])) #This is only used with a_term == False. Support is hardcoded to 7 until old ps code is replaced by a general function.
-        center = _grid_parms['image_center']
+    if _gridding_convolution_parms['ps_term'] == True:
+        ps_term = _create_prolate_spheroidal_kernel_2D(_gridding_convolution_parms['oversampling'],np.array([7,7])) #This is only used with a_term == False. Support is hardcoded to 7 until old ps code is replaced by a general function.
+        center = _gridding_convolution_parms['imsize']//2
         center_embed = np.array(ps_term.shape)//2
-        ps_term_padded = np.zeros(_grid_parms['image_size'])
+        ps_term_padded = np.zeros(_gridding_convolution_parms['imsize'])
         ps_term_padded[center[0]-center_embed[0]:center[0]+center_embed[0],center[1]-center_embed[1] : center[1]+center_embed[1]] = ps_term
         ps_term_padded_ifft = dafft.fftshift(dafft.ifft2(dafft.ifftshift(da.from_array(ps_term_padded))))
 
-        ps_image = da.from_array(_remove_padding(_create_prolate_spheroidal_image_2D(_grid_parms['image_size_padded']),_grid_parms['image_size']),chunks=_grid_parms['image_size'])
+        ps_image = da.from_array(_remove_padding(_create_prolate_spheroidal_image_2D(_gridding_convolution_parms['imsize_padded']),_gridding_convolution_parms['imsize']),chunks=_gridding_convolution_parms['imsize'])
+        #Effecively no mapping needed
+        cf_baseline_map = np.zeros((len(_gridding_convolution_parms['basline_ant']),),dtype=int)
+        cf_chan_map = np.zeros((len(_gridding_convolution_parms['freq_chan']),),dtype=int)
+        cf_pol_map = np.zeros((len(_gridding_convolution_parms['pol']),),dtype=int)
         
-        #Effecively no mapping needed if ps_term == True and a_term == False
-        cf_baseline_map = np.zeros((len(_gcf_parms['basline_ant']),),dtype=int)
-        cf_chan_map = np.zeros((len(_gcf_parms['freq_chan']),),dtype=int)
-        cf_pol_map = np.zeros((len(_gcf_parms['pol']),),dtype=int)
+        ###############
+        '''
+        ps_image_fft2 = dafft.fftshift(dafft.fft2(dafft.ifftshift(da.from_array(ps_image))))
+        ps_recovered = dafft.fftshift(dafft.ifft2(dafft.ifftshift(ps_image_fft2)))
+        ps_image_fft2 = ps_image_fft2/np.max(ps_image_fft2)
+        
+
+        conv_kernel = np.zeros((512,512))
+        center = np.array([512,512])//2
+        center_embed = np.array(ps_term.shape)//2
+        conv_kernel[center[0]-center_embed[0]:center[0]+center_embed[0],center[1]-center_embed[1] : center[1]+center_embed[1]] = ps_term
+        conv_kernel = da.from_array(conv_kernel)
+        
+        
+        #ps_from_term = dafft.fftshift(dafft.ifft2(dafft.ifftshift(conv_kernel))).real
+        #ps_from_term = ps_from_term/np.max(ps_from_term)
+        
+        plt.figure
+        plt.plot(ps_image[:,_gridding_convolution_parms['imsize']//2])
+        plt.plot(ps_recovered[:,_gridding_convolution_parms['imsize']//2])
+        #plt.plot(ps_from_term[:,_gridding_convolution_parms['imsize']//2])
+        #plt.plot(conv_kernel[:,_gridding_convolution_parms['imsize']//2])
+        plt.plot(ps_image_fft2[:,_gridding_convolution_parms['imsize']//2])
+        plt.show()
+        '''
+        ###############
     
-    
-    if _gcf_parms['a_term'] == True:
-        n_unique_ant = len(_gcf_parms['list_dish_diameters'])
-        cf_baseline_map,pb_ant_pairs = create_cf_baseline_map(_gcf_parms['unique_ant_indx'],_gcf_parms['basline_ant'],n_unique_ant)
+    if _gridding_convolution_parms['a_term'] == True:
+        n_unique_ant = len(_gridding_convolution_parms['list_dish_diameters'])
+        cf_baseline_map,pb_ant_pairs = create_cf_baseline_map(_gridding_convolution_parms['unique_ant_indx'],_gridding_convolution_parms['basline_ant'],n_unique_ant)
         
-        cf_chan_map, pb_freq = create_cf_chan_map(_gcf_parms['freq_chan'],_gcf_parms['chan_tolerance_factor'])
-        pb_freq = da.from_array(pb_freq,chunks=np.ceil(len(pb_freq)/_gcf_parms['a_chan_num_chunk'] ))
+        cf_chan_map, pb_freq = create_cf_chan_map(_gridding_convolution_parms['freq_chan'],_gridding_convolution_parms['chan_tolerance_factor'])
+        pb_freq = da.from_array(pb_freq,chunks=np.ceil(len(pb_freq)/_gridding_convolution_parms['a_chan_num_chunk'] ))
         
-        cf_pol_map = np.zeros((len(_gcf_parms['pol']),),dtype=int) #create_cf_pol_map(), currently treating all pols the same
+        cf_pol_map = np.zeros((len(_gridding_convolution_parms['pol']),),dtype=int) #create_cf_pol_map(), currently treating all pols the same
         pb_pol = da.from_array(np.array([0]),1)
+        
+        _gridding_convolution_parms['conv_size'] = _gridding_convolution_parms['imsize']
+        conv_size = _gridding_convolution_parms['imsize']
         
         n_chunks_in_each_dim = [pb_freq.numblocks[0],pb_pol.numblocks[0]]
         iter_chunks_indx = itertools.product(np.arange(n_chunks_in_each_dim[0]), np.arange(n_chunks_in_each_dim[1]))
@@ -119,29 +141,28 @@ def make_gridding_convolution_function(gcf_parms, grid_parms, storage_parms):
         list_weight_baseline_pb_sqrd = []
         for c_chan, c_pol in iter_chunks_indx:
                 #print('chan, pol ',c_chan,c_pol)
-                _gcf_parms['ipower'] = 1
-                delayed_baseline_pb = dask.delayed(make_baseline_patterns)(pb_freq.partitions[c_chan],pb_pol.partitions[c_pol],dask.delayed(pb_ant_pairs),dask.delayed(_gcf_parms),dask.delayed(_grid_parms))
+                _gridding_convolution_parms['ipower'] = 1
+                delayed_baseline_pb = dask.delayed(make_baseline_patterns)(pb_freq.partitions[c_chan],pb_pol.partitions[c_pol],dask.delayed(pb_ant_pairs),dask.delayed(_gridding_convolution_parms))
                 
-                list_baseline_pb.append(da.from_delayed(delayed_baseline_pb,(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],_grid_parms['image_size'][0],_grid_parms['image_size'][1]),dtype=np.complex))
+                list_baseline_pb.append(da.from_delayed(delayed_baseline_pb,(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],conv_size[0],conv_size[1]),dtype=np.complex))
                               
-                _gcf_parms['ipower'] = 2
-                delayed_weight_baseline_pb_sqrd = dask.delayed(make_baseline_patterns)(pb_freq.partitions[c_chan],pb_pol.partitions[c_pol],dask.delayed(pb_ant_pairs),dask.delayed(_gcf_parms),dask.delayed(_grid_parms))
+                _gridding_convolution_parms['ipower'] = 2
+                delayed_weight_baseline_pb_sqrd = dask.delayed(make_baseline_patterns)(pb_freq.partitions[c_chan],pb_pol.partitions[c_pol],dask.delayed(pb_ant_pairs),dask.delayed(_gridding_convolution_parms))
                 
-                list_weight_baseline_pb_sqrd.append(da.from_delayed(delayed_weight_baseline_pb_sqrd,(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],_grid_parms['image_size'][0],_grid_parms['image_size'][1]),dtype=np.complex))
+                list_weight_baseline_pb_sqrd.append(da.from_delayed(delayed_weight_baseline_pb_sqrd,(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],conv_size[0],conv_size[1]),dtype=np.complex))
                
         
         baseline_pb = da.concatenate(list_baseline_pb,axis=1)
         weight_baseline_pb_sqrd = da.concatenate(list_weight_baseline_pb_sqrd,axis=1)
     
-
     
     #Combine patterns and fft to obtain the gridding convolutional kernel
     #print(baseline_pb)
     #print(weight_baseline_pb_sqrd)
-
+    
     dataset_dict = {}
     list_xarray_data_variables = []
-    if (_gcf_parms['a_term'] == True) and (_gcf_parms['ps_term'] == True):
+    if (_gridding_convolution_parms['a_term'] == True) and (_gridding_convolution_parms['ps_term'] == True):
         conv_kernel = dafft.fftshift(dafft.fft2(dafft.ifftshift(ps_term_padded_ifft*baseline_pb, axes=(3, 4)), axes=(3, 4)), axes=(3, 4))
         conv_weight_kernel = dafft.fftshift(dafft.fft2(dafft.ifftshift(weight_baseline_pb_sqrd, axes=(3, 4)), axes=(3, 4)), axes=(3, 4))
         
@@ -151,9 +172,9 @@ def make_gridding_convolution_function(gcf_parms, grid_parms, storage_parms):
         list_conv_support = []
         iter_chunks_indx = itertools.product(np.arange(n_chunks_in_each_dim[0]), np.arange(n_chunks_in_each_dim[1]))
         for c_chan, c_pol in iter_chunks_indx:
-                delayed_kernels_and_support = dask.delayed(resize_and_calc_support)(conv_kernel.partitions[:,c_chan,c_pol,:,:],conv_weight_kernel.partitions[:,c_chan,c_pol,:,:],dask.delayed(_gcf_parms),dask.delayed(_grid_parms))
-                list_conv_kernel.append(da.from_delayed(delayed_kernels_and_support[0],(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],_gcf_parms['resize_conv_size'][0],_gcf_parms['resize_conv_size'][1]),dtype=np.complex))
-                list_weight_conv_kernel.append(da.from_delayed(delayed_kernels_and_support[1],(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],_gcf_parms['resize_conv_size'][0],_gcf_parms['resize_conv_size'][1]),dtype=np.complex))
+                delayed_kernels_and_support = dask.delayed(resize_and_calc_support)(conv_kernel.partitions[:,c_chan,c_pol,:,:],conv_weight_kernel.partitions[:,c_chan,c_pol,:,:],dask.delayed(_gridding_convolution_parms))
+                list_conv_kernel.append(da.from_delayed(delayed_kernels_and_support[0],(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],resize_conv_size[0],resize_conv_size[1]),dtype=np.complex))
+                list_weight_conv_kernel.append(da.from_delayed(delayed_kernels_and_support[1],(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],resize_conv_size[0],resize_conv_size[1]),dtype=np.complex))
                 list_conv_support.append(da.from_delayed(delayed_kernels_and_support[2],(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],2),dtype=np.int))
                 
         
@@ -165,17 +186,17 @@ def make_gridding_convolution_function(gcf_parms, grid_parms, storage_parms):
         dataset_dict['SUPPORT'] = xr.DataArray(conv_support, dims=['conv_baseline','conv_chan','conv_pol','xy'])
         dataset_dict['PS_CORR_IMAGE'] = xr.DataArray(ps_image, dims=['l','m'])
         dataset_dict['WEIGHT_CONV_KERNEL'] = xr.DataArray(weight_conv_kernel, dims=['conv_baseline','conv_chan','conv_pol','u','v'])
-    elif (_gcf_parms['a_term'] == False) and (_gcf_parms['ps_term'] == True):
+    elif (_gridding_convolution_parms['a_term'] == False) and (_gridding_convolution_parms['ps_term'] == True):
         support = np.array([7,7])
         dataset_dict['SUPPORT'] = xr.DataArray(support[None,None,None,:], dims=['conv_baseline','conv_chan','conv_pol','xy'])
-        conv_kernel = np.zeros((1,1,1,_gcf_parms['resize_conv_size'][0],_gcf_parms['resize_conv_size'][1]))
-        center = _gcf_parms['resize_conv_size']//2
+        conv_kernel = np.zeros((1,1,1,resize_conv_size[0],resize_conv_size[1]))
+        center = resize_conv_size//2
         center_embed = np.array(ps_term.shape)//2
         conv_kernel[0,0,0,center[0]-center_embed[0]:center[0]+center_embed[0],center[1]-center_embed[1] : center[1]+center_embed[1]] = ps_term
         dataset_dict['PS_CORR_IMAGE'] = xr.DataArray(ps_image, dims=['l','m'])
         ##Enabled for test
         #dataset_dict['WEIGHT_CONV_KERNEL'] = xr.DataArray(conv_kernel, dims=['conv_baseline','conv_chan','conv_pol','u','v'])
-    elif (_gcf_parms['a_term'] == True) and (_gcf_parms['ps_term'] == False):
+    elif (_gridding_convolution_parms['a_term'] == True) and (_gridding_convolution_parms['ps_term'] == False):
         conv_kernel = dafft.fftshift(dafft.fft2(dafft.ifftshift(baseline_pb, axes=(3, 4)), axes=(3, 4)), axes=(3, 4))
         conv_weight_kernel = dafft.fftshift(dafft.fft2(dafft.ifftshift(weight_baseline_pb_sqrd, axes=(3, 4)), axes=(3, 4)), axes=(3, 4))
         
@@ -184,9 +205,9 @@ def make_gridding_convolution_function(gcf_parms, grid_parms, storage_parms):
         list_conv_support = []
         iter_chunks_indx = itertools.product(np.arange(n_chunks_in_each_dim[0]), np.arange(n_chunks_in_each_dim[1]))
         for c_chan, c_pol in iter_chunks_indx:
-                delayed_kernels_and_support = dask.delayed(resize_and_calc_support)(conv_kernel.partitions[:,c_chan,c_pol,:,:],conv_weight_kernel.partitions[:,c_chan,c_pol,:,:],dask.delayed(_gcf_parms),dask.delayed(_grid_parms))
-                list_conv_kernel.append(da.from_delayed(delayed_kernels_and_support[0],(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],_gcf_parms['resize_conv_size'][0],_gcf_parms['resize_conv_size'][1]),dtype=np.complex))
-                list_weight_conv_kernel.append(da.from_delayed(delayed_kernels_and_support[1],(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],_gcf_parms['resize_conv_size'][0],_gcf_parms['resize_conv_size'][1]),dtype=np.complex))
+                delayed_kernels_and_support = dask.delayed(resize_and_calc_support)(conv_kernel.partitions[:,c_chan,c_pol,:,:],conv_weight_kernel.partitions[:,c_chan,c_pol,:,:],dask.delayed(_gridding_convolution_parms))
+                list_conv_kernel.append(da.from_delayed(delayed_kernels_and_support[0],(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],resize_conv_size[0],resize_conv_size[1]),dtype=np.complex))
+                list_weight_conv_kernel.append(da.from_delayed(delayed_kernels_and_support[1],(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],resize_conv_size[0],resize_conv_size[1]),dtype=np.complex))
                 list_conv_support.append(da.from_delayed(delayed_kernels_and_support[2],(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],2),dtype=np.int))
                 
         
@@ -197,37 +218,39 @@ def make_gridding_convolution_function(gcf_parms, grid_parms, storage_parms):
     
         dataset_dict['SUPPORT'] = xr.DataArray(conv_support, dims=['conv_baseline','conv_chan','conv_pol','xy'])
         dataset_dict['WEIGHT_CONV_KERNEL'] = xr.DataArray(weight_conv_kernel, dims=['conv_baseline','conv_chan','conv_pol','u','v'])
-        dataset_dict['PS_CORR_IMAGE'] = xr.DataArray(da.from_array(np.ones(_grid_parms['image_size']),chunks=_grid_parms['image_size']), dims=['l','m'])
+        dataset_dict['PS_CORR_IMAGE'] = xr.DataArray(da.from_array(np.ones(_gridding_convolution_parms['imsize']),chunks=_gridding_convolution_parms['imsize']), dims=['l','m'])
     else:
         assert(False), "######### ERROR: At least 'a_term' or 'ps_term' must be true."
     
+    
+    
     ###########################################################
     #Make phase gradient (one for each field)
-    field_phase_dir = _gcf_parms['field_phase_dir']
-    field_phase_dir = da.from_array(field_phase_dir,chunks=(np.ceil(len(field_phase_dir)/_gcf_parms['phase_gradient_num_chunk']),2))
+    field_phase_dir = _gridding_convolution_parms['field_phase_dir']
+    field_phase_dir = da.from_array(field_phase_dir,chunks=(np.ceil(len(field_phase_dir)/_gridding_convolution_parms['phase_gradient_num_chunk']),2))
     
-    phase_gradient = da.blockwise(make_phase_gradient, ("n_field","n_x","n_y"), field_phase_dir, ("n_field","2"), gcf_parms=_gcf_parms, grid_parms=_grid_parms, dtype=complex,  new_axes={"n_x": _gcf_parms['resize_conv_size'][0], "n_y": _gcf_parms['resize_conv_size'][1]})
+    phase_gradient = da.blockwise(make_phase_gradient, ("n_field","n_x","n_y"), field_phase_dir, ("n_field","2"), gridding_convolution_parms=_gridding_convolution_parms, dtype=complex,  new_axes={"n_x": resize_conv_size[0], "n_y": resize_conv_size[1]})
     
-
     ###########################################################
+    
     
     #coords = {'baseline': np.arange(n_unique_ant), 'chan': pb_freq, 'pol' : pb_pol, 'u': np.arange(resize_conv_size[0]), 'v': np.arange(resize_conv_size[1]), 'xy':np.arange(2), 'field':np.arange(field_phase_dir.shape[0]),'l':np.arange(_gridding_convolution_parms['imsize'][0]),'m':np.arange(_gridding_convolution_parms['imsize'][1])}
         
     #coords = { 'conv_chan': pb_freq, 'conv_pol' : pb_pol, 'u': np.arange(resize_conv_size[0]), 'v': np.arange(resize_conv_size[1]), 'xy':np.arange(2), 'field':np.arange(field_phase_dir.shape[0]),'l':np.arange(_gridding_convolution_parms['imsize'][0]),'m':np.arange(_gridding_convolution_parms['imsize'][1])}
     
-    coords = { 'u': np.arange(_gcf_parms['resize_conv_size'][0]), 'v': np.arange(_gcf_parms['resize_conv_size'][1]), 'xy':np.arange(2), 'field':np.arange(field_phase_dir.shape[0]),'l':np.arange(_grid_parms['image_size'][0]),'m':np.arange(_grid_parms['image_size'][1])}
+    coords = { 'u': np.arange(resize_conv_size[0]), 'v': np.arange(resize_conv_size[1]), 'xy':np.arange(2), 'field':np.arange(field_phase_dir.shape[0]),'l':np.arange(_gridding_convolution_parms['imsize'][0]),'m':np.arange(_gridding_convolution_parms['imsize'][1])}
     
-    dataset_dict['CF_BASELINE_MAP'] = xr.DataArray(cf_baseline_map, dims=['baseline']).chunk(_gcf_parms['vis_data_chunks'][1][0])
-    dataset_dict['CF_CHAN_MAP'] = xr.DataArray(cf_chan_map, dims=['chan']).chunk(_gcf_parms['vis_data_chunks'][2][0])
-    dataset_dict['CF_POL_MAP'] = xr.DataArray(cf_pol_map, dims=['pol']).chunk(_gcf_parms['vis_data_chunks'][3][0])
+    dataset_dict['CF_BASELINE_MAP'] = xr.DataArray(cf_baseline_map, dims=['baseline']).chunk(gridding_convolution_parms['baseline_chunks'])
+    dataset_dict['CF_CHAN_MAP'] = xr.DataArray(cf_chan_map, dims=['chan']).chunk(gridding_convolution_parms['chan_chunks'])
+    dataset_dict['CF_POL_MAP'] = xr.DataArray(cf_pol_map, dims=['pol']).chunk(gridding_convolution_parms['pol_chunks'])
     
         
     dataset_dict['CONV_KERNEL'] = xr.DataArray(conv_kernel, dims=['conv_baseline','conv_chan','conv_pol','u','v'])
     dataset_dict['PHASE_GRADIENT'] = xr.DataArray(phase_gradient, dims=['field','u','v'])
     
     gcf_dataset = xr.Dataset(dataset_dict, coords=coords)
-    gcf_dataset.attrs['cell_uv'] =1/(_grid_parms['image_size']*_grid_parms['cell_size']*_gcf_parms['oversampling'])
-    gcf_dataset.attrs['oversampling'] = _gcf_parms['oversampling']
+    gcf_dataset.attrs['cell_uv'] =1/(_gridding_convolution_parms['imsize']*_gridding_convolution_parms['cell']*_gridding_convolution_parms['oversampling'])
+    
     
     #print('gcf_dataset',gcf_dataset)
     
@@ -236,6 +259,8 @@ def make_gridding_convolution_function(gcf_parms, grid_parms, storage_parms):
     
     #list_xarray_data_variables = [gcf_dataset['A_TERM'],gcf_dataset['WEIGHT_A_TERM'],gcf_dataset['A_SUPPORT'],gcf_dataset['WEIGHT_A_SUPPORT'],gcf_dataset['PHASE_GRADIENT']]
     return _store(gcf_dataset,list_xarray_data_variables,_storage_parms)
+    
+        
         
     '''
     ######Create Dataset
@@ -286,24 +311,24 @@ def resize_conv_function(array,support,oversampling):
 #    cout << "Coordinate::toPixelWCS " << std::setprecision(20) << pixel << ",*," << wcs.crpix[0] << "," << wcs.crpix[1] << ",*," << wcs.cdelt[0] << "," << wcs.cdelt[1] << ",*," << wcs.crval[0] << "," << wcs.crval[1] << ",*," << wcs.lonpole << ",*," << wcs.latpole << ",*," << wcs.ctype[0] << "," << wcs.ctype[1] << ",*," << endl;
 #cout << " world phi, theta "  << std::setprecision(20) << world << ",*,"<< phi << ",*," << theta << ",*," << endl;
 #Fortran numbering issue
-def make_phase_gradient(field_phase_dir,gcf_parms,grid_parms):
+def make_phase_gradient(field_phase_dir,gridding_convolution_parms):
     from astropy.wcs import WCS
     rad_to_deg =  180/np.pi
 
-    phase_center = gcf_parms['phase_center']
+    phase_center = gridding_convolution_parms['phase_center']
     w = WCS(naxis=2)
-    w.wcs.crpix = grid_parms['image_size']//2
-    w.wcs.cdelt = grid_parms['cell_size']*rad_to_deg
+    w.wcs.crpix = gridding_convolution_parms['imsize']//2
+    w.wcs.cdelt = gridding_convolution_parms['cell']*rad_to_deg
     w.wcs.crval = phase_center*rad_to_deg
     w.wcs.ctype = ['RA---SIN','DEC--SIN']
     
     #print('field_phase_dir ',field_phase_dir)
-    pix_dist = np.array(w.all_world2pix(field_phase_dir[0]*rad_to_deg, 1)) - grid_parms['image_size']//2 #Why is fortran numbering used?
-    pix = -(pix_dist)*2*np.pi/(grid_parms['image_size']*gcf_parms['oversampling'])
+    pix_dist = np.array(w.all_world2pix(field_phase_dir[0]*rad_to_deg, 1)) - gridding_convolution_parms['imsize']//2 #Why is fortran numbering used?
+    pix = -(pix_dist)*2*np.pi/(gridding_convolution_parms['imsize']*gridding_convolution_parms['oversampling'])
     
     #print(pix)
     
-    image_size = gcf_parms['resize_conv_size']
+    image_size = gridding_convolution_parms['resize_conv_size']
     center_indx = image_size//2
     x = np.arange(-center_indx[0], image_size[0]-center_indx[0])
     y = np.arange(-center_indx[1], image_size[1]-center_indx[1])
@@ -314,16 +339,17 @@ def make_phase_gradient(field_phase_dir,gcf_parms,grid_parms):
     phase_gradient = np.moveaxis(np.exp(1j*(x_grid[:,:,None]*pix[:,0] + y_grid[:,:,None]*pix[:,1])),2,0)
     return phase_gradient
     
-def resize_and_calc_support(conv_kernel,conv_weight_kernel,gcf_parms,grid_parms):
+def resize_and_calc_support(conv_kernel,conv_weight_kernel,gridding_convolution_parms):
     import itertools
+    current_conv_size = gridding_convolution_parms['conv_size']
     conv_shape = conv_kernel.shape[0:3]
     conv_support = np.zeros(conv_shape+(2,),dtype=int) #2 is to enable x,y support
 
     for idx in itertools.product(*[range(s) for s in conv_shape]):
-        conv_support[idx] = calc_conv_size(conv_weight_kernel[idx],grid_parms['image_size'],gcf_parms['support_cut_level'],gcf_parms['oversampling'],gcf_parms['max_support'])
+        conv_support[idx] = calc_conv_size(conv_weight_kernel[idx],gridding_convolution_parms['imsize'],gridding_convolution_parms['support_cut_level'],gridding_convolution_parms['oversampling'],gridding_convolution_parms['max_support'])
         
-    resized_conv_size = gcf_parms['resize_conv_size']
-    start_indx = grid_parms['image_size']//2 - resized_conv_size//2
+    resized_conv_size = gridding_convolution_parms['resize_conv_size']
+    start_indx = current_conv_size//2 - resized_conv_size//2
     end_indx = start_indx + resized_conv_size
     
     return conv_kernel[:,:,:,start_indx[0]:end_indx[0],start_indx[1]:end_indx[1]] , conv_weight_kernel[:,:,:,start_indx[0]:end_indx[0],start_indx[1]:end_indx[1]], conv_support
@@ -368,18 +394,24 @@ def resize_and_calc_support(conv_kernel,conv_weight_kernel,gcf_parms,grid_parms)
     
 
 ##########################
-def make_baseline_patterns(pb_freq,pb_pol,pb_ant_pairs,gcf_parms,grid_parms):
-    from ._imaging_utils._make_pb_1d import _alma_airy_disk_rorder
-    import copy
+def make_baseline_patterns(pb_freq,pb_pol,pb_ant_pairs,gridding_convolution_parms):
+    from ._imaging_utils._make_pb_1d import _airy_disk_rorder
     
-    pb_grid_parms = copy.deepcopy(grid_parms)
-    pb_grid_parms['cell_size'] = grid_parms['cell_size']*gcf_parms['oversampling']
+    
+    pb_parms ={}
+    pb_parms['cell'] = gridding_convolution_parms['cell']*gridding_convolution_parms['oversampling']
+    pb_parms['imsize'] = gridding_convolution_parms['imsize']
+    pb_parms['center_indx'] = pb_parms['imsize']//2
+    pb_parms['list_dish_diameters'] = gridding_convolution_parms['list_dish_diameters']
+    pb_parms['list_blockage_diameters'] = gridding_convolution_parms['list_blockage_diameters']
+    pb_parms['ipower'] = gridding_convolution_parms['ipower']
+    pb_parms['pb_limit'] = 0.0
     
     #print(pb_parms)
     #print('pb_pol',pb_pol)
-    patterns = _alma_airy_disk_rorder(pb_freq,pb_pol,gcf_parms,pb_grid_parms)
+    patterns = _airy_disk_rorder(pb_freq,pb_pol,pb_parms)
     
-    baseline_pattern = np.zeros((len(pb_ant_pairs),len(pb_freq),len(pb_pol), grid_parms['image_size'][0], grid_parms['image_size'][1]), dtype=complex)
+    baseline_pattern = np.zeros((len(pb_ant_pairs),len(pb_freq),len(pb_pol), pb_parms['imsize'][0], pb_parms['imsize'][1]), dtype=complex)
     #conv_support_array = np.zeros((len(pb_ant_pairs),len(pb_freq),len(pb_pol),2),dtype=int) #2 is to enable x,y support
     
     #max_support = ((gridding_convolution_parms['conv_size']/gridding_convolution_parms['oversampling'])-1).astype(int)

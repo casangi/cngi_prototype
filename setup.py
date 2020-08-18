@@ -20,14 +20,14 @@ setup(
                       'graphviz>=0.13.2',
                       'matplotlib>=3.1.2',
                       'numba==0.48.0',
-                      'numcodecs>=0.6.4',
+                      'numcodecs>=0.6.3',
                       'numpy>=1.18.1',
                       'pandas>=0.25.2',
                       'scipy>=1.4.1',
                       'scikit-learn>=0.22.2',
                       'toolz>=0.10.0',
                       'xarray>=0.15.0',
-                      'zarr>=2.4.0'],
+                      'zarr>=2.3.2'],
     extras_require={
         'dev': [
             'pytest>=5.3.5',

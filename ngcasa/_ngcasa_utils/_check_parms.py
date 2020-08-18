@@ -92,7 +92,7 @@ def _check_dataset(vis_dataset,data_variable_name):
     try:
         temp = vis_dataset[data_variable_name]
     except:
-        print ('######### ERROR Data array ', data_variable_name,'can not be found in vis_dataset.')
+        print ('######### ERROR Data array ', data_variable_name,'can not be found in dataset.')
         return False
     return True
     
@@ -115,5 +115,15 @@ def _check_storage_parms(storage_parms,default_outfile,graph_name):
 
 
 
+def _check_sel_parms(sel_parms,select_defaults):
+    parms_passed = True
+    for sel in select_defaults:
+        if not(_check_parms(sel_parms, sel, [str], default=select_defaults[sel])): parms_passed = False
+    return parms_passed
 
 
+def _check_existence_sel_parms(dataset, sel_parms):
+    parms_passed = True
+    for sel in sel_parms:
+        if not(_check_dataset(dataset,sel_parms[sel])): parms_passed = False
+    return parms_passed

@@ -142,7 +142,7 @@ def _prolate_spheroidal_function(u):
     ok = np.abs(u > 1.0)
     grdsf[ok] = 0.0
 
-    # Return the griddata function and the grid correction function
+    # Return the correcting image and the gridding kernel value
     return grdsf, (1 - u ** 2) * grdsf
 
 
@@ -154,3 +154,41 @@ def _create_prolate_spheroidal_kernel_1D(oversampling, support):
     long_half_kernel_1D = np.zeros(oversampling * (support_center + 1))
     _, long_half_kernel_1D[0:oversampling * (support_center)] = _prolate_spheroidal_function(u)
     return long_half_kernel_1D
+
+def _create_prolate_spheroidal_kernel_2D(oversampling, support):
+    """
+    Prolate spheroidal gridding term
+    """
+
+    conv_size = (support + 1)*oversampling
+    half_support = support//2
+    print(conv_size)
+    
+    oversampled_coordinates_x = np.abs((np.arange(conv_size[0]) - conv_size[0]//2)/(oversampling[0]*half_support[0]))
+    oversampled_coordinates_y = np.abs((np.arange(conv_size[1]) - conv_size[1]//2)/(oversampling[1]*half_support[1]))
+    
+    oversampled_coordinates_x[oversampled_coordinates_x >= 1] = 1
+    oversampled_coordinates_y[oversampled_coordinates_y >= 1] = 1
+    
+    kernel_image_1D_x = _prolate_spheroidal_function(oversampled_coordinates_x)[1]
+    kernel_image_1D_y = _prolate_spheroidal_function(oversampled_coordinates_y)[1]
+    
+    kernel_image = np.outer(kernel_image_1D_x, kernel_image_1D_y)
+    
+    return kernel_image
+    
+
+def _create_prolate_spheroidal_image_2D(n_xy):
+    """
+    Correcting image for prolate spheroidal term
+    """
+    
+    kernel_image_points_1D_x = np.abs(2.0 * _coordinates(n_xy[0]))
+    kernel_image_1D_x = _prolate_spheroidal_function(kernel_image_points_1D_x)[0]
+
+    kernel_image_points_1D_y = np.abs(2.0 * _coordinates(n_xy[1]))
+    kernel_image_1D_y = _prolate_spheroidal_function(kernel_image_points_1D_y)[0]
+
+    kernel_image = np.outer(kernel_image_1D_x, kernel_image_1D_y)
+
+    return kernel_image
