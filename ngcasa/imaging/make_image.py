@@ -12,7 +12,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-def make_image(vis_dataset, gcf_dataset, img_dataset, grid_parms, norm_parms, sel_parms, storage_parms):
+def make_image(vis_dataset, grid_parms, storage_parms):
     """
     Creates a cube or continuum dirty image from the user specified visibility, uvw and imaging weight data. Only the prolate spheroidal convolutional gridding function is supported (this will change in a future releases.)
     
@@ -80,45 +80,41 @@ def make_image(vis_dataset, gcf_dataset, img_dataset, grid_parms, norm_parms, se
     from itertools import cycle
     
     from ngcasa._ngcasa_utils._store import _store
-    from ngcasa._ngcasa_utils._check_parms import _check_storage_parms, _check_sel_parms, _check_existence_sel_parms
-    from ._imaging_utils._check_imaging_parms import _check_grid_parms, _check_norm_parms
-    #from ._imaging_utils._gridding_convolutional_kernels import _create_prolate_spheroidal_kernel, _create_prolate_spheroidal_kernel_1D
+    from ngcasa._ngcasa_utils._check_parms import _check_storage_parms
+    from ._imaging_utils._check_imaging_parms import _check_grid_params
+    from ._imaging_utils._gridding_convolutional_kernels import _create_prolate_spheroidal_kernel, _create_prolate_spheroidal_kernel_1D
     from ._imaging_utils._standard_grid import _graph_standard_grid
     from ._imaging_utils._remove_padding import _remove_padding
-    from ._imaging_utils._aperture_grid import _graph_aperture_grid
-    from ._imaging_utils._normalize import _normalize
     
     _grid_parms = copy.deepcopy(grid_parms)
     _storage_parms = copy.deepcopy(storage_parms)
-    _sel_parms = copy.deepcopy(sel_parms)
-    _norm_parms = copy.deepcopy(norm_parms)
     
-    assert(_check_sel_parms(_sel_parms,{'uvw':'UVW','data':'DATA','imaging_weight':'IMAGING_WEIGHT','sum_weight':'SUM_WEIGHT','image':'IMAGE','pb':'PB','weight_pb':'WEIGHT_PB'})), "######### ERROR: sel_parms checking failed"
-    assert(_check_existence_sel_parms(vis_dataset,{'uvw':_sel_parms['uvw'],'data':_sel_parms['data'],'imaging_weight':_sel_parms['imaging_weight']})), "######### ERROR: sel_parms checking failed"
-    assert(_check_existence_sel_parms(img_dataset,{'pb':_sel_parms['pb'],'weight_pb':_sel_parms['weight_pb']})), "######### ERROR: sel_parms checking failed"
-    assert(_check_grid_parms(_grid_parms)), "######### ERROR: grid_parms checking failed"
-    assert(_check_norm_parms(_norm_parms)), "######### ERROR: norm_parms checking failed"
+    _grid_parms['do_psf'] = False
+    
+    assert(_check_grid_params(vis_dataset,_grid_parms)), "######### ERROR: grid_parms checking failed"
     assert(_check_storage_parms(_storage_parms,'dirty_image.img.zarr','make_image')), "######### ERROR: storage_parms checking failed"
     
     # Creating gridding kernel
-    #cgk, correcting_cgk_image = _create_prolate_spheroidal_kernel(_grid_parms['oversampling'], _grid_parms['support'], _grid_parms['imsize_padded'])
-    #cgk_1D = _create_prolate_spheroidal_kernel_1D(_grid_parms['oversampling'], _grid_parms['support'])
+    cgk, correcting_cgk_image = _create_prolate_spheroidal_kernel(_grid_parms['oversampling'], _grid_parms['support'], _grid_parms['imsize_padded'])
+    cgk_1D = _create_prolate_spheroidal_kernel_1D(_grid_parms['oversampling'], _grid_parms['support'])
     
-    #Standard Gridd add switch
-    #cgk, correcting_cgk_image = _create_prolate_spheroidal_kernel(100, 7, _grid_parms['imsize_padded'])
-    #cgk_1D = _create_prolate_spheroidal_kernel_1D(100, 7)
-    #grids_and_sum_weights = _graph_standard_grid(vis_dataset, cgk_1D, _grid_parms)
-    
-    _grid_parms['grid_weights'] = False
-    _grid_parms['do_psf'] = False
-    _grid_parms['oversampling'] = np.array(gcf_dataset.oversampling)
-
-    grids_and_sum_weights = _graph_aperture_grid(vis_dataset,gcf_dataset,_grid_parms,_sel_parms)
+    grids_and_sum_weights = _graph_standard_grid(vis_dataset, cgk_1D, _grid_parms)
     uncorrected_dirty_image = dafft.fftshift(dafft.ifft2(dafft.ifftshift(grids_and_sum_weights[0], axes=(0, 1)), axes=(0, 1)), axes=(0, 1))
         
     #Remove Padding
-    uncorrected_dirty_image = _remove_padding(uncorrected_dirty_image,_grid_parms['image_size']).real * (_grid_parms['image_size_padded'][0] * _grid_parms['image_size_padded'][1])
-    normalized_image = _normalize(uncorrected_dirty_image, grids_and_sum_weights[1], img_dataset, gcf_dataset, 'forward', _norm_parms['norm_type'], sel_parms)
+    correcting_cgk_image = _remove_padding(correcting_cgk_image,_grid_parms['imsize'])
+    uncorrected_dirty_image = _remove_padding(uncorrected_dirty_image,_grid_parms['imsize']).real * (_grid_parms['imsize_padded'][0] * _grid_parms['imsize_padded'][1])
+        
+            
+    #############Move this to Normalizer#############
+    def correct_image(uncorrected_dirty_image, sum_weights, correcting_cgk):
+        sum_weights[sum_weights == 0] = 1
+        # corrected_image = (uncorrected_dirty_image/sum_weights[:,:,None,None])/correcting_cgk[None,None,:,:]
+        corrected_image = (uncorrected_dirty_image / sum_weights[None, None, :, :]) / correcting_cgk[:, :, None, None]
+        return corrected_image
+
+    corrected_dirty_image = da.map_blocks(correct_image, uncorrected_dirty_image, grids_and_sum_weights[1],correcting_cgk_image)
+   ####################################################
 
     if _grid_parms['chan_mode'] == 'continuum':
         freq_coords = [da.mean(vis_dataset.coords['chan'].values)]
@@ -129,32 +125,16 @@ def make_image(vis_dataset, gcf_dataset, img_dataset, grid_parms, norm_parms, se
         chan_width = vis_dataset['chan_width'].data
         imag_chan_chunk_size = vis_dataset.DATA.chunks[2][0]
     
-    ###Create Dataset
-    #chunks = vis_dataset.DATA.chunks
-    #n_imag_pol = chunks[3][0]
-    #image_dict = {}
-    #coords = {'d0': np.arange(_grid_parms['image_size'][0]), 'd1': np.arange(_grid_parms['image_size'][1]),
-    #          'chan': freq_coords, 'pol': np.arange(n_imag_pol), 'chan_width' : ('chan',chan_width)}
-    
-    img_dataset[_sel_parms['sum_weight']] = xr.DataArray(grids_and_sum_weights[1], dims=['chan','pol'])
-    img_dataset[_sel_parms['image']] = xr.DataArray(normalized_image, dims=['d0', 'd1', 'chan', 'pol'])
-    
-    list_xarray_data_variables = [img_dataset[_sel_parms['image']],img_dataset[_sel_parms['sum_weight']]]
-    return _store(img_dataset,list_xarray_data_variables,_storage_parms)
-    
-    
-    '''
-    ###Create Dataset
+    ###Create Dirty Image Dataset
     chunks = vis_dataset.DATA.chunks
     n_imag_pol = chunks[3][0]
     image_dict = {}
-    coords = {'d0': np.arange(_grid_parms['image_size'][0]), 'd1': np.arange(_grid_parms['image_size'][1]),
+    coords = {'d0': np.arange(_grid_parms['imsize'][0]), 'd1': np.arange(_grid_parms['imsize'][1]),
               'chan': freq_coords, 'pol': np.arange(n_imag_pol), 'chan_width' : ('chan',chan_width)}
               
-    image_dict[_sel_parms['sum_weight']] = xr.DataArray(grids_and_sum_weights[1], dims=['chan','pol'])
-    image_dict[_sel_parms['image']] = xr.DataArray(normalized_image, dims=['d0', 'd1', 'chan', 'pol'])
+    image_dict[_grid_parms['sum_weight_name']] = xr.DataArray(grids_and_sum_weights[1], dims=['chan','pol'])
+    image_dict[_grid_parms['image_name']] = xr.DataArray(corrected_dirty_image, dims=['d0', 'd1', 'chan', 'pol'])
     image_dataset = xr.Dataset(image_dict, coords=coords)
     
-    list_xarray_data_variables = [image_dataset[_sel_parms['image']],image_dataset[_sel_parms['sum_weight']]]
+    list_xarray_data_variables = [image_dataset[_grid_parms['image_name']],image_dataset[_grid_parms['sum_weight_name']]]
     return _store(image_dataset,list_xarray_data_variables,_storage_parms)
-    '''

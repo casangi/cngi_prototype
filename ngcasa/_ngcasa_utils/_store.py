@@ -37,12 +37,13 @@ def _store(dataset,list_xarray_data_variables,storage_parms):
                 data_variables_name = data_variables_name + data_variable.name
             print('Atempting to add ', data_variables_name, ' to ', storage_parms['outfile'])
             
-            try:
+            #try:
+            if True:
                 stored_dataset = append_zarr(list_xarray_data_variables,outfile=storage_parms['outfile'],chunks_return=storage_parms['chunks_return'],compressor=storage_parms['compressor'],graph_name=storage_parms['graph_name'])
                 print('##################### Finished appending ',storage_parms['graph_name'],' #####################')
                 return stored_dataset
-            except Exception:
-                print('ERROR : Could not append ', data_variables_name , 'to', storage_parms['outfile'])
+            #except Exception:
+            #    print('ERROR : Could not append ', data_variables_name , 'to', storage_parms['outfile'])
         else:
             print('Saving dataset to ', storage_parms['outfile'])
             

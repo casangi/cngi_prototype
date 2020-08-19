@@ -55,7 +55,6 @@ def _check_gcf_parms(gcf_parms):
     return parms_passed
     
 def _check_mosaic_pb_parms(pb_mosaic_parms):
-    import numbers
     parms_passed = True
     
     if not(_check_parms(pb_mosaic_parms, 'pb_name', [str], default='PB')): parms_passed = False
@@ -63,6 +62,18 @@ def _check_mosaic_pb_parms(pb_mosaic_parms):
     if not(_check_parms(pb_mosaic_parms, 'weight_name', [str], default='WEIGHT_PB')): parms_passed = False
     
     return parms_passed
+    
+    
+def _check_rotation_parms(rotation_parms):
+    import numbers
+    parms_passed = True
+    
+    if not(_check_parms(rotation_parms, 'image_phase_center', [list], list_acceptable_data_types=[numbers.Number], list_len=2)): parms_passed = False
+    
+    if not(_check_parms(rotation_parms, 'common_tangent_reprojection', [bool], default=True)): parms_passed = False
+    
+    return parms_passed
+    
     
     
 def _check_norm_parms(norm_parms):
