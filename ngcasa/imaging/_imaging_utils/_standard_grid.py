@@ -73,12 +73,12 @@ def _graph_standard_grid(vis_dataset, cgk_1D, grid_parms, sel_parms):
         
         if grid_parms['chan_mode'] == 'continuum':
             c_time_baseline_chan_pol = c_pol + c_chan*n_chunks_in_each_dim[3] + c_baseline*n_chunks_in_each_dim[3]*n_chunks_in_each_dim[2] + c_time*n_chunks_in_each_dim[3]*n_chunks_in_each_dim[2]*n_chunks_in_each_dim[1]
-            list_of_grids[0][c_time_baseline_chan_pol] = da.from_delayed(sub_grid_and_sum_weights[0], (1, chunk_sizes[3][c_pol], grid_parms['imsize_padded'][0], grid_parms['imsize_padded'][1]),dtype=grid_dtype)
+            list_of_grids[0][c_time_baseline_chan_pol] = da.from_delayed(sub_grid_and_sum_weights[0], (1, chunk_sizes[3][c_pol], grid_parms['image_size_padded'][0], grid_parms['image_size_padded'][1]),dtype=grid_dtype)
             list_of_sum_weights[0][c_time_baseline_chan_pol] = da.from_delayed(sub_grid_and_sum_weights[1],(1, chunk_sizes[3][c_pol]),dtype=np.float64)
             
         elif grid_parms['chan_mode'] == 'cube':
             c_time_baseline_pol = c_pol + c_baseline*n_chunks_in_each_dim[3] + c_time*n_chunks_in_each_dim[1]*n_chunks_in_each_dim[3]
-            list_of_grids[c_chan][c_time_baseline_pol] = da.from_delayed(sub_grid_and_sum_weights[0], (chunk_sizes[2][c_chan], chunk_sizes[3][c_pol], grid_parms['imsize_padded'][0], grid_parms['imsize_padded'][1]),dtype=grid_dtype)
+            list_of_grids[c_chan][c_time_baseline_pol] = da.from_delayed(sub_grid_and_sum_weights[0], (chunk_sizes[2][c_chan], chunk_sizes[3][c_pol], grid_parms['image_size_padded'][0], grid_parms['image_size_padded'][1]),dtype=grid_dtype)
             list_of_sum_weights[c_chan][c_time_baseline_pol]  = da.from_delayed(sub_grid_and_sum_weights[1],(chunk_sizes[2][c_chan], chunk_sizes[3][c_pol]),dtype=np.float64)
             
             
@@ -135,7 +135,7 @@ def _standard_grid_numpy_wrap(vis_data, uvw, weight, freq_chan, cgk_1D, grid_par
       cgk_1D : float array
           (oversampling*(support//2 + 1))
       grid_parms : dictionary
-          keys ('imsize','cell','oversampling','support')
+          keys ('image_size','cell','oversampling','support')
 
       Returns
       -------
@@ -193,7 +193,7 @@ def _standard_grid_psf_numpy_wrap(uvw, weight, freq_chan, cgk_1D, grid_parms):
       cgk_1D : float array
           (oversampling*(support//2 + 1))
       grid_parms : dictionary
-          keys ('imsize','cell','oversampling','support')
+          keys ('image_size','cell','oversampling','support')
 
       Returns
       -------

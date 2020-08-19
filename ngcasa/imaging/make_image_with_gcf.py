@@ -129,13 +129,13 @@ def make_image_with_gcf(vis_dataset, gcf_dataset, img_dataset, grid_parms, norm_
         chan_width = vis_dataset['chan_width'].data
         imag_chan_chunk_size = vis_dataset.DATA.chunks[2][0]
     
-    ###Create Dataset
-    #chunks = vis_dataset.DATA.chunks
-    #n_imag_pol = chunks[3][0]
-    #image_dict = {}
-    #coords = {'d0': np.arange(_grid_parms['image_size'][0]), 'd1': np.arange(_grid_parms['image_size'][1]),
-    #          'chan': freq_coords, 'pol': np.arange(n_imag_pol), 'chan_width' : ('chan',chan_width)}
+    ###Create Image Dataset
+    chunks = vis_dataset.DATA.chunks
+    n_imag_pol = chunks[3][0]
     
+    coords = {'d0': np.arange(_grid_parms['image_size'][0]), 'd1': np.arange(_grid_parms['image_size'][1]),
+              'chan': freq_coords, 'pol': np.arange(n_imag_pol), 'chan_width' : ('chan',chan_width)}
+    img_dataset = img_dataset.assign_coords(coords)
     img_dataset[_sel_parms['sum_weight']] = xr.DataArray(grids_and_sum_weights[1], dims=['chan','pol'])
     img_dataset[_sel_parms['image']] = xr.DataArray(normalized_image, dims=['d0', 'd1', 'chan', 'pol'])
     
