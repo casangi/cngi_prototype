@@ -13,7 +13,7 @@
 #   limitations under the License.
 
 
-def make_imaging_weight(vis_dataset, imaging_weights_parms,storage_parms):
+def make_imaging_weight(vis_dataset, imaging_weights_parms, grid_parms, sel_parms,storage_parms):
     """
     Creates the imaging weight data variable that has dimensions time x baseline x chan x pol (matches the visibility data variable).
     The weight density can be averaged over channels or calculated independently for each channel using imaging_weights_parms['chan_mode'].
@@ -82,14 +82,20 @@ def make_imaging_weight(vis_dataset, imaging_weights_parms,storage_parms):
     import zarr
     
     from ngcasa._ngcasa_utils._store import _store
-    from ngcasa._ngcasa_utils._check_parms import _check_storage_parms
+    from ngcasa._ngcasa_utils._check_parms import _check_storage_parms, _check_sel_parms, _check_existence_sel_parms
     from ._imaging_utils._check_imaging_parms import _check_imaging_weights_parms
     from cngi.dio import write_zarr, append_zarr
     
     _imaging_weights_parms =  copy.deepcopy(imaging_weights_parms)
+    _grid_parms = copy.deepcopy(grid_parms)
+    _sel_parms = copy.deepcopy(sel_parms)
     _storage_parms =  copy.deepcopy(storage_parms)
     
-    assert(_check_imaging_weights_parms(vis_dataset,_imaging_weights_parms)), "######### ERROR: imaging_weights_parms checking failed"
+    assert(_check_imaging_weights_parms(_imaging_weights_parms)), "######### ERROR: imaging_weights_parms checking failed"
+    if _imaging_weights_parms['weighting'] != 'natural':
+        assert(_check_grid_parms(_grid_parms)), "######### ERROR: grid_parms checking failed"
+    assert(_check_sel_parms(_sel_parms,{'uvw':'UVW','data':'DATA','imaging_weight':'IMAGING_WEIGHT'})), "######### ERROR: sel_parms checking failed"
+    assert(_check_existence_sel_parms(vis_dataset,{'uvw':_sel_parms['uvw'],'data':_sel_parms['data'],'imaging_weight':_sel_parms['imaging_weight']})), "######### ERROR: sel_parms checking failed"
     assert(_check_storage_parms(_storage_parms,'dataset.vis.zarr','make_imaging_weights')), "######### ERROR: storage_parms checking failed"
     
     
@@ -100,29 +106,29 @@ def make_imaging_weight(vis_dataset, imaging_weights_parms,storage_parms):
     weight_spectrum_present = 'WEIGHT_SPECTRUM' in vis_dataset.data_vars
     all_dims_dict = vis_dataset.dims
     
-    vis_data_dims = vis_dataset[_imaging_weights_parms['data_name']].dims
-    vis_data_chunksize = vis_dataset[_imaging_weights_parms['data_name']].data.chunksize
+    vis_data_dims = vis_dataset[_sel_parms['data']].dims
+    vis_data_chunksize = vis_dataset[_sel_parms['data']].data.chunksize
     
     
     if weight_present and weight_spectrum_present:
-        print('Both WEIGHT and WEIGHT_SPECTRUM data variables found, will use WEIGHT_SPECTRUM to calculate', _imaging_weights_parms['imaging_weight_name'])
-        imaging_weight = _match_array_shape(vis_dataset.WEIGHT_SPECTRUM,vis_dataset[_imaging_weights_parms['data_name']])
+        print('Both WEIGHT and WEIGHT_SPECTRUM data variables found, will use WEIGHT_SPECTRUM to calculate', _sel_parms['imaging_weight'])
+        imaging_weight = _match_array_shape(vis_dataset.WEIGHT_SPECTRUM,vis_dataset[_sel_parms['data']])
     elif weight_present:
-        print('WEIGHT data variable found, will use WEIGHT to calculate ', _imaging_weights_parms['imaging_weight_name'])
-        imaging_weight = _match_array_shape(vis_dataset.WEIGHT,vis_dataset[_imaging_weights_parms['data_name']])
+        print('WEIGHT data variable found, will use WEIGHT to calculate ', _sel_parms['imaging_weight'])
+        imaging_weight = _match_array_shape(vis_dataset.WEIGHT,vis_dataset[_sel_parms['data']])
     elif weight_spectrum_present:
-        print('WEIGHT_SPECTRUM  data variable found, will use WEIGHT_SPECTRUM to calculate ', _imaging_weights_parms['imaging_weight_name'])
-        imaging_weight = _match_array_shape(vis_dataset.WEIGHT_SPECTRUM,vis_dataset[_imaging_weights_parms['data_name']])
+        print('WEIGHT_SPECTRUM  data variable found, will use WEIGHT_SPECTRUM to calculate ', _sel_parms['imaging_weight'])
+        imaging_weight = _match_array_shape(vis_dataset.WEIGHT_SPECTRUM,vis_dataset[_sel_parms['data']])
     else:
-        print('No WEIGHT or WEIGHT_SPECTRUM data variable found,  will assume all weights are unity to calculate ', _imaging_weights_parms['imaging_weight_name'])
-        imaging_weight = da.ones(vis_dataset[_imaging_weights_parms['data_name']].shape,chunks=vis_data_chunksize)
+        print('No WEIGHT or WEIGHT_SPECTRUM data variable found,  will assume all weights are unity to calculate ', _sel_parms['imaging_weight'])
+        imaging_weight = da.ones(vis_dataset[_sel_parms['data']].shape,chunks=vis_data_chunksize)
     
-    vis_dataset[_imaging_weights_parms['imaging_weight_name']] =  xr.DataArray(imaging_weight, dims=vis_dataset[_imaging_weights_parms['data_name']].dims)
+    vis_dataset[_sel_parms['imaging_weight']] =  xr.DataArray(imaging_weight, dims=vis_dataset[_sel_parms['data']].dims)
     
     if _imaging_weights_parms['weighting'] != 'natural':
-        calc_briggs_weights(vis_dataset,_imaging_weights_parms)
+        calc_briggs_weights(vis_dataset,_imaging_weights_parms,_grid_parms)
     
-    list_xarray_data_variables = [vis_dataset[_imaging_weights_parms['imaging_weight_name']]]
+    list_xarray_data_variables = [vis_dataset[_sel_parms['imaging_weight']]]
     return _store(vis_dataset,list_xarray_data_variables,_storage_parms)
     
 def _match_array_shape(array_to_reshape,array_to_match):
@@ -149,7 +155,7 @@ def _match_array_shape(array_to_reshape,array_to_match):
 
 
 
-def calc_briggs_weights(vis_dataset,imaging_weights_parms):
+def calc_briggs_weights(vis_dataset,imaging_weights_parms,grid_parms,sel_parms):
     import dask.array as da
     import xarray as xr
     import numpy as np
@@ -158,13 +164,7 @@ def calc_briggs_weights(vis_dataset,imaging_weights_parms):
     
     dtr = np.pi / (3600 * 180)
     grid_parms = {}
-    
-    grid_parms['chan_mode'] = imaging_weights_parms['chan_mode']
-    grid_parms['imsize_padded'] =  imaging_weights_parms['imsize'] #do not need to pad since no fft
-    grid_parms['cell'] = imaging_weights_parms['cell']
-    grid_parms['do_imaging_weight'] = True
-    grid_parms['uvw_name'] = imaging_weights_parms['uvw_name']
-    
+    grid_parms['image_size_padded'] =  grid_parms['image_size'] #do not need to pad since no fft
     grid_parms['oversampling'] = 0
     grid_parms['support'] = 1
     grid_parms['do_psf'] = True
@@ -173,7 +173,7 @@ def calc_briggs_weights(vis_dataset,imaging_weights_parms):
     grid_parms['imaging_weight_name'] = imaging_weights_parms['imaging_weight_name']
     
     cgk_1D = np.ones((1))
-    grid_of_imaging_weights, sum_weight = _graph_standard_grid(vis_dataset, cgk_1D, grid_parms)
+    grid_of_imaging_weights, sum_weight = _graph_standard_grid(vis_dataset, cgk_1D, grid_parms, sel_parms)
     
     
     #############Calculate Briggs parameters#############
@@ -199,6 +199,6 @@ def calc_briggs_weights(vis_dataset,imaging_weights_parms):
     
     imaging_weight = _graph_standard_degrid(vis_dataset, grid_of_imaging_weights, briggs_factors, cgk_1D, grid_parms)
     
-    vis_dataset[imaging_weights_parms['imaging_weight_name']] = xr.DataArray(imaging_weight, dims=vis_dataset[imaging_weights_parms['data_name']].dims)
+    vis_dataset[sel_parms['imaging_weight']] = xr.DataArray(imaging_weight, dims=vis_dataset[sel_parms['data']].dims)
     
 

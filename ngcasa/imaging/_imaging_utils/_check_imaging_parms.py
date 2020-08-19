@@ -85,11 +85,12 @@ def _check_norm_parms(norm_parms):
     return parms_passed
     
     
-def _check_imaging_weights_parms(vis_dataset, imaging_weights_parms):
+def _check_imaging_weights_parms(imaging_weights_parms):
     import numbers
     parms_passed = True
     arc_sec_to_rad = np.pi / (3600 * 180)
     
+    '''
     if not(_check_parms(imaging_weights_parms, 'data_name', [str], default='DATA')): parms_passed = False
     if not(_check_dataset(vis_dataset,imaging_weights_parms['data_name'])): parms_passed = False
     
@@ -97,6 +98,7 @@ def _check_imaging_weights_parms(vis_dataset, imaging_weights_parms):
     if not(_check_dataset(vis_dataset,imaging_weights_parms['uvw_name'])): parms_passed = False
     
     if not(_check_parms(imaging_weights_parms, 'imaging_weight_name', [str], default='IMAGING_WEIGHT')): parms_passed = False
+    '''
 
     if not(_check_parms(imaging_weights_parms, 'weighting', [str], acceptable_data=['natural','uniform','briggs','briggs_abs'], default='natural')): parms_passed = False
     
@@ -104,17 +106,6 @@ def _check_imaging_weights_parms(vis_dataset, imaging_weights_parms):
         if not(_check_parms(imaging_weights_parms, 'briggs_abs_noise', [numbers.Number], default=1.0)): parms_passed = False
 
     if not(_check_parms(imaging_weights_parms, 'robust', [numbers.Number], default=0.5, acceptable_range=[-2,2])): parms_passed = False
-    
-    if imaging_weights_parms['weighting'] != 'natural':
-        if not(_check_parms(imaging_weights_parms, 'chan_mode', [str], acceptable_data=['cube','continuum'], default='cube')): parms_passed = False
-        if not(_check_parms(imaging_weights_parms, 'imsize', [list], list_acceptable_data_types=[int,np.int64], list_len=2)): parms_passed = False
-        if not(_check_parms(imaging_weights_parms, 'cell', [list], list_acceptable_data_types=[numbers.Number], list_len=2)): parms_passed = False
-
-    if parms_passed == True:
-        imaging_weights_parms['imsize'] = np.array(imaging_weights_parms['imsize']).astype(int)
-
-        imaging_weights_parms['cell'] = arc_sec_to_rad * np.array(imaging_weights_parms['cell'])
-        imaging_weights_parms['cell'][0] = -imaging_weights_parms['cell'][0]
         
     return parms_passed
 

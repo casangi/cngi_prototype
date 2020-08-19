@@ -18,7 +18,7 @@ import math
 def ndim_list(shape):
     return [ndim_list(shape[1:]) if len(shape) > 1 else None for _ in range(shape[0])]
 
-def _graph_standard_grid(vis_dataset, cgk_1D, grid_parms):
+def _graph_standard_grid(vis_dataset, cgk_1D, grid_parms, sel_parms):
     import dask
     import dask.array as da
     import xarray as xr
@@ -26,11 +26,11 @@ def _graph_standard_grid(vis_dataset, cgk_1D, grid_parms):
     import itertools
 
     # Getting data for gridding
-    chan_chunk_size = vis_dataset[grid_parms["imaging_weight_name"]].chunks[2][0]
+    chan_chunk_size = vis_dataset[sel_parms["imaging_weight"]].chunks[2][0]
 
     freq_chan = da.from_array(vis_dataset.coords['chan'].values, chunks=(chan_chunk_size))
 
-    n_chunks_in_each_dim = vis_dataset[grid_parms["imaging_weight_name"]].data.numblocks
+    n_chunks_in_each_dim = vis_dataset[sel_parms["imaging_weight"]].data.numblocks
     chunk_indx = []
 
     iter_chunks_indx = itertools.product(np.arange(n_chunks_in_each_dim[0]), np.arange(n_chunks_in_each_dim[1]),
@@ -44,7 +44,7 @@ def _graph_standard_grid(vis_dataset, cgk_1D, grid_parms):
         n_other_chunks = n_chunks_in_each_dim[0]*n_chunks_in_each_dim[1]*n_chunks_in_each_dim[3]
     
     #n_delayed = np.prod(n_chunks_in_each_dim)
-    chunk_sizes = vis_dataset[grid_parms["imaging_weight_name"]].chunks
+    chunk_sizes = vis_dataset[sel_parms["imaging_weight"]].chunks
 
     list_of_grids = ndim_list((n_chan_chunks_img,n_other_chunks))
     list_of_sum_weights = ndim_list((n_chan_chunks_img,n_other_chunks))
@@ -56,16 +56,16 @@ def _graph_standard_grid(vis_dataset, cgk_1D, grid_parms):
         #This is done to simplify the psf and weight gridding graphs so that the vis_dataset is not loaded.
         if grid_parms['do_psf']:
             sub_grid_and_sum_weights = dask.delayed(_standard_grid_psf_numpy_wrap)(
-            vis_dataset[grid_parms["uvw_name"]].data.partitions[c_time, c_baseline, 0],
-            vis_dataset[grid_parms["imaging_weight_name"]].data.partitions[c_time, c_baseline, c_chan, c_pol],
+            vis_dataset[sel_parms["uvw"]].data.partitions[c_time, c_baseline, 0],
+            vis_dataset[sel_parms["imaging_weight"]].data.partitions[c_time, c_baseline, c_chan, c_pol],
              freq_chan.partitions[c_chan],
             dask.delayed(cgk_1D), dask.delayed(grid_parms))
             grid_dtype = np.double
         else:
             sub_grid_and_sum_weights = dask.delayed(_standard_grid_numpy_wrap)(
-            vis_dataset[grid_parms["data_name"]].data.partitions[c_time, c_baseline, c_chan, c_pol],
-            vis_dataset[grid_parms["uvw_name"]].data.partitions[c_time, c_baseline, 0],
-            vis_dataset[grid_parms["imaging_weight_name"]].data.partitions[c_time, c_baseline, c_chan, c_pol],
+            vis_dataset[sel_parms["data"]].data.partitions[c_time, c_baseline, c_chan, c_pol],
+            vis_dataset[sel_parms["uvw"]].data.partitions[c_time, c_baseline, 0],
+            vis_dataset[sel_parms["imaging_weight"]].data.partitions[c_time, c_baseline, c_chan, c_pol],
             freq_chan.partitions[c_chan],
             dask.delayed(cgk_1D), dask.delayed(grid_parms))
             grid_dtype = np.complex128
@@ -156,8 +156,8 @@ def _standard_grid_numpy_wrap(vis_data, uvw, weight, freq_chan, cgk_1D, grid_par
     n_imag_pol = weight.shape[3]
     pol_map = (np.arange(0, n_imag_pol)).astype(np.int)
 
-    n_uv = grid_parms['imsize_padded']
-    delta_lm = grid_parms['cell']
+    n_uv = grid_parms['image_size_padded']
+    delta_lm = grid_parms['cell_size']
     oversampling = grid_parms['oversampling']
     support = grid_parms['support']
     
@@ -214,8 +214,8 @@ def _standard_grid_psf_numpy_wrap(uvw, weight, freq_chan, cgk_1D, grid_parms):
     n_imag_pol = weight.shape[3]
     pol_map = (np.arange(0, n_imag_pol)).astype(np.int)
 
-    n_uv = grid_parms['imsize_padded']
-    delta_lm = grid_parms['cell']
+    n_uv = grid_parms['image_size_padded']
+    delta_lm = grid_parms['cell_size']
     oversampling = grid_parms['oversampling']
     support = grid_parms['support']
     
@@ -349,7 +349,7 @@ def _standard_grid_jit(grid, sum_weight, do_psf, vis_data, uvw, freq_chan, chan_
 
 
 
-def _graph_standard_degrid(vis_dataset, grid, briggs_factors, cgk_1D, grid_parms):
+def _graph_standard_degrid(vis_dataset, grid, briggs_factors, cgk_1D, grid_parms, sel_parms):
    import dask
    import dask.array as da
    import xarray as xr
@@ -357,18 +357,18 @@ def _graph_standard_degrid(vis_dataset, grid, briggs_factors, cgk_1D, grid_parms
    import itertools
    
    # Getting data for gridding
-   chan_chunk_size = vis_dataset[grid_parms["imaging_weight_name"]].chunks[2][0]
+   chan_chunk_size = vis_dataset[sel_parms["imaging_weight"]].chunks[2][0]
 
    freq_chan = da.from_array(vis_dataset.coords['chan'].values, chunks=(chan_chunk_size))
 
-   n_chunks_in_each_dim = vis_dataset[grid_parms["imaging_weight_name"]].data.numblocks
+   n_chunks_in_each_dim = vis_dataset[sel_parms["imaging_weight"]].data.numblocks
    chunk_indx = []
 
    iter_chunks_indx = itertools.product(np.arange(n_chunks_in_each_dim[0]), np.arange(n_chunks_in_each_dim[1]),
                                         np.arange(n_chunks_in_each_dim[2]), np.arange(n_chunks_in_each_dim[3]))
 
    #n_delayed = np.prod(n_chunks_in_each_dim)
-   chunk_sizes = vis_dataset[grid_parms["imaging_weight_name"]].chunks
+   chunk_sizes = vis_dataset[sel_parms["imaging_weight"]].chunks
 
    n_chan_chunks_img = n_chunks_in_each_dim[2]
    list_of_degrids = []
@@ -387,8 +387,8 @@ def _graph_standard_degrid(vis_dataset, grid, briggs_factors, cgk_1D, grid_parms
        if grid_parms['do_imaging_weight']:
            sub_degrid = dask.delayed(_standard_imaging_weight_degrid_numpy_wrap)(
                 grid.partitions[0,0,a_c_chan,c_pol],
-                vis_dataset[grid_parms["uvw_name"]].data.partitions[c_time, c_baseline, 0],
-                vis_dataset[grid_parms["imaging_weight_name"]].data.partitions[c_time, c_baseline, c_chan, c_pol],
+                vis_dataset[sel_parms["uvw"]].data.partitions[c_time, c_baseline, 0],
+                vis_dataset[sel_parms["imaging_weight"]].data.partitions[c_time, c_baseline, c_chan, c_pol],
                 briggs_factors.partitions[:,a_c_chan,c_pol],
                 freq_chan.partitions[c_chan],
                 dask.delayed(grid_parms))
@@ -423,7 +423,7 @@ def _standard_imaging_weight_degrid_numpy_wrap(grid_imaging_weight, uvw, natural
     n_imag_pol = natural_imaging_weight.shape[3]
     pol_map = (np.arange(0, n_imag_pol)).astype(np.int)
 
-    n_uv = grid_parms['imsize_padded']
+    n_uv = grid_parms['image_size_padded']
     delta_lm = grid_parms['cell']
     
     imaging_weight = np.zeros(natural_imaging_weight.shape, dtype=np.double)
