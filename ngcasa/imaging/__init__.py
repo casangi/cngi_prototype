@@ -9,6 +9,9 @@ from .make_imaging_weight import make_imaging_weight
 
 from .make_pb import make_pb
 from .make_psf import make_psf
+from .make_mosaic_pb import make_mosaic_pb
+
+#from .make_image2 import make_image2
 
 from .predict_modelvis_component import predict_modelvis_component
 from .predict_modelvis_image import predict_modelvis_image

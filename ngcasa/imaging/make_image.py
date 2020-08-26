@@ -12,36 +12,40 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+#Removed for now.
+#grid_parms['oversampling'] : int, default = 100
+#    The oversampling used for the convolutional gridding kernel. This will be removed in a later release and incorporated in the function that creates gridding convolutional kernels.
+#grid_parms['support'] : int, default = 7
+#    The full support used for convolutional gridding kernel. This will be removed in a later release and incorporated in the function that creates gridding convolutional kernels.
+#
+
 def make_image(vis_dataset, img_dataset, grid_parms, sel_parms, storage_parms):
     """
-    Creates a cube or continuum dirty image from the user specified visibility, uvw and imaging weight data. Only the prolate spheroidal convolutional gridding function is supported (this will change in a future releases.)
+    Creates a cube or continuum dirty image from the user specified visibility, uvw and imaging weight data. Only the prolate spheroidal convolutional gridding function is supported.
     
     Parameters
     ----------
     vis_dataset : xarray.core.dataset.Dataset
         Input visibility dataset.
     grid_parms : dictionary
-    grid_parms['imsize'] : list of int, length = 2
+    grid_parms['image_size'] : list of int, length = 2
         The image size (no padding).
-    grid_parms['cell']  : list of number, length = 2, units = arcseconds
+    grid_parms['cell_size']  : list of number, length = 2, units = arcseconds
         The image cell size.
     grid_parms['chan_mode'] : {'continuum'/'cube'}, default = 'continuum'
         Create a continuum or cube image.
-    grid_parms['oversampling'] : int, default = 100
-        The oversampling used for the convolutional gridding kernel. This will be removed in a later release and incorporated in the function that creates gridding convolutional kernels.
-    grid_parms['support'] : int, default = 7
-        The full support used for convolutional gridding kernel. This will be removed in a later release and incorporated in the function that creates gridding convolutional kernels.
     grid_parms['fft_padding'] : number, acceptable range [1,100], default = 1.2
         The factor that determines how much the gridded visibilities are padded before the fft is done.
-    grid_parms['uvw_name'] : str, default ='UVW'
+    sel_parms : dictionary
+    sel_parms['uvw'] : str, default ='UVW'
         The name of uvw data variable that will be used to grid the visibilities.
-    grid_parms['data_name'] : str, default = 'DATA'
+    sel_parms['data'] : str, default = 'DATA'
         The name of the visibility data to be gridded.
-    grid_parms['imaging_weight_name'] : str, default ='IMAGING_WEIGHT'
+    sel_parms['imaging_weight'] : str, default ='IMAGING_WEIGHT'
         The name of the imaging weights to be used.
-    grid_parms['image_name'] : str, default ='DIRTY_IMAGE'
+    sel_parms['image'] : str, default ='DIRTY_IMAGE'
         The created image name.
-    grid_parms['sum_weight_name'] : str, default ='SUM_WEIGHT'
+    sel_parms['sum_weight'] : str, default ='SUM_WEIGHT'
         The created sum of weights name.
     storage_parms : dictionary
     storage_parms['to_disk'] : bool, default = False
@@ -107,12 +111,11 @@ def make_image(vis_dataset, img_dataset, grid_parms, sel_parms, storage_parms):
     _grid_parms['do_psf'] = False
     grids_and_sum_weights = _graph_standard_grid(vis_dataset, cgk_1D, _grid_parms, _sel_parms)
     uncorrected_dirty_image = dafft.fftshift(dafft.ifft2(dafft.ifftshift(grids_and_sum_weights[0], axes=(0, 1)), axes=(0, 1)), axes=(0, 1))
-        
+    
     #Remove Padding
     correcting_cgk_image = _remove_padding(correcting_cgk_image,_grid_parms['image_size'])
     uncorrected_dirty_image = _remove_padding(uncorrected_dirty_image,_grid_parms['image_size']).real * (_grid_parms['image_size_padded'][0] * _grid_parms['image_size_padded'][1])
-        
-            
+    
     #############Normalize#############
     def correct_image(uncorrected_dirty_image, sum_weights, correcting_cgk):
         sum_weights_copy = copy.deepcopy(sum_weights) ##Don't mutate inputs, therefore do deep copy (https://docs.dask.org/en/latest/delayed-best-practices.html).
@@ -122,7 +125,7 @@ def make_image(vis_dataset, img_dataset, grid_parms, sel_parms, storage_parms):
         return corrected_image
 
     corrected_dirty_image = da.map_blocks(correct_image, uncorrected_dirty_image, grids_and_sum_weights[1][None, None, :, :],correcting_cgk_image[:, :, None, None])
-   ####################################################
+    ####################################################
 
     if _grid_parms['chan_mode'] == 'continuum':
         freq_coords = [da.mean(vis_dataset.coords['chan'].values)]
@@ -142,6 +145,7 @@ def make_image(vis_dataset, img_dataset, grid_parms, sel_parms, storage_parms):
     img_dataset = img_dataset.assign_coords(coords)
     img_dataset[_sel_parms['sum_weight']] = xr.DataArray(grids_and_sum_weights[1], dims=['chan','pol'])
     img_dataset[_sel_parms['image']] = xr.DataArray(corrected_dirty_image, dims=['d0', 'd1', 'chan', 'pol'])
+    
     
     list_xarray_data_variables = [img_dataset[_sel_parms['image']],img_dataset[_sel_parms['sum_weight']]]
     return _store(img_dataset,list_xarray_data_variables,_storage_parms)

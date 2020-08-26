@@ -19,7 +19,9 @@
 #Cos Polyp
 #Inverse Poly coeff
 
-def _airy_disk(freq_chan,pol,make_pb_parms):
+#Formula for obscured airy pattern found in https://en.wikipedia.org/wiki/Airy_disk (see Obscured Airy pattern section)
+# If ipower is 1 the voltage pattern is returned if ipower is 2 the primary beam is returned.
+def _airy_disk(freq_chan,pol,pb_parms,grid_parms):
     '''
     Does not yet handle beam squint
     dish_diameters : list of int
@@ -31,20 +33,20 @@ def _airy_disk(freq_chan,pol,make_pb_parms):
     import scipy.constants
     from scipy.special import jn
     
-    cell = make_pb_parms['cell']
-    image_size = make_pb_parms['imsize']
-    center_indx = make_pb_parms['center_indx']
-    list_dish_diameters = make_pb_parms['list_dish_diameters']
-    list_blockage_diameters = make_pb_parms['list_blockage_diameters']
-    ipower = make_pb_parms['ipower']
-    pb_limit = make_pb_parms['pb_limit']
+    cell = grid_parms['cell_size']
+    image_size = grid_parms['image_size']
+    image_center = grid_parms['image_center']
+    
+    list_dish_diameters = pb_parms['list_dish_diameters']
+    list_blockage_diameters = pb_parms['list_blockage_diameters']
+    ipower = pb_parms['ipower']
     
     c = scipy.constants.c #299792458
     k = (2*np.pi*freq_chan)/c
     
         
-    x = np.arange(-center_indx[0], image_size[0]-center_indx[0])*cell[0]
-    y = np.arange(-center_indx[1], image_size[1]-center_indx[1])*cell[1]
+    x = np.arange(-image_center[0], image_size[0]-image_center[0])*cell[0]
+    y = np.arange(-image_center[1], image_size[1]-image_center[1])*cell[1]
     
     airy_disk_size = (image_size[0],image_size[1],len(freq_chan),1,len(list_blockage_diameters)) #len(pol) is set initially to 1. For now, the PB is assumed the same. This will change.
     airy_disk =  np.zeros(airy_disk_size)
@@ -56,22 +58,23 @@ def _airy_disk(freq_chan,pol,make_pb_parms):
         
         #r_grid = (np.sin(np.sqrt(x_grid**2 + y_grid**2))[:,:,None]*k*aperture) #d0 x d1 x chan
         r_grid = (np.sqrt(x_grid**2 + y_grid**2)[:,:,None]*k*aperture) #d0 x d1 x chan
-        r_grid[center_indx[0],center_indx[1],:] = 1.0 #Avoid the 0/0 for the centre value.
+        r_grid[image_center[0],image_center[1],:] = 1.0 #Avoid the 0/0 for the centre value.
         
         if blockage_diameter==0.0:
             airy_disk[:,:,:,0,i] = (2.0*jn(1,r_grid)/r_grid)**ipower
         else:
-            area_ratio = (dish_diameter/blockage_diameter)**2
-            length_ratio = (dish_diameter/blockage_diameter)
-            airy_disk[:,:,:,0,i] = ((area_ratio * 2.0 * jn(1,r_grid)/r_grid   - 2.0 * jn(1, r_grid * length_ratio)/(r_grid * length_ratio) )/(area_ratio - 1.0))**ipower
+            e = blockage_diameter/dish_diameter
+            airy_disk[:,:,:,0,i] = (( 2.0 * jn(1,r_grid)/r_grid   - 2.0 * e * jn(1, r_grid * e)/r_grid )/(1.0 - e**2))**ipower
     
-    airy_disk[center_indx[0],center_indx[1],:,0,:] = 1.0 #Fix centre value
+    airy_disk[image_center[0],image_center[1],:,0,:] = 1.0 #Fix centre value
     airy_disk = np.tile(airy_disk,(1,1,1,len(pol),1))
     
     return airy_disk
     
-    
-def _alma_airy_disk(freq_chan,pol,make_pb_parms):
+
+#Formula for obscured airy pattern found in casa6/casa5/code/synthesis/TransformMachines/PBMath1DAiry.cc/h
+# If ipower is 1 the voltage pattern is returned if ipower is 2 the primary beam is returned.
+def _alma_airy_disk(freq_chan,pol,pb_parms,grid_parms):
     '''
     Does not yet handle beam squint
     dish_diameters : list of int
@@ -83,20 +86,20 @@ def _alma_airy_disk(freq_chan,pol,make_pb_parms):
     import scipy.constants
     from scipy.special import jn
     
-    cell = make_pb_parms['cell']
-    image_size = make_pb_parms['imsize']
-    center_indx = make_pb_parms['center_indx']
-    list_dish_diameters = make_pb_parms['list_dish_diameters']
-    list_blockage_diameters = make_pb_parms['list_blockage_diameters']
-    ipower = make_pb_parms['ipower']
-    pb_limit = make_pb_parms['pb_limit']
+    cell = grid_parms['cell_size']
+    image_size = grid_parms['image_size']
+    image_center = grid_parms['image_center']
+    
+    list_dish_diameters = pb_parms['list_dish_diameters']
+    list_blockage_diameters = pb_parms['list_blockage_diameters']
+    ipower = pb_parms['ipower']
     
     c = scipy.constants.c #299792458
     k = (2*np.pi*freq_chan)/c
     
         
-    x = np.arange(-center_indx[0], image_size[0]-center_indx[0])*cell[0]
-    y = np.arange(-center_indx[1], image_size[1]-center_indx[1])*cell[1]
+    x = np.arange(-image_center[0], image_size[0]-image_center[0])*cell[0]
+    y = np.arange(-image_center[1], image_size[1]-image_center[1])*cell[1]
     
     airy_disk_size = (image_size[0],image_size[1],len(freq_chan),1,len(list_blockage_diameters)) #len(pol) is set initially to 1. For now, the PB is assumed the same. This will change.
     airy_disk =  np.zeros(airy_disk_size)
@@ -108,7 +111,7 @@ def _alma_airy_disk(freq_chan,pol,make_pb_parms):
         
         #r_grid = (np.sin(np.sqrt(x_grid**2 + y_grid**2))[:,:,None]*k*aperture) #d0 x d1 x chan
         r_grid = (np.sqrt(x_grid**2 + y_grid**2)[:,:,None]*k*aperture) #d0 x d1 x chan
-        r_grid[center_indx[0],center_indx[1],:] = 1.0 #Avoid the 0/0 for the centre value.
+        r_grid[image_center[0],image_center[1],:] = 1.0 #Avoid the 0/0 for the centre value.
         
         if blockage_diameter==0.0:
             airy_disk[:,:,:,0,i] = (2.0*jn(1,r_grid)/r_grid)**ipower
@@ -117,13 +120,17 @@ def _alma_airy_disk(freq_chan,pol,make_pb_parms):
             length_ratio = (dish_diameter/blockage_diameter)
             airy_disk[:,:,:,0,i] = ((area_ratio * 2.0 * jn(1,r_grid)/r_grid   - 2.0 * jn(1, r_grid * length_ratio)/(r_grid * length_ratio) )/(area_ratio - 1.0))**ipower
     
-    airy_disk[center_indx[0],center_indx[1],:,0,:] = 1.0 #Fix centre value
+    airy_disk[image_center[0],image_center[1],:,0,:] = 1.0 #Fix centre value
     airy_disk = np.tile(airy_disk,(1,1,1,len(pol),1))
     
     return airy_disk
     
 
-def _airy_disk_rorder(freq_chan,pol,make_pb_parms):
+
+#Functions used during the creatiuon of the gridding convolution functions.
+#Formula for obscured airy pattern found in https://en.wikipedia.org/wiki/Airy_disk (see Obscured Airy pattern section)
+# If ipower is 1 the voltage pattern is returned if ipower is 2 the primary beam is returned.
+def _airy_disk_rorder(freq_chan,pol,pb_parms,grid_parms):
     '''
     Does not yet handle beam squint
     dish_diameters : list of int
@@ -135,19 +142,19 @@ def _airy_disk_rorder(freq_chan,pol,make_pb_parms):
     import scipy.constants
     from scipy.special import jn
     
-    cell = make_pb_parms['cell']
-    image_size = make_pb_parms['imsize']
-    center_indx = make_pb_parms['center_indx']
-    list_dish_diameters = make_pb_parms['list_dish_diameters']
-    list_blockage_diameters = make_pb_parms['list_blockage_diameters']
-    ipower = make_pb_parms['ipower']
-    pb_limit = make_pb_parms['pb_limit']
+    cell = grid_parms['cell_size']
+    image_size = grid_parms['image_size']
+    image_center = grid_parms['image_center']
+    
+    list_dish_diameters = pb_parms['list_dish_diameters']
+    list_blockage_diameters = pb_parms['list_blockage_diameters']
+    ipower = pb_parms['ipower']
     
     c = scipy.constants.c #299792458
     k = (2*np.pi*freq_chan)/c
     
-    x = np.arange(-center_indx[0], image_size[0]-center_indx[0])*cell[0]
-    y = np.arange(-center_indx[1], image_size[1]-center_indx[1])*cell[1]
+    x = np.arange(-image_center[0], image_size[0]-image_center[0])*cell[0]
+    y = np.arange(-image_center[1], image_size[1]-image_center[1])*cell[1]
     
     airy_disk_size = (len(list_blockage_diameters),len(freq_chan),1,image_size[0],image_size[1]) #len(pol) is set initially to 1. For now, the PB is assumed the same. This will change.
     airy_disk =  np.zeros(airy_disk_size)
@@ -159,22 +166,22 @@ def _airy_disk_rorder(freq_chan,pol,make_pb_parms):
         
         #r_grid = (np.sin(np.sqrt(x_grid**2 + y_grid**2))[:,:,None]*k*aperture) #d0 x d1 x chan
         r_grid = np.moveaxis((np.sqrt(x_grid**2 + y_grid**2)[:,:,None]*k*aperture),2,0) #chan x d0 x d1
-        r_grid[:,center_indx[0],center_indx[1]] = 1.0 #Avoid the 0/0 for the centre value.
+        r_grid[:,image_center[0],image_center[1]] = 1.0 #Avoid the 0/0 for the centre value.
         
         if blockage_diameter==0.0:
             airy_disk[i,:,0,:,:] = (2.0*jn(1,r_grid)/r_grid)**ipower
         else:
-            area_ratio = (dish_diameter/blockage_diameter)**2
-            length_ratio = (dish_diameter/blockage_diameter)
-            airy_disk[i,:,0,:,:] = ((area_ratio * 2.0 * jn(1,r_grid)/r_grid   - 2.0 * jn(1, r_grid * length_ratio)/(r_grid * length_ratio) )/(area_ratio - 1.0))**ipower
+            e = blockage_diameter/dish_diameter
+            airy_disk[i,:,0,:,:] = (( 2.0 * jn(1,r_grid)/r_grid   - 2.0 * e * jn(1, r_grid * e)/r_grid )/(1.0 - e**2))**ipower
     
-    airy_disk[:,:,0,center_indx[0],center_indx[1]] = 1.0 #Fix centre value
+    airy_disk[:,:,0,image_center[0],image_center[1]] = 1.0 #Fix centre value
     #airy_disk[airy_disk<pb_limit] = 0.0
     airy_disk = np.tile(airy_disk,(1,1,len(pol),1,1))
     
     return airy_disk
 
-
+#Formula for obscured airy pattern found in casa6/casa5/code/synthesis/TransformMachines/PBMath1DAiry.cc/h
+# If ipower is 1 the voltage pattern is returned if ipower is 2 the primary beam is returned.
 def _alma_airy_disk_rorder(freq_chan,pol,pb_parms,grid_parms):
     '''
     Does not yet handle beam squint

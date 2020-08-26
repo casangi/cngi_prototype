@@ -293,8 +293,11 @@ def _aperture_grid_jit(grid, sum_weight, do_psf, vis_data, uvw, freq_chan, chan_
     
     max_support_center = np.max(weight_support)
     
+    
     conv_v_center = conv_kernel.shape[-1]//2
     conv_u_center = conv_kernel.shape[-2]//2
+    
+    #print('sizes ',conv_kernel.shape, conv_u_center, conv_v_center)
     
     #print(phase_gradient.shape)
     #print(weight_conv_kernel.shape)

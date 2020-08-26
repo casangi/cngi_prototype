@@ -44,13 +44,26 @@ def _check_gcf_parms(gcf_parms):
     import numbers
     parms_passed = True
     
+    if not(_check_parms(gcf_parms, 'function', [str], acceptable_data=['alma_airy','airy'], default='alma_airy')): parms_passed = False
+    if not(_check_parms(gcf_parms, 'chan_tolerance_factor', [numbers.Number], default=0.005)): parms_passed = False
     if not(_check_parms(gcf_parms, 'oversampling', [list], list_acceptable_data_types=[np.int], list_len=2)): parms_passed = False
-    
     if not(_check_parms(gcf_parms, 'max_support', [list], list_acceptable_data_types=[np.int], list_len=2)): parms_passed = False
+    if not(_check_parms(gcf_parms, 'image_phase_center', [list], list_acceptable_data_types=[numbers.Number], list_len=2)): parms_passed = False
+    
+    if gcf_parms['function'] == 'airy':
+        if not(_check_parms(gcf_parms, 'list_dish_diameters', [list],list_acceptable_data_types=[numbers.Number],list_len=-1)): parms_passed = False
+        if not(_check_parms(gcf_parms, 'list_blockage_diameters', [list],list_acceptable_data_types=[numbers.Number],list_len=-1)): parms_passed = False
+    
+        if len(gcf_parms['list_dish_diameters']) != len(gcf_parms['list_blockage_diameters']):
+            print('######### ERROR:Parameter ', 'list_dish_diameters and list_blockage_diameters must be the same length.')
+            parms_passed = False
+    
+    
     
     if parms_passed == True:
         gcf_parms['oversampling'] = np.array(gcf_parms['oversampling']).astype(int)
         gcf_parms['max_support'] = np.array(gcf_parms['max_support']).astype(int)
+        gcf_parms['image_phase_center'] =  np.array(gcf_parms['image_phase_center'])
         
     return parms_passed
     
@@ -105,7 +118,8 @@ def _check_imaging_weights_parms(imaging_weights_parms):
     if imaging_weights_parms['weighting'] == 'briggs_abs':
         if not(_check_parms(imaging_weights_parms, 'briggs_abs_noise', [numbers.Number], default=1.0)): parms_passed = False
 
-    if not(_check_parms(imaging_weights_parms, 'robust', [numbers.Number], default=0.5, acceptable_range=[-2,2])): parms_passed = False
+    if (imaging_weights_parms['weighting'] == 'briggs') or (imaging_weights_parms['weighting'] == 'briggs_abs'):
+        if not(_check_parms(imaging_weights_parms, 'robust', [numbers.Number], default=0.5, acceptable_range=[-2,2])): parms_passed = False
         
     return parms_passed
 
@@ -116,24 +130,14 @@ def _check_pb_parms(img_dataset, pb_parms):
     
     if not(_check_parms(pb_parms, 'pb_name', [str], default='PB')): parms_passed = False
     
-    if not(_check_parms(pb_parms, 'function', [str], default='airy')): parms_passed = False
+    if not(_check_parms(pb_parms, 'function', [str], default='alma_airy')): parms_passed = False
     
-    if pb_parms['function'] == 'airy':
-        if not(_check_parms(pb_parms, 'list_dish_diameters', [list],list_acceptable_data_types=[numbers.Number],list_len=-1)): parms_passed = False
-        if not(_check_parms(pb_parms, 'list_blockage_diameters', [list],list_acceptable_data_types=[numbers.Number],list_len=-1)): parms_passed = False
+    if not(_check_parms(pb_parms, 'list_dish_diameters', [list],list_acceptable_data_types=[numbers.Number],list_len=-1)): parms_passed = False
+    if not(_check_parms(pb_parms, 'list_blockage_diameters', [list],list_acceptable_data_types=[numbers.Number],list_len=-1)): parms_passed = False
     
-        if len(pb_parms['list_dish_diameters']) != len(pb_parms['list_blockage_diameters']):
+    if len(pb_parms['list_dish_diameters']) != len(pb_parms['list_blockage_diameters']):
             print('######### ERROR:Parameter ', 'list_dish_diameters and list_blockage_diameters must be the same length.')
             parms_passed = False
-    
-    if not(_check_parms(pb_parms, 'imsize', [list], list_acceptable_data_types=[int,np.int64], list_len=2)): parms_passed = False
-    if not(_check_parms(pb_parms, 'cell', [list], list_acceptable_data_types=[numbers.Number], list_len=2)): parms_passed = False
-    if not(_check_parms(pb_parms, 'pb_limit', [numbers.Number], acceptable_range=[0,1], default=0.0)): parms_passed = False
-
-    if parms_passed == True:
-        pb_parms['imsize'] = np.array(pb_parms['imsize']).astype(int)
-        pb_parms['cell'] = arc_sec_to_rad * np.array(pb_parms['cell'])
-        pb_parms['cell'][0] = -pb_parms['cell'][0]
         
     return parms_passed
     

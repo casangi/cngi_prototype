@@ -22,7 +22,7 @@
     (A cube with 1 channel is a continuum image (nterms=1))
 '''
 
-def make_mosaic_pb(vis_dataset,gcf_dataset,img_dataset,mosaic_pb_parms,grid_parms,storage_parms):
+def make_mosaic_pb(vis_dataset,gcf_dataset,img_dataset,sel_parms,grid_parms,storage_parms):
     """
     The make_pb function currently supports rotationally symmetric airy disk primary beams. Primary beams can be generated for any number of dishes.
     The make_pb_parms['list_dish_diameters'] and make_pb_parms['list_blockage_diameters'] must be specified for each dish.
@@ -68,7 +68,7 @@ def make_mosaic_pb(vis_dataset,gcf_dataset,img_dataset,mosaic_pb_parms,grid_parm
     """
     
     from ngcasa._ngcasa_utils._store import _store
-    from ngcasa._ngcasa_utils._check_parms import _check_storage_parms
+    from ngcasa._ngcasa_utils._check_parms import _check_storage_parms, _check_sel_parms, _check_existence_sel_parms
     from ._imaging_utils._check_imaging_parms import _check_grid_parms, _check_mosaic_pb_parms
     from ._imaging_utils._aperture_grid import _graph_aperture_grid
     import dask.array.fft as dafft
@@ -80,11 +80,11 @@ def make_mosaic_pb(vis_dataset,gcf_dataset,img_dataset,mosaic_pb_parms,grid_parm
     from ._imaging_utils._remove_padding import _remove_padding
     from ._imaging_utils._normalize import _normalize
     
-    _mosaic_pb_parms = copy.deepcopy(mosaic_pb_parms)
+    _sel_parms = copy.deepcopy(sel_parms)
     _grid_parms = copy.deepcopy(grid_parms)
     _storage_parms = copy.deepcopy(storage_parms)
     
-    assert(_check_mosaic_pb_parms(_mosaic_pb_parms)), "######### ERROR: grid_parms checking failed"
+    assert(_check_sel_parms(_sel_parms,{'pb':'PB','weight_pb':'WEIGHT_PB'})), "######### ERROR: sel_parms checking failed"
     assert(_check_grid_parms(_grid_parms)), "######### ERROR: grid_parms checking failed"
     assert(_check_storage_parms(_storage_parms,'mosaic_pb.img.zarr','make_mosaic_pb')), "######### ERROR: storage_parms checking failed"
     
@@ -109,7 +109,6 @@ def make_mosaic_pb(vis_dataset,gcf_dataset,img_dataset,mosaic_pb_parms,grid_parm
     weight_image = da.map_blocks(correct_image, weight_image, grids_and_sum_weights[1],dtype=np.double)
     mosaic_primary_beam = da.sqrt(np.abs(weight_image))
     
-    
     if _grid_parms['chan_mode'] == 'continuum':
         freq_coords = [da.mean(vis_dataset.coords['chan'].values)]
         chan_width = da.from_array([da.mean(vis_dataset['chan_width'].data)],chunks=(1,))
@@ -125,10 +124,10 @@ def make_mosaic_pb(vis_dataset,gcf_dataset,img_dataset,mosaic_pb_parms,grid_parm
     coords = {'d0': np.arange(_grid_parms['image_size'][0]), 'd1': np.arange(_grid_parms['image_size'][1]),
               'chan': freq_coords, 'pol': np.arange(n_imag_pol), 'chan_width' : ('chan',chan_width)}
     img_dataset = img_dataset.assign_coords(coords)
-    img_dataset[_mosaic_pb_parms['pb_name']] = xr.DataArray(mosaic_primary_beam, dims=['d0', 'd1', 'chan', 'pol'])
-    img_dataset[_mosaic_pb_parms['weight_name']] = xr.DataArray(weight_image, dims=['d0', 'd1', 'chan', 'pol'])
+    img_dataset[_sel_parms['pb']] = xr.DataArray(mosaic_primary_beam, dims=['d0', 'd1', 'chan', 'pol'])
+    img_dataset[_sel_parms['weight']] = xr.DataArray(weight_image, dims=['d0', 'd1', 'chan', 'pol'])
     
-    list_xarray_data_variables = [img_dataset[_mosaic_pb_parms['pb_name']],img_dataset[_mosaic_pb_parms['weight_name']]]
+    list_xarray_data_variables = [img_dataset[_sel_parms['pb']],img_dataset[_sel_parms['weight']]]
     return _store(img_dataset,list_xarray_data_variables,_storage_parms)
     
     

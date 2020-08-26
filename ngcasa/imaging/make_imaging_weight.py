@@ -18,8 +18,8 @@ def make_imaging_weight(vis_dataset, imaging_weights_parms, grid_parms, sel_parm
     Creates the imaging weight data variable that has dimensions time x baseline x chan x pol (matches the visibility data variable).
     The weight density can be averaged over channels or calculated independently for each channel using imaging_weights_parms['chan_mode'].
     The following imaging weighting schemes are supported 'natural', 'uniform', 'briggs', 'briggs_abs'.
-    The imaging_weights_parms['imsize'] and imaging_weights_parms['cell'] should usually be the same values that will be used for subsequent synthesis blocks (for example making the psf).
-    To achieve something similar to 'superuniform' weighting in CASA tclean imaging_weights_parms['imsize'] and imaging_weights_parms['cell'] can be varied relative to the values used in subsequent synthesis blocks.
+    The grid_parms['image_size'] and grid_parms['cell_size'] should usually be the same values that will be used for subsequent synthesis blocks (for example making the psf).
+    To achieve something similar to 'superuniform' weighting in CASA tclean grid_parms['image_size'] and imaging_weights_parms['cell_size'] can be varied relative to the values used in subsequent synthesis blocks.
     
     Parameters
     ----------
@@ -28,23 +28,27 @@ def make_imaging_weight(vis_dataset, imaging_weights_parms, grid_parms, sel_parm
     imaging_weights_parms : dictionary
     imaging_weights_parms['weighting'] : {'natural', 'uniform', 'briggs', 'briggs_abs'}, default = natural
         Weighting scheme used for creating the imaging weights.
-    imaging_weights_parms['imsize'] : list of int, length = 2
-        The size of the grid for gridding the imaging weights. Used when imaging_weights_parms['weighting'] is not 'natural'.
-    imaging_weights_parms['cell']  : list of number, length = 2, units = arcseconds
-        The size of the pixels in the fft of the grid (the image domain pixel size). Used when imaging_weights_parms['weighting'] is not 'natural'.
     imaging_weights_parms['robust'] : number, acceptable range [-2,2], default = 0.5
         Robustness parameter for Briggs weighting.
         robust = -2.0 maps to uniform weighting.
         robust = +2.0 maps to natural weighting.
     imaging_weights_parms['briggs_abs_noise'] : number, default=1.0
         Noise parameter for imaging_weights_parms['weighting']='briggs_abs' mode weighting.
-    imaging_weights_parms['chan_mode'] : {'continuum'/'cube'}, default = 'continuum'
-        When 'cube' the weights are calculated independently for each channel (perchanweightdensity=True in CASA tclean) and when 'continuum' a common weight density is calculated for all channels.
-    imaging_weights_parms['uvw_name'] : str, default ='UVW'
+    grid_parms : dictionary
+    grid_parms['image_size'] : list of int, length = 2
+        The image size (no padding).
+    grid_parms['cell_size']  : list of number, length = 2, units = arcseconds
+        The image cell size.
+    grid_parms['chan_mode'] : {'continuum'/'cube'}, default = 'continuum'
+        Create a continuum or cube image.
+    grid_parms['fft_padding'] : number, acceptable range [1,100], default = 1.2
+        The factor that determines how much the gridded visibilities are padded before the fft is done.
+    sel_parms : dictionary
+    sel_parms['uvw'] : str, default ='UVW'
         The name of uvw data variable that will be used to grid the weights. Used when imaging_weights_parms['weighting'] is not 'natural'.
-    imaging_weights_parms['data_name'] : str, default = 'DATA'
+    sel_parms['data'] : str, default = 'DATA'
         The name of the visibility data variable whose dimensions will be used to construct the imaging weight data variable.
-    imaging_weights_parms['imaging_weight_name'] : str, default ='IMAGING_WEIGHT'
+    sel_parms['imaging_weight'] : str, default ='IMAGING_WEIGHT'
         The name of that will be used for the imaging weight data variable.
     storage_parms : dictionary
     storage_parms['to_disk'] : bool, default = False
@@ -66,7 +70,7 @@ def make_imaging_weight(vis_dataset, imaging_weights_parms, grid_parms, sel_parm
     Returns
     -------
     vis_dataset : xarray.core.dataset.Dataset
-        The vis_dataset will contain a new data variable for the imaging weights the name is defined by the input parameter imaging_weights_parms['imaging_weight_name'].
+        The vis_dataset will contain a new data variable for the imaging weights the name is defined by the input parameter sel_parms['imaging_weight'].
     """
     print('######################### Start make_imaging_weights #########################')
     import time
@@ -83,7 +87,7 @@ def make_imaging_weight(vis_dataset, imaging_weights_parms, grid_parms, sel_parm
     
     from ngcasa._ngcasa_utils._store import _store
     from ngcasa._ngcasa_utils._check_parms import _check_storage_parms, _check_sel_parms, _check_existence_sel_parms
-    from ._imaging_utils._check_imaging_parms import _check_imaging_weights_parms
+    from ._imaging_utils._check_imaging_parms import _check_imaging_weights_parms, _check_grid_parms
     from cngi.dio import write_zarr, append_zarr
     
     _imaging_weights_parms =  copy.deepcopy(imaging_weights_parms)
@@ -95,7 +99,7 @@ def make_imaging_weight(vis_dataset, imaging_weights_parms, grid_parms, sel_parm
     if _imaging_weights_parms['weighting'] != 'natural':
         assert(_check_grid_parms(_grid_parms)), "######### ERROR: grid_parms checking failed"
     assert(_check_sel_parms(_sel_parms,{'uvw':'UVW','data':'DATA','imaging_weight':'IMAGING_WEIGHT'})), "######### ERROR: sel_parms checking failed"
-    assert(_check_existence_sel_parms(vis_dataset,{'uvw':_sel_parms['uvw'],'data':_sel_parms['data'],'imaging_weight':_sel_parms['imaging_weight']})), "######### ERROR: sel_parms checking failed"
+    assert(_check_existence_sel_parms(vis_dataset,{'uvw':_sel_parms['uvw'],'data':_sel_parms['data']})), "######### ERROR: sel_parms checking failed"
     assert(_check_storage_parms(_storage_parms,'dataset.vis.zarr','make_imaging_weights')), "######### ERROR: storage_parms checking failed"
     
     
@@ -126,7 +130,7 @@ def make_imaging_weight(vis_dataset, imaging_weights_parms, grid_parms, sel_parm
     vis_dataset[_sel_parms['imaging_weight']] =  xr.DataArray(imaging_weight, dims=vis_dataset[_sel_parms['data']].dims)
     
     if _imaging_weights_parms['weighting'] != 'natural':
-        calc_briggs_weights(vis_dataset,_imaging_weights_parms,_grid_parms)
+        calc_briggs_weights(vis_dataset,_imaging_weights_parms,_grid_parms,_sel_parms)
     
     list_xarray_data_variables = [vis_dataset[_sel_parms['imaging_weight']]]
     return _store(vis_dataset,list_xarray_data_variables,_storage_parms)
@@ -163,14 +167,13 @@ def calc_briggs_weights(vis_dataset,imaging_weights_parms,grid_parms,sel_parms):
     
     
     dtr = np.pi / (3600 * 180)
-    grid_parms = {}
+    #grid_parms = {}
     grid_parms['image_size_padded'] =  grid_parms['image_size'] #do not need to pad since no fft
     grid_parms['oversampling'] = 0
     grid_parms['support'] = 1
     grid_parms['do_psf'] = True
     grid_parms['complex_grid'] = False
     grid_parms['do_imaging_weight'] = True
-    grid_parms['imaging_weight_name'] = imaging_weights_parms['imaging_weight_name']
     
     cgk_1D = np.ones((1))
     grid_of_imaging_weights, sum_weight = _graph_standard_grid(vis_dataset, cgk_1D, grid_parms, sel_parms)
@@ -197,7 +200,7 @@ def calc_briggs_weights(vis_dataset,imaging_weights_parms,grid_parms,sel_parms):
     #Map blocks can be simplified by using new_axis and swapping grid_of_imaging_weights and sum_weight
     briggs_factors = da.map_blocks(calculate_briggs_parms,grid_of_imaging_weights,sum_weight, imaging_weights_parms,chunks=(2,1,1)+sum_weight.chunksize,dtype=np.double)[:,0,0,:,:]
     
-    imaging_weight = _graph_standard_degrid(vis_dataset, grid_of_imaging_weights, briggs_factors, cgk_1D, grid_parms)
+    imaging_weight = _graph_standard_degrid(vis_dataset, grid_of_imaging_weights, briggs_factors, cgk_1D, grid_parms, sel_parms)
     
     vis_dataset[sel_parms['imaging_weight']] = xr.DataArray(imaging_weight, dims=vis_dataset[sel_parms['data']].dims)
     

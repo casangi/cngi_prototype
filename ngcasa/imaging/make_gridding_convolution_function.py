@@ -66,22 +66,17 @@ def make_gridding_convolution_function(gcf_parms, grid_parms, storage_parms):
     assert(_check_grid_parms(_grid_parms)), "######### ERROR: grid_parms checking failed"
     assert(_check_storage_parms(_storage_parms,'dataset.gcf.zarr','make_gcf')), "######### ERROR: user_storage_parms checking failed"
     
-    
-    
-    
     if _gcf_parms['function'] == 'airy':
-        from ._imaging_utils._make_pb_1d import _airy_disk_rorder
-        pb_func = _airy_disk
-    if _gcf_parms['function'] == 'alma_airy':
-        from ._imaging_utils._make_pb_1d import _alma_airy_disk_rorder
+        from ._imaging_utils._make_pb_symmetric import _airy_disk_rorder
+        pb_func = _airy_disk_rorder
+    elif _gcf_parms['function'] == 'alma_airy':
+        from ._imaging_utils._make_pb_symmetric import _alma_airy_disk_rorder
         pb_func = _alma_airy_disk_rorder
     else:
-        print('Only the airy function and alma airy function has been implemented')
+        print('Only the airy function has been implemented')
         
     _gcf_parms['resize_conv_size'] = (_gcf_parms['max_support'] + 1)*_gcf_parms['oversampling']
     #resize_conv_size = _gcf_parms['resize_conv_size']
-    
-    
     
     if _gcf_parms['ps_term'] == True:
         ps_term = _create_prolate_spheroidal_kernel_2D(_gcf_parms['oversampling'],np.array([7,7])) #This is only used with a_term == False. Support is hardcoded to 7 until old ps code is replaced by a general function.
@@ -120,12 +115,12 @@ def make_gridding_convolution_function(gcf_parms, grid_parms, storage_parms):
         for c_chan, c_pol in iter_chunks_indx:
                 #print('chan, pol ',c_chan,c_pol)
                 _gcf_parms['ipower'] = 1
-                delayed_baseline_pb = dask.delayed(make_baseline_patterns)(pb_freq.partitions[c_chan],pb_pol.partitions[c_pol],dask.delayed(pb_ant_pairs),dask.delayed(_gcf_parms),dask.delayed(_grid_parms))
+                delayed_baseline_pb = dask.delayed(make_baseline_patterns)(pb_freq.partitions[c_chan],pb_pol.partitions[c_pol],dask.delayed(pb_ant_pairs),dask.delayed(pb_func),dask.delayed(_gcf_parms),dask.delayed(_grid_parms))
                 
                 list_baseline_pb.append(da.from_delayed(delayed_baseline_pb,(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],_grid_parms['image_size'][0],_grid_parms['image_size'][1]),dtype=np.complex))
                               
                 _gcf_parms['ipower'] = 2
-                delayed_weight_baseline_pb_sqrd = dask.delayed(make_baseline_patterns)(pb_freq.partitions[c_chan],pb_pol.partitions[c_pol],dask.delayed(pb_ant_pairs),dask.delayed(_gcf_parms),dask.delayed(_grid_parms))
+                delayed_weight_baseline_pb_sqrd = dask.delayed(make_baseline_patterns)(pb_freq.partitions[c_chan],pb_pol.partitions[c_pol],dask.delayed(pb_ant_pairs),dask.delayed(pb_func),dask.delayed(_gcf_parms),dask.delayed(_grid_parms))
                 
                 list_weight_baseline_pb_sqrd.append(da.from_delayed(delayed_weight_baseline_pb_sqrd,(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],_grid_parms['image_size'][0],_grid_parms['image_size'][1]),dtype=np.complex))
                
@@ -136,7 +131,6 @@ def make_gridding_convolution_function(gcf_parms, grid_parms, storage_parms):
 
     
     #Combine patterns and fft to obtain the gridding convolutional kernel
-    #print(baseline_pb)
     #print(weight_baseline_pb_sqrd)
 
     dataset_dict = {}
@@ -230,9 +224,11 @@ def make_gridding_convolution_function(gcf_parms, grid_parms, storage_parms):
     gcf_dataset.attrs['oversampling'] = _gcf_parms['oversampling']
     
     #print('gcf_dataset',gcf_dataset)
-    
 
+    print('conv_kernel', conv_kernel, weight_conv_kernel)
     
+    
+    plt.show()
     
     #list_xarray_data_variables = [gcf_dataset['A_TERM'],gcf_dataset['WEIGHT_A_TERM'],gcf_dataset['A_SUPPORT'],gcf_dataset['WEIGHT_A_SUPPORT'],gcf_dataset['PHASE_GRADIENT']]
     return _store(gcf_dataset,list_xarray_data_variables,_storage_parms)
@@ -290,7 +286,7 @@ def make_phase_gradient(field_phase_dir,gcf_parms,grid_parms):
     from astropy.wcs import WCS
     rad_to_deg =  180/np.pi
 
-    phase_center = gcf_parms['phase_center']
+    phase_center = gcf_parms['image_phase_center']
     w = WCS(naxis=2)
     w.wcs.crpix = grid_parms['image_size']//2
     w.wcs.cdelt = grid_parms['cell_size']*rad_to_deg
@@ -368,8 +364,8 @@ def resize_and_calc_support(conv_kernel,conv_weight_kernel,gcf_parms,grid_parms)
     
 
 ##########################
-def make_baseline_patterns(pb_freq,pb_pol,pb_ant_pairs,gcf_parms,grid_parms):
-    from ._imaging_utils._make_pb_1d import _alma_airy_disk_rorder
+def make_baseline_patterns(pb_freq,pb_pol,pb_ant_pairs,pb_func,gcf_parms,grid_parms):
+    #from ._imaging_utils._make_pb_1d import _alma_airy_disk_rorder
     import copy
     
     pb_grid_parms = copy.deepcopy(grid_parms)
@@ -377,7 +373,8 @@ def make_baseline_patterns(pb_freq,pb_pol,pb_ant_pairs,gcf_parms,grid_parms):
     
     #print(pb_parms)
     #print('pb_pol',pb_pol)
-    patterns = _alma_airy_disk_rorder(pb_freq,pb_pol,gcf_parms,pb_grid_parms)
+    #patterns = _alma_airy_disk_rorder(pb_freq,pb_pol,gcf_parms,pb_grid_parms)
+    patterns = pb_func(pb_freq,pb_pol,gcf_parms,pb_grid_parms)
     
     baseline_pattern = np.zeros((len(pb_ant_pairs),len(pb_freq),len(pb_pol), grid_parms['image_size'][0], grid_parms['image_size'][1]), dtype=complex)
     #conv_support_array = np.zeros((len(pb_ant_pairs),len(pb_freq),len(pb_pol),2),dtype=int) #2 is to enable x,y support

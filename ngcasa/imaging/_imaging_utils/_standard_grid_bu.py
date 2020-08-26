@@ -1,4 +1,4 @@
-  #   Copyright 2019 AUI, Inc. Washington DC, USA
+#   Copyright 2019 AUI, Inc. Washington DC, USA
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -143,8 +143,6 @@ def _standard_grid_numpy_wrap(vis_data, uvw, weight, freq_chan, cgk_1D, grid_par
           (1,n_imag_chan,n_imag_pol,n_u,n_v)
       """
       
-    
-
     n_chan = weight.shape[2]
     if grid_parms['chan_mode'] == 'cube':
         n_imag_chan = n_chan

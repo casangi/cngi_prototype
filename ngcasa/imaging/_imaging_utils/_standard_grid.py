@@ -142,8 +142,6 @@ def _standard_grid_numpy_wrap(vis_data, uvw, weight, freq_chan, cgk_1D, grid_par
       grid : complex array
           (1,n_imag_chan,n_imag_pol,n_u,n_v)
       """
-      
-    
 
     n_chan = weight.shape[2]
     if grid_parms['chan_mode'] == 'cube':
@@ -201,6 +199,7 @@ def _standard_grid_psf_numpy_wrap(uvw, weight, freq_chan, cgk_1D, grid_parms):
           (1,n_imag_chan,n_imag_pol,n_u,n_v)
       """
     
+
     
     n_chan = weight.shape[2]
     if grid_parms['chan_mode'] == 'cube':
@@ -424,7 +423,7 @@ def _standard_imaging_weight_degrid_numpy_wrap(grid_imaging_weight, uvw, natural
     pol_map = (np.arange(0, n_imag_pol)).astype(np.int)
 
     n_uv = grid_parms['image_size_padded']
-    delta_lm = grid_parms['cell']
+    delta_lm = grid_parms['cell_size']
     
     imaging_weight = np.zeros(natural_imaging_weight.shape, dtype=np.double)
                        
