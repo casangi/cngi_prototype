@@ -117,12 +117,12 @@ def make_gridding_convolution_function(gcf_parms, grid_parms, storage_parms):
                 _gcf_parms['ipower'] = 1
                 delayed_baseline_pb = dask.delayed(make_baseline_patterns)(pb_freq.partitions[c_chan],pb_pol.partitions[c_pol],dask.delayed(pb_ant_pairs),dask.delayed(pb_func),dask.delayed(_gcf_parms),dask.delayed(_grid_parms))
                 
-                list_baseline_pb.append(da.from_delayed(delayed_baseline_pb,(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],_grid_parms['image_size'][0],_grid_parms['image_size'][1]),dtype=np.complex))
+                list_baseline_pb.append(da.from_delayed(delayed_baseline_pb,(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],_grid_parms['image_size'][0],_grid_parms['image_size'][1]),dtype=np.double))
                               
                 _gcf_parms['ipower'] = 2
                 delayed_weight_baseline_pb_sqrd = dask.delayed(make_baseline_patterns)(pb_freq.partitions[c_chan],pb_pol.partitions[c_pol],dask.delayed(pb_ant_pairs),dask.delayed(pb_func),dask.delayed(_gcf_parms),dask.delayed(_grid_parms))
                 
-                list_weight_baseline_pb_sqrd.append(da.from_delayed(delayed_weight_baseline_pb_sqrd,(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],_grid_parms['image_size'][0],_grid_parms['image_size'][1]),dtype=np.complex))
+                list_weight_baseline_pb_sqrd.append(da.from_delayed(delayed_weight_baseline_pb_sqrd,(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],_grid_parms['image_size'][0],_grid_parms['image_size'][1]),dtype=np.double))
                
         
         baseline_pb = da.concatenate(list_baseline_pb,axis=1)
@@ -136,8 +136,8 @@ def make_gridding_convolution_function(gcf_parms, grid_parms, storage_parms):
     dataset_dict = {}
     list_xarray_data_variables = []
     if (_gcf_parms['a_term'] == True) and (_gcf_parms['ps_term'] == True):
-        conv_kernel = dafft.fftshift(dafft.fft2(dafft.ifftshift(ps_term_padded_ifft*baseline_pb, axes=(3, 4)), axes=(3, 4)), axes=(3, 4))
-        conv_weight_kernel = dafft.fftshift(dafft.fft2(dafft.ifftshift(weight_baseline_pb_sqrd, axes=(3, 4)), axes=(3, 4)), axes=(3, 4))
+        conv_kernel = da.real(dafft.fftshift(dafft.fft2(dafft.ifftshift(ps_term_padded_ifft*baseline_pb, axes=(3, 4)), axes=(3, 4)), axes=(3, 4)))
+        conv_weight_kernel = da.real(dafft.fftshift(dafft.fft2(dafft.ifftshift(weight_baseline_pb_sqrd, axes=(3, 4)), axes=(3, 4)), axes=(3, 4)))
         
         
         list_conv_kernel = []
@@ -146,8 +146,8 @@ def make_gridding_convolution_function(gcf_parms, grid_parms, storage_parms):
         iter_chunks_indx = itertools.product(np.arange(n_chunks_in_each_dim[0]), np.arange(n_chunks_in_each_dim[1]))
         for c_chan, c_pol in iter_chunks_indx:
                 delayed_kernels_and_support = dask.delayed(resize_and_calc_support)(conv_kernel.partitions[:,c_chan,c_pol,:,:],conv_weight_kernel.partitions[:,c_chan,c_pol,:,:],dask.delayed(_gcf_parms),dask.delayed(_grid_parms))
-                list_conv_kernel.append(da.from_delayed(delayed_kernels_and_support[0],(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],_gcf_parms['resize_conv_size'][0],_gcf_parms['resize_conv_size'][1]),dtype=np.complex))
-                list_weight_conv_kernel.append(da.from_delayed(delayed_kernels_and_support[1],(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],_gcf_parms['resize_conv_size'][0],_gcf_parms['resize_conv_size'][1]),dtype=np.complex))
+                list_conv_kernel.append(da.from_delayed(delayed_kernels_and_support[0],(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],_gcf_parms['resize_conv_size'][0],_gcf_parms['resize_conv_size'][1]),dtype=np.double))
+                list_weight_conv_kernel.append(da.from_delayed(delayed_kernels_and_support[1],(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],_gcf_parms['resize_conv_size'][0],_gcf_parms['resize_conv_size'][1]),dtype=np.double))
                 list_conv_support.append(da.from_delayed(delayed_kernels_and_support[2],(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],2),dtype=np.int))
                 
         
@@ -170,8 +170,8 @@ def make_gridding_convolution_function(gcf_parms, grid_parms, storage_parms):
         ##Enabled for test
         #dataset_dict['WEIGHT_CONV_KERNEL'] = xr.DataArray(conv_kernel, dims=['conv_baseline','conv_chan','conv_pol','u','v'])
     elif (_gcf_parms['a_term'] == True) and (_gcf_parms['ps_term'] == False):
-        conv_kernel = dafft.fftshift(dafft.fft2(dafft.ifftshift(baseline_pb, axes=(3, 4)), axes=(3, 4)), axes=(3, 4))
-        conv_weight_kernel = dafft.fftshift(dafft.fft2(dafft.ifftshift(weight_baseline_pb_sqrd, axes=(3, 4)), axes=(3, 4)), axes=(3, 4))
+        conv_kernel = da.real(dafft.fftshift(dafft.fft2(dafft.ifftshift(baseline_pb, axes=(3, 4)), axes=(3, 4)), axes=(3, 4)))
+        conv_weight_kernel = da.real(dafft.fftshift(dafft.fft2(dafft.ifftshift(weight_baseline_pb_sqrd, axes=(3, 4)), axes=(3, 4)), axes=(3, 4)))
         
         list_conv_kernel = []
         list_weight_conv_kernel = []
@@ -179,8 +179,8 @@ def make_gridding_convolution_function(gcf_parms, grid_parms, storage_parms):
         iter_chunks_indx = itertools.product(np.arange(n_chunks_in_each_dim[0]), np.arange(n_chunks_in_each_dim[1]))
         for c_chan, c_pol in iter_chunks_indx:
                 delayed_kernels_and_support = dask.delayed(resize_and_calc_support)(conv_kernel.partitions[:,c_chan,c_pol,:,:],conv_weight_kernel.partitions[:,c_chan,c_pol,:,:],dask.delayed(_gcf_parms),dask.delayed(_grid_parms))
-                list_conv_kernel.append(da.from_delayed(delayed_kernels_and_support[0],(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],_gcf_parms['resize_conv_size'][0],_gcf_parms['resize_conv_size'][1]),dtype=np.complex))
-                list_weight_conv_kernel.append(da.from_delayed(delayed_kernels_and_support[1],(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],_gcf_parms['resize_conv_size'][0],_gcf_parms['resize_conv_size'][1]),dtype=np.complex))
+                list_conv_kernel.append(da.from_delayed(delayed_kernels_and_support[0],(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],_gcf_parms['resize_conv_size'][0],_gcf_parms['resize_conv_size'][1]),dtype=np.double))
+                list_weight_conv_kernel.append(da.from_delayed(delayed_kernels_and_support[1],(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],_gcf_parms['resize_conv_size'][0],_gcf_parms['resize_conv_size'][1]),dtype=np.double))
                 list_conv_support.append(da.from_delayed(delayed_kernels_and_support[2],(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],2),dtype=np.int))
                 
         
@@ -309,7 +309,8 @@ def make_phase_gradient(field_phase_dir,gcf_parms,grid_parms):
     
     phase_gradient = np.moveaxis(np.exp(1j*(x_grid[:,:,None]*pix[:,0] + y_grid[:,:,None]*pix[:,1])),2,0)
     return phase_gradient
-    
+
+'''
 def resize_and_calc_support(conv_kernel,conv_weight_kernel,gcf_parms,grid_parms):
     import itertools
     conv_shape = conv_kernel.shape[0:3]
@@ -323,6 +324,41 @@ def resize_and_calc_support(conv_kernel,conv_weight_kernel,gcf_parms,grid_parms)
     end_indx = start_indx + resized_conv_size
     
     return conv_kernel[:,:,:,start_indx[0]:end_indx[0],start_indx[1]:end_indx[1]] , conv_weight_kernel[:,:,:,start_indx[0]:end_indx[0],start_indx[1]:end_indx[1]], conv_support
+'''
+    
+def resize_and_calc_support(conv_kernel,conv_weight_kernel,gcf_parms,grid_parms):
+    import itertools
+    conv_shape = conv_kernel.shape[0:3]
+    conv_support = np.zeros(conv_shape+(2,),dtype=int) #2 is to enable x,y support
+
+    resized_conv_size = tuple(gcf_parms['resize_conv_size'])
+    start_indx = grid_parms['image_size']//2 - gcf_parms['resize_conv_size']//2
+    end_indx = start_indx + gcf_parms['resize_conv_size']
+    
+    resized_conv_kernel = np.zeros(conv_shape + resized_conv_size,dtype=np.complex128)
+    resized_conv_weight_kernel = np.zeros(conv_shape + resized_conv_size,dtype=np.complex128)
+    
+    for idx in itertools.product(*[range(s) for s in conv_shape]):
+        conv_support[idx] = calc_conv_size(conv_weight_kernel[idx],grid_parms['image_size'],gcf_parms['support_cut_level'],gcf_parms['oversampling'],gcf_parms['max_support'])
+        
+        #conv_support[idx] = np.array([13,13])
+        #print(conv_support)
+        
+        embed_conv_size = (conv_support[idx]  + 1)*gcf_parms['oversampling']
+        embed_start_indx = gcf_parms['resize_conv_size']//2 - embed_conv_size//2
+        embed_end_indx = embed_start_indx + embed_conv_size
+        
+        resized_conv_kernel[idx] = conv_kernel[idx[0],idx[1],idx[2],start_indx[0]:end_indx[0],start_indx[1]:end_indx[1]]
+        normalize_factor = np.real(np.sum(resized_conv_kernel[idx[0],idx[1],idx[2],embed_start_indx[0]:embed_end_indx[0],embed_start_indx[1]:embed_end_indx[1]])/(gcf_parms['oversampling'][0]*gcf_parms['oversampling'][1]))
+        resized_conv_kernel[idx] = resized_conv_kernel[idx]/normalize_factor
+        
+        
+        resized_conv_weight_kernel[idx] = conv_weight_kernel[idx[0],idx[1],idx[2], start_indx[0]:end_indx[0],start_indx[1]:end_indx[1]]
+        normalize_factor = np.real(np.sum(resized_conv_weight_kernel[idx[0],idx[1],idx[2],embed_start_indx[0]:embed_end_indx[0],embed_start_indx[1]:embed_end_indx[1]])/(gcf_parms['oversampling'][0]*gcf_parms['oversampling'][1]))
+        resized_conv_weight_kernel[idx] = resized_conv_weight_kernel[idx]/normalize_factor
+        
+    
+    return resized_conv_kernel , resized_conv_weight_kernel , conv_support
     '''
     #conv_support_array = np.zeros((len(pb_ant_pairs),len(pb_freq),len(pb_pol),2),dtype=int) #2 is to enable x,y support
     
@@ -376,7 +412,7 @@ def make_baseline_patterns(pb_freq,pb_pol,pb_ant_pairs,pb_func,gcf_parms,grid_pa
     #patterns = _alma_airy_disk_rorder(pb_freq,pb_pol,gcf_parms,pb_grid_parms)
     patterns = pb_func(pb_freq,pb_pol,gcf_parms,pb_grid_parms)
     
-    baseline_pattern = np.zeros((len(pb_ant_pairs),len(pb_freq),len(pb_pol), grid_parms['image_size'][0], grid_parms['image_size'][1]), dtype=complex)
+    baseline_pattern = np.zeros((len(pb_ant_pairs),len(pb_freq),len(pb_pol), grid_parms['image_size'][0], grid_parms['image_size'][1]), dtype=np.double)
     #conv_support_array = np.zeros((len(pb_ant_pairs),len(pb_freq),len(pb_pol),2),dtype=int) #2 is to enable x,y support
     
     #max_support = ((gridding_convolution_parms['conv_size']/gridding_convolution_parms['oversampling'])-1).astype(int)

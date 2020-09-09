@@ -84,7 +84,7 @@ def make_mosaic_pb(vis_dataset,gcf_dataset,img_dataset,sel_parms,grid_parms,stor
     _grid_parms = copy.deepcopy(grid_parms)
     _storage_parms = copy.deepcopy(storage_parms)
     
-    assert(_check_sel_parms(_sel_parms,{'pb':'PB','weight_pb':'WEIGHT_PB'})), "######### ERROR: sel_parms checking failed"
+    assert(_check_sel_parms(_sel_parms,{'pb':'PB','weight_pb':'WEIGHT_PB','weight_pb_sum_weight':'WEIGHT_PB_SUM_WEIGHT'})), "######### ERROR: sel_parms checking failed"
     assert(_check_grid_parms(_grid_parms)), "######### ERROR: grid_parms checking failed"
     assert(_check_storage_parms(_storage_parms,'mosaic_pb.img.zarr','make_mosaic_pb')), "######### ERROR: storage_parms checking failed"
     
@@ -126,6 +126,7 @@ def make_mosaic_pb(vis_dataset,gcf_dataset,img_dataset,sel_parms,grid_parms,stor
     img_dataset = img_dataset.assign_coords(coords)
     img_dataset[_sel_parms['pb']] = xr.DataArray(mosaic_primary_beam, dims=['d0', 'd1', 'chan', 'pol'])
     img_dataset[_sel_parms['weight']] = xr.DataArray(weight_image, dims=['d0', 'd1', 'chan', 'pol'])
+    img_dataset[_sel_parms['weight_pb_sum_weight']] = xr.DataArray(grids_and_sum_weights[1], dims=['chan', 'pol'])
     
     list_xarray_data_variables = [img_dataset[_sel_parms['pb']],img_dataset[_sel_parms['weight']]]
     return _store(img_dataset,list_xarray_data_variables,_storage_parms)

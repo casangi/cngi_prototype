@@ -68,7 +68,7 @@ def phase_rotate(vis_dataset, global_dataset, rotation_parms, sel_parms, storage
     assert(_sel_parms['uvw_out'] != _sel_parms['uvw_in']), "######### ERROR: sel_parms checking failed sel_parms['uvw_out'] can not be the same as sel_parms['uvw_in']."
     assert(_sel_parms['data_out'] != _sel_parms['data_in']), "######### ERROR: sel_parms checking failed sel_parms['data_out'] can not be the same as sel_parms['data_in']."
 
-
+    '''
     #I think this should be included in vis_dataset. There should also be a beter pythonic way to do the loop inside gen_field_indx.
     def gen_field_indx(vis_data_field_names, field_names):
         field_indx = np.zeros(vis_data_field_names.shape,np.int)
@@ -77,7 +77,7 @@ def phase_rotate(vis_dataset, global_dataset, rotation_parms, sel_parms, storage
             
         return field_indx
     field_indx = da.map_blocks(gen_field_indx, vis_dataset['field'].data, global_dataset['field'], dtype=np.int)
-    
+    '''
 
     #If no image phase center is specified use first field
     '''
@@ -101,6 +101,7 @@ def phase_rotate(vis_dataset, global_dataset, rotation_parms, sel_parms, storage
     image_phase_center_cosine = _directional_cosine([ra_image,dec_image])
     
     n_fields = global_dataset.dims['field']
+    field_names = global_dataset.field
     uvw_rotmat = np.zeros((n_fields,3,3),np.double)
     phase_rotation = np.zeros((n_fields,3),np.double)
     
@@ -120,25 +121,23 @@ def phase_rotate(vis_dataset, global_dataset, rotation_parms, sel_parms, storage
         field_phase_center_cosine = _directional_cosine(field_phase_center)
         phase_rotation[i_field,:] = np.matmul(rotmat_image_phase_center,(image_phase_center_cosine - field_phase_center_cosine))
 
-    
     #Apply rotation matrix to uvw
     @jit(nopython=True, cache=True, nogil=True)
-    def apply_rotation_matrix(uvw, field_indx, uvw_rotmat):
-        #print(uvw.shape,field_indx.shape,uvw_rotmat.shape)
-        
-        #uvw_rot = np.zeros()
+    def apply_rotation_matrix(uvw, field_id, uvw_rotmat):
+        #print(uvw.shape,field_id.shape,uvw_rotmat.shape)
         for i_time in range(uvw.shape[0]):
+            #print('The index is',np.where(field_names==field[i_time])[1][0],field_id[i_time,0,0])
             #uvw[i_time,:,0:2] = -uvw[i_time,:,0:2] this gives the same result as casa (in the ftmachines uvw(negateUV(vb)) is used). In ngcasa we don't do this since the uvw definition in the gridder and vis.zarr are the same.
-            #uvw[i_time,:,:] = np.matmul(uvw[i_time,:,:],uvw_rotmat[field_indx[i_time],:,:])
-            uvw[i_time,:,:] = uvw[i_time,:,:] @ uvw_rotmat[field_indx[i_time,0,0],:,:]
+            #uvw[i_time,:,:] = np.matmul(uvw[i_time,:,:],uvw_rotmat[field_id[i_time],:,:])
+            uvw[i_time,:,:] = uvw[i_time,:,:] @ uvw_rotmat[field_id[i_time,0,0],:,:]
         return uvw
     
-    uvw = da.map_blocks(apply_rotation_matrix,vis_dataset[_sel_parms['uvw_in']].data, field_indx[:,None,None],uvw_rotmat,dtype=np.double)
+    uvw = da.map_blocks(apply_rotation_matrix,vis_dataset[_sel_parms['uvw_in']].data, vis_dataset.field_id.data[:,None,None],uvw_rotmat,dtype=np.double)
 
     
     #Apply rotation to vis data
-    def apply_phasor(vis_data,uvw, field_indx,freq_chan,phase_rotation,common_tangent_reprojection):
-        #print(vis_data.shape,uvw.shape,field_indx.shape,freq_chan.shape,phase_rotation.shape)
+    def apply_phasor(vis_data,uvw, field_id,freq_chan,phase_rotation,common_tangent_reprojection):
+        #print(vis_data.shape,uvw.shape,field_id.shape,freq_chan.shape,phase_rotation.shape)
         
         if common_tangent_reprojection == True:
             end_slice = 2
@@ -146,9 +145,9 @@ def phase_rotate(vis_dataset, global_dataset, rotation_parms, sel_parms, storage
             end_slice = 3
         
         phase_direction = np.zeros(uvw.shape[0:2],np.double)
-        phasor_loop(phase_direction,uvw,phase_rotation,field_indx,end_slice)
+        phasor_loop(phase_direction,uvw,phase_rotation,field_id,end_slice)
         #for i_time in range(uvw.shape[0]):
-        #    phase_direction[i_time,:] = uvw[i_time,:,0:end_slice,0] @ phase_rotation[field_indx[i_time,0,0,0],0:end_slice]
+        #    phase_direction[i_time,:] = uvw[i_time,:,0:end_slice,0] @ phase_rotation[field_id[i_time,0,0,0],0:end_slice]
         
         n_chan = vis_data.shape[2]
         n_pol = vis_data.shape[3]
@@ -162,7 +161,7 @@ def phase_rotate(vis_dataset, global_dataset, rotation_parms, sel_parms, storage
         
     chan_chunk_size = vis_dataset[_sel_parms['data_in']].chunks[2][0]
     freq_chan = da.from_array(vis_dataset.coords['chan'].values, chunks=(chan_chunk_size))
-    vis_rot = da.map_blocks(apply_phasor,vis_dataset[_sel_parms['data_in']].data,uvw[:,:,:,None], field_indx[:,None,None,None],freq_chan[None,None,:,None],phase_rotation,_rotation_parms['common_tangent_reprojection'],dtype=np.complex)
+    vis_rot = da.map_blocks(apply_phasor,vis_dataset[_sel_parms['data_in']].data,uvw[:,:,:,None], vis_dataset.field_id.data[:,None,None,None],freq_chan[None,None,:,None],phase_rotation,_rotation_parms['common_tangent_reprojection'],dtype=np.complex)
     
     vis_dataset[_sel_parms['uvw_out']] =  xr.DataArray(uvw, dims=vis_dataset[_sel_parms['uvw_in']].dims)
     vis_dataset[_sel_parms['data_out']] =  xr.DataArray(vis_rot, dims=vis_dataset[_sel_parms['data_in']].dims)
@@ -171,10 +170,10 @@ def phase_rotate(vis_dataset, global_dataset, rotation_parms, sel_parms, storage
     return _store(vis_dataset,list_xarray_data_variables,_storage_parms)
 
 
-#@jit(nopython=True,cache=True, nogil=True)
-def phasor_loop(phase_direction,uvw,phase_rotation,field_indx,end_slice):
+@jit(nopython=True,cache=True, nogil=True)
+def phasor_loop(phase_direction,uvw,phase_rotation,field_id,end_slice):
     for i_time in range(uvw.shape[0]):
-        phase_direction[i_time,:] = uvw[i_time,:,0:end_slice,0] @ phase_rotation[field_indx[i_time,0,0,0],0:end_slice]
+        phase_direction[i_time,:] = uvw[i_time,:,0:end_slice,0] @ phase_rotation[field_id[i_time,0,0,0],0:end_slice]
 
 
 def _directional_cosine(phase_center_in_radians):

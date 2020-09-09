@@ -389,7 +389,7 @@ def convert_ms(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
         ant1_ant2 = np.hstack((ant1_col[:, np.newaxis], ant2_col[:, np.newaxis]))
         unique_baselines, baseline_idxs = np.unique(ant1_ant2, axis=0, return_inverse=True)
         n_baseline = unique_baselines.shape[0]
-
+        
         # look up spw and pol ids as starting point
         tb_tool_meta = tb()
         tb_tool_meta.open(infile + "/DATA_DESCRIPTION", nomodify=True, lockoptions={'option': 'usernoread'})
@@ -452,7 +452,7 @@ def convert_ms(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
                 if not ms_ddi.iscelldefined(col, idx_range[0]): continue
 
                 data = ms_ddi.getcol(col, idx_range[0], len(idx_range)).transpose()
-                print('idx_range,', col, idx_range[0],len(idx_range), data.shape)
+                #print('idx_range,', col, idx_range[0],len(idx_range), data.shape)
                 if col in 'UVW':  # n_row x 3 -> n_time x n_baseline x 3
                     fulldata = np.full((len(chunk), n_baseline, data.shape[1]), np.nan, dtype=data.dtype)
                     fulldata[time_idxs[idx_range] - chunk[0], baseline_idxs[idx_range], :] = data
@@ -461,6 +461,7 @@ def convert_ms(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
                 elif data.ndim == 1:  # n_row -> n_time x n_baseline
                     if col == 'FIELD_ID' and 'field' in mxds.coords:
                         coords['field'] = ('time', mxds.coords['field'].values[data[chunk_time_changes]])
+                        coords['field_id'] = ('time', data[chunk_time_changes]) #need this for numba code in ngcasa imagin code
                     elif col == 'SCAN_NUMBER':
                         coords['scan'] = ('time', data[chunk_time_changes])
                     elif col == 'INTERVAL':
@@ -476,10 +477,10 @@ def convert_ms(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
                         if col == 'FLAG_ROW':
                             fulldata = np.ones((len(chunk), n_baseline), dtype=data.dtype)
                         
-                        print('col name',col)
-                        print('full datashape', fulldata.shape)
-                        print('data.shape',data.shape)
-                        print('full data subshape',fulldata[time_idxs[idx_range] - chunk[0], baseline_idxs[idx_range]].shape)
+                        #print('col name',col)
+                        #print('full datashape', fulldata.shape)
+                        #print('data.shape',data.shape)
+                        #print('full data subshape',fulldata[time_idxs[idx_range] - chunk[0], baseline_idxs[idx_range]].shape)
                         fulldata[time_idxs[idx_range] - chunk[0], baseline_idxs[idx_range]] = data
                         chunkdata[col] = xarray.DataArray(fulldata, dims=['time', 'baseline'])
 

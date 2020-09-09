@@ -62,7 +62,7 @@ def _graph_aperture_grid(vis_dataset,gcf_dataset,grid_parms,sel_parms):
             sub_grid_and_sum_weights = dask.delayed(_aperture_weight_grid_numpy_wrap)(
             vis_dataset[sel_parms["uvw"]].data.partitions[c_time, c_baseline, 0],
             vis_dataset[sel_parms["imaging_weight"]].data.partitions[c_time, c_baseline, c_chan, c_pol],
-            vis_dataset["FIELD_ID"].data.partitions[c_time],
+            vis_dataset["field_id"].data.partitions[c_time],
             gcf_dataset["CF_BASELINE_MAP"].data.partitions[c_baseline],
             gcf_dataset["CF_CHAN_MAP"].data.partitions[c_chan],
             gcf_dataset["CF_POL_MAP"].data.partitions[c_pol],
@@ -77,7 +77,7 @@ def _graph_aperture_grid(vis_dataset,gcf_dataset,grid_parms,sel_parms):
             vis_dataset[sel_parms["data"]].data.partitions[c_time, c_baseline, c_chan, c_pol],
             vis_dataset[sel_parms["uvw"]].data.partitions[c_time, c_baseline, 0],
             vis_dataset[sel_parms["imaging_weight"]].data.partitions[c_time, c_baseline, c_chan, c_pol],
-            vis_dataset["FIELD_ID"].data.partitions[c_time],
+            vis_dataset["field_id"].data.partitions[c_time],
             gcf_dataset["CF_BASELINE_MAP"].data.partitions[c_baseline],
             gcf_dataset["CF_CHAN_MAP"].data.partitions[c_chan],
             gcf_dataset["CF_POL_MAP"].data.partitions[c_pol],
@@ -215,7 +215,7 @@ def _aperture_weight_grid_jit(grid, sum_weight, uvw, freq_chan, chan_map, pol_ma
                                 norm = 0.0
                                 
                                 support = weight_support[cf_baseline,cf_chan,cf_pol,:]
-                                #support = np.array([23,23])
+                                #support = np.array([13,13])
                                 support_center = support // 2
                                 start_support = - support_center
                                 end_support = support - support_center # end_support is larger by 1 so that python range() gives correct indices
@@ -234,7 +234,7 @@ def _aperture_weight_grid_jit(grid, sum_weight, uvw, freq_chan, chan_map, pol_ma
                                         grid[a_chan, a_pol, u_indx, v_indx] = grid[a_chan, a_pol, u_indx, v_indx] +   conv * weighted_data
                                         norm = norm + conv
                             
-                                sum_weight[a_chan, a_pol] = sum_weight[a_chan, a_pol] + weighted_data * np.abs(norm)
+                                sum_weight[a_chan, a_pol] = sum_weight[a_chan, a_pol] + weighted_data * np.real(norm)
 
     return
 
@@ -297,6 +297,10 @@ def _aperture_grid_jit(grid, sum_weight, do_psf, vis_data, uvw, freq_chan, chan_
     conv_v_center = conv_kernel.shape[-1]//2
     conv_u_center = conv_kernel.shape[-2]//2
     
+    conv_size = np.array(conv_kernel.shape[-2:])
+    
+    #print('conv_size',conv_size)
+    
     #print('sizes ',conv_kernel.shape, conv_u_center, conv_v_center)
     
     #print(phase_gradient.shape)
@@ -340,11 +344,21 @@ def _aperture_grid_jit(grid, sum_weight, do_psf, vis_data, uvw, freq_chan, chan_
                                 norm = 0.0
                                 
                                 support = weight_support[cf_baseline,cf_chan,cf_pol,:]
-                                #support = np.array([23,23])
+                                #support = np.array([13,13])
                                 support_center = support // 2
                                 start_support = - support_center
                                 end_support = support - support_center # end_support is larger by 1 so that python range() gives correct indices
                                 
+                                #print(support)
+                                ###############
+#                                resized_conv_size = (support  + 1)*oversampling
+#                                start_indx = conv_size//2 - resized_conv_size//2
+#                                end_indx = start_indx + resized_conv_size
+#                                normalize_factor = np.real(np.sum(conv_kernel[cf_baseline,cf_chan,cf_pol,start_indx[0]:end_indx[0],start_indx[1]:end_indx[1]])/(oversampling[0]*oversampling[1]))
+#
+#                                conv_kernel_phase_gradient = conv_kernel*phase_gradient[field[i_time],:,:]/normalize_factor
+#                                print(normalize_factor)
+                                ##############
                                 
                                 for i_v in range(start_support[1],end_support[1]):
                                     v_indx = v_center_indx + i_v
@@ -359,7 +373,7 @@ def _aperture_grid_jit(grid, sum_weight, do_psf, vis_data, uvw, freq_chan, chan_
                                         grid[a_chan, a_pol, u_indx, v_indx] = grid[a_chan, a_pol, u_indx, v_indx] +   conv * weighted_data
                                         norm = norm + conv
                             
-                                sum_weight[a_chan, a_pol] = sum_weight[a_chan, a_pol] + imaging_weight[i_time, i_baseline, i_chan, i_pol] * np.abs(norm)
+                                sum_weight[a_chan, a_pol] = sum_weight[a_chan, a_pol] + imaging_weight[i_time, i_baseline, i_chan, i_pol]*np.real(norm**2)#*np.real(norm**2)#* np.real(norm) #np.abs(norm**2) #**2 term is needed since the pb is in the image twice (one naturally and another from the gcf)
 
     return
 
@@ -424,7 +438,7 @@ def _graph_aperture_weight_grid(vis_dataset,cf_dataset,grid_parms):
         sub_grid_and_sum_weights = dask.delayed(_aperture_weight_grid_numpy_wrap)(
         vis_dataset[grid_parms["uvw_name"]].data.partitions[c_time, c_baseline, 0],
         vis_dataset[grid_parms["imaging_weight_name"]].data.partitions[c_time, c_baseline, c_chan, c_pol],
-        vis_dataset["FIELD_ID"].data.partitions[c_time],
+        vis_dataset["field_id"].data.partitions[c_time],
         cf_dataset["CF_BASELINE_MAP"].data.partitions[c_baseline],
         cf_dataset["CF_CHAN_MAP"].data.partitions[c_chan],
         cf_dataset["CF_POL_MAP"].data.partitions[c_pol],

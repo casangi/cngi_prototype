@@ -117,6 +117,7 @@ def make_image_with_gcf(vis_dataset, gcf_dataset, img_dataset, grid_parms, norm_
     uncorrected_dirty_image = dafft.fftshift(dafft.ifft2(dafft.ifftshift(grids_and_sum_weights[0], axes=(0, 1)), axes=(0, 1)), axes=(0, 1))
         
     #Remove Padding
+    print('grid sizes',_grid_parms['image_size_padded'][0], _grid_parms['image_size_padded'][1])
     uncorrected_dirty_image = _remove_padding(uncorrected_dirty_image,_grid_parms['image_size']).real * (_grid_parms['image_size_padded'][0] * _grid_parms['image_size_padded'][1])
     normalized_image = _normalize(uncorrected_dirty_image, grids_and_sum_weights[1], img_dataset, gcf_dataset, 'forward', _norm_parms['norm_type'], sel_parms)
 

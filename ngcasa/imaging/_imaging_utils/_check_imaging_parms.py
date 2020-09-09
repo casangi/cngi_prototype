@@ -26,7 +26,7 @@ def _check_grid_parms(grid_parms):
     if not(_check_parms(grid_parms, 'image_size', [list], list_acceptable_data_types=[np.int], list_len=2)): parms_passed = False
     if not(_check_parms(grid_parms, 'image_center', [list], list_acceptable_data_types=[np.int], list_len=2, default = np.array(grid_parms['image_size'])//2)): parms_passed = False
     if not(_check_parms(grid_parms, 'cell_size', [list], list_acceptable_data_types=[numbers.Number], list_len=2)): parms_passed = False
-    if not(_check_parms(grid_parms, 'fft_padding', [numbers.Number], default=1.2,acceptable_range=[1,2])): parms_passed = False
+    if not(_check_parms(grid_parms, 'fft_padding', [numbers.Number], default=1.2,acceptable_range=[1,10])): parms_passed = False
     if not(_check_parms(grid_parms, 'chan_mode', [str], acceptable_data=['cube','continuum'], default='cube')): parms_passed = False
     
     if parms_passed == True:
@@ -93,7 +93,7 @@ def _check_norm_parms(norm_parms):
     import numbers
     parms_passed = True
     
-    if not(_check_parms(norm_parms, 'norm_type', [str], default='flat_noise', acceptable_data=['flat_noise','flat_sky','pb_square'])): parms_passed = False
+    if not(_check_parms(norm_parms, 'norm_type', [str], default='flat_noise', acceptable_data=['flat_noise','flat_sky','none'])): parms_passed = False
     
     return parms_passed
     
