@@ -92,12 +92,12 @@ def _graph_aperture_grid(vis_dataset,gcf_dataset,grid_parms,sel_parms):
         if grid_parms['chan_mode'] == 'continuum':
             c_time_baseline_chan_pol = c_pol + c_chan*n_chunks_in_each_dim[3] + c_baseline*n_chunks_in_each_dim[3]*n_chunks_in_each_dim[2] + c_time*n_chunks_in_each_dim[3]*n_chunks_in_each_dim[2]*n_chunks_in_each_dim[1]
             list_of_grids[0][c_time_baseline_chan_pol] = da.from_delayed(sub_grid_and_sum_weights[0], (1, chunk_sizes[3][c_pol], grid_parms['image_size_padded'][0], grid_parms['image_size_padded'][1]),dtype=grid_dtype)
-            list_of_sum_weights[0][c_time_baseline_chan_pol] = da.from_delayed(sub_grid_and_sum_weights[1],(1, chunk_sizes[3][c_pol]),dtype=np.complex128)
+            list_of_sum_weights[0][c_time_baseline_chan_pol] = da.from_delayed(sub_grid_and_sum_weights[1],(1, chunk_sizes[3][c_pol]),dtype=np.double)
             
         elif grid_parms['chan_mode'] == 'cube':
             c_time_baseline_pol = c_pol + c_baseline*n_chunks_in_each_dim[3] + c_time*n_chunks_in_each_dim[1]*n_chunks_in_each_dim[3]
             list_of_grids[c_chan][c_time_baseline_pol] = da.from_delayed(sub_grid_and_sum_weights[0], (chunk_sizes[2][c_chan], chunk_sizes[3][c_pol], grid_parms['image_size_padded'][0], grid_parms['image_size_padded'][1]),dtype=grid_dtype)
-            list_of_sum_weights[c_chan][c_time_baseline_pol]  = da.from_delayed(sub_grid_and_sum_weights[1],(chunk_sizes[2][c_chan], chunk_sizes[3][c_pol]),dtype=np.complex128)
+            list_of_sum_weights[c_chan][c_time_baseline_pol]  = da.from_delayed(sub_grid_and_sum_weights[1],(chunk_sizes[2][c_chan], chunk_sizes[3][c_pol]),dtype=np.double)
         
     
     # Sum grids
@@ -187,7 +187,7 @@ def _aperture_weight_grid_jit(grid, sum_weight, uvw, freq_chan, chan_map, pol_ma
         for i_baseline in range(n_baseline):
             cf_baseline = cf_baseline_map[i_baseline]
             for i_chan in range(n_chan):
-                cf_chan = cf_baseline_map[i_chan]
+                cf_chan = cf_chan_map[i_chan]
                 a_chan = chan_map[i_chan]
                 u = uvw[i_time, i_baseline, 0] * uv_scale[0, i_chan]
                 v = uvw[i_time, i_baseline, 1] * uv_scale[1, i_chan]
@@ -313,7 +313,7 @@ def _aperture_grid_jit(grid, sum_weight, do_psf, vis_data, uvw, freq_chan, chan_
         for i_baseline in range(n_baseline):
             cf_baseline = cf_baseline_map[i_baseline]
             for i_chan in range(n_chan):
-                cf_chan = cf_baseline_map[i_chan]
+                cf_chan = cf_chan_map[i_chan]
                 a_chan = chan_map[i_chan]
                 u = uvw[i_time, i_baseline, 0] * uv_scale[0, i_chan]
                 v = uvw[i_time, i_baseline, 1] * uv_scale[1, i_chan]
