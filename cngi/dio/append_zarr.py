@@ -132,7 +132,7 @@ def append_zarr(list_xarray_data_variables,outfile,chunks_return={},compressor=N
                     list_new_coord_name.append(coord_name)
 
         #Rechunk the dask arrays to match the chunking on disk
-        dask_array = list_xarray_data_variables[i].data.rechunk(chunksize_on_disk[i])
+        dask_array = list_xarray_data_variables[i].data.rechunk(chunksize_on_disk)
         list_dask_array.append(dask_array)
         
         #Create list of delayed objects
@@ -147,7 +147,7 @@ def append_zarr(list_xarray_data_variables,outfile,chunks_return={},compressor=N
         
     
     #Trigger compute of delayed zarr.create functions in list_target_zarr.
-    da.store(list_dask_array,list_target_zarr,compute=True,flush=True)
+    da.store(list_dask_array,list_target_zarr,compute=True,flush=True,lock=False)
     
     # Open zarr to add array dimension labels so that xarray.open_zarr works. This is the magic that allows xarray to understand zarr.
     dataset_group = zarr.open_group(outfile,mode='a')
