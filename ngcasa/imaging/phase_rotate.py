@@ -55,6 +55,7 @@ def phase_rotate(vis_dataset, global_dataset, rotation_parms, sel_parms, storage
     import time
     import numba
     from numba import double
+    import dask
     
     _sel_parms = copy.deepcopy(sel_parms)
     _rotation_parms = copy.deepcopy(rotation_parms)
@@ -105,10 +106,14 @@ def phase_rotate(vis_dataset, global_dataset, rotation_parms, sel_parms, storage
     uvw_rotmat = np.zeros((n_fields,3,3),np.double)
     phase_rotation = np.zeros((n_fields,3),np.double)
     
+    fields_phase_center = global_dataset.FIELD_PHASE_DIR.values[:,:,vis_dataset.attrs['ddi']]
+    
+    print(fields_phase_center)
+    
     #Create a rotation matrix for each field
     for i_field in range(n_fields):
         #Not sure if last dimention in FIELD_PHASE_DIR is the ddi number
-        field_phase_center = global_dataset.FIELD_PHASE_DIR.values[i_field,:,vis_dataset.attrs['ddi']]
+        field_phase_center = fields_phase_center[i_field,:]
         # Define rotation to a coordinate system with pole towards in-direction
         # and X-axis W; by rotating around z-axis over -(90-long); and around
         # x-axis (lat-90).
@@ -134,6 +139,7 @@ def phase_rotate(vis_dataset, global_dataset, rotation_parms, sel_parms, storage
     
     uvw = da.map_blocks(apply_rotation_matrix,vis_dataset[_sel_parms['uvw_in']].data, vis_dataset.field_id.data[:,None,None],uvw_rotmat,dtype=np.double)
 
+    dask.visualize(uvw,filename='uvw')
     
     #Apply rotation to vis data
     def apply_phasor(vis_data,uvw, field_id,freq_chan,phase_rotation,common_tangent_reprojection):
@@ -163,8 +169,14 @@ def phase_rotate(vis_dataset, global_dataset, rotation_parms, sel_parms, storage
     freq_chan = da.from_array(vis_dataset.coords['chan'].values, chunks=(chan_chunk_size))
     vis_rot = da.map_blocks(apply_phasor,vis_dataset[_sel_parms['data_in']].data,uvw[:,:,:,None], vis_dataset.field_id.data[:,None,None,None],freq_chan[None,None,:,None],phase_rotation,_rotation_parms['common_tangent_reprojection'],dtype=np.complex)
     
+    dask.visualize(vis_rot,filename='vis_rot')
+    
     vis_dataset[_sel_parms['uvw_out']] =  xr.DataArray(uvw, dims=vis_dataset[_sel_parms['uvw_in']].dims)
     vis_dataset[_sel_parms['data_out']] =  xr.DataArray(vis_rot, dims=vis_dataset[_sel_parms['data_in']].dims)
+    
+    dask.visualize(vis_dataset[_sel_parms['uvw_out']],filename='uvw_rot_dataset')
+    dask.visualize(vis_dataset[_sel_parms['data_out']],filename='vis_rot_dataset')
+    dask.visualize(vis_dataset,filename='vis_dataset_before_append')
     
     list_xarray_data_variables = [vis_dataset[_sel_parms['uvw_out']],vis_dataset[_sel_parms['data_out']]]
     return _store(vis_dataset,list_xarray_data_variables,_storage_parms)
