@@ -15,6 +15,8 @@ from numba import jit
 import numpy as np
 import math
 import matplotlib.pyplot as plt
+import time
+#from numba import gdb
 
 def ndim_list(shape):
     return [ndim_list(shape[1:]) if len(shape) > 1 else None for _ in range(shape[0])]
@@ -56,6 +58,7 @@ def _graph_aperture_grid(vis_dataset,gcf_dataset,grid_parms,sel_parms):
     
     grid_parms['complex_grid'] = True
     # Build graph
+    
     for c_time, c_baseline, c_chan, c_pol in iter_chunks_indx:
         
         if grid_parms['grid_weights']:
@@ -217,18 +220,33 @@ def _aperture_weight_grid_jit(grid, sum_weight, uvw, freq_chan, chan_map, pol_ma
                                 a_pol = pol_map[i_pol]
                                 norm = 0.0
                                 
+                                '''
                                 support = weight_support[cf_baseline,cf_chan,cf_pol,:]
                                 #support = np.array([13,13])
                                 support_center = support // 2
                                 start_support = - support_center
                                 end_support = support - support_center # end_support is larger by 1 so that python range() gives correct indices
+                                '''
                                 
                                 
-                                for i_v in range(start_support[1],end_support[1]):
+                                support_u = weight_support[cf_baseline,cf_chan,cf_pol,0]
+                                support_v = weight_support[cf_baseline,cf_chan,cf_pol,1]
+                                
+                                support_center_u = support_u // 2
+                                support_center_v = support_v // 2
+                                
+                                start_support_u = - support_center_u
+                                start_support_v = - support_center_v
+                                
+                                end_support_u = support_u - support_center_u
+                                end_support_v = support_v - support_center_v
+                                
+                                
+                                for i_v in range(start_support_v,end_support_v):
                                     v_indx = v_center + i_v
                                     cf_v_indx = oversampling[1]*i_v + conv_v_center
 
-                                    for i_u in range(start_support[0],end_support[0]):
+                                    for i_u in range(start_support_u,end_support_u):
                                         u_indx = u_center + i_u
                                         cf_u_indx = oversampling[0]*i_u + conv_u_center
                                         
@@ -244,7 +262,7 @@ def _aperture_weight_grid_jit(grid, sum_weight, uvw, freq_chan, chan_map, pol_ma
 
 def _aperture_grid_numpy_wrap(vis_data,uvw,imaging_weight,field,cf_baseline_map,cf_chan_map,cf_pol_map,conv_kernel,weight_support,phase_gradient,freq_chan,grid_parms):
     #print('imaging_weight ', imaging_weight.shape)
-    #print('cf_chan_map ', cf_chan_map.shape, ' cf_baseline_map', cf_baseline_map.shape, 'cf_pol_map', cf_pol_map.shape )
+    
     
     n_chan = imaging_weight.shape[2]
     if grid_parms['chan_mode'] == 'cube':
@@ -269,13 +287,22 @@ def _aperture_grid_numpy_wrap(vis_data,uvw,imaging_weight,field,cf_baseline_map,
     sum_weight = np.zeros((n_imag_chan, n_imag_pol), dtype=np.double)
     
     do_psf = grid_parms['do_psf']
+    
+    #print('vis_data', vis_data.shape , 'grid ', grid.shape, 'sum_weight', sum_weight.shape, 'cf_chan_map ', cf_chan_map.shape, ' cf_baseline_map', cf_baseline_map.shape, 'cf_pol_map', cf_pol_map.shape, ' conv_kernel',  conv_kernel.shape, 'phase_gradient', phase_gradient.shape, 'field', field.shape,  )
+    
+    #start = time.time()
     _aperture_grid_jit(grid, sum_weight, do_psf, vis_data, uvw, freq_chan, chan_map, pol_map, cf_baseline_map, cf_chan_map, cf_pol_map, imaging_weight, conv_kernel, n_uv, delta_lm, weight_support, oversampling, field, phase_gradient)
+    #time_to_grid = time.time() - start
+    #print("time to grid ", time_to_grid)
 
 
     return grid, sum_weight
     
+# Important changes to be made https://github.com/numba/numba/issues/4261
+# debug=True and gdb()
 @jit(nopython=True, cache=True, nogil=True)
 def _aperture_grid_jit(grid, sum_weight, do_psf, vis_data, uvw, freq_chan, chan_map, pol_map, cf_baseline_map, cf_chan_map, cf_pol_map, imaging_weight, conv_kernel, n_uv, delta_lm, weight_support, oversampling, field, phase_gradient):
+
     c = 299792458.0
     uv_scale = np.zeros((2, len(freq_chan)), dtype=np.double)
     uv_scale[0, :] = -(freq_chan * delta_lm[0] * n_uv[0]) / c
@@ -349,11 +376,25 @@ def _aperture_grid_jit(grid, sum_weight, do_psf, vis_data, uvw, freq_chan, chan_
                                 a_pol = pol_map[i_pol]
                                 norm = 0.0
                                 
+                                '''
                                 support = weight_support[cf_baseline,cf_chan,cf_pol,:]
                                 #support = np.array([13,13])
                                 support_center = support // 2
                                 start_support = - support_center
                                 end_support = support - support_center # end_support is larger by 1 so that python range() gives correct indices
+                                '''
+                                
+                                support_u = weight_support[cf_baseline,cf_chan,cf_pol,0]
+                                support_v = weight_support[cf_baseline,cf_chan,cf_pol,1]
+                                
+                                support_center_u = support_u // 2
+                                support_center_v = support_v // 2
+                                
+                                start_support_u = - support_center_u
+                                start_support_v = - support_center_v
+                                
+                                end_support_u = support_u - support_center_u
+                                end_support_v = support_v - support_center_v
                                 
                                 #print(support)
                                 ###############
@@ -366,11 +407,11 @@ def _aperture_grid_jit(grid, sum_weight, do_psf, vis_data, uvw, freq_chan, chan_
 #                                print(normalize_factor)
                                 ##############
                                 
-                                for i_v in range(start_support[1],end_support[1]):
+                                for i_v in range(start_support_v,end_support_v):
                                     v_indx = v_center_indx + i_v
                                     cf_v_indx = oversampling[1]*i_v + v_center_offset_indx
 
-                                    for i_u in range(start_support[0],end_support[0]):
+                                    for i_u in range(start_support_u,end_support_u):
                                         u_indx = u_center_indx + i_u
                                         cf_u_indx = oversampling[0]*i_u + u_center_offset_indx
                                         
