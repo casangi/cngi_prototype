@@ -24,7 +24,7 @@ import scipy.optimize as optimize
 
 
 ########################
-def fit_gaussian(img_dataset,image_data_variable_to_fit='PSF',beam_set_name='RESTORE_PARMS',npix_window=[9,9],sampling=[9,9],cutoff=0.35):
+def fit_gaussian_rl(img_dataset,image_data_variable_to_fit='PSF',beam_set_name='RESTORE_PARMS',fit_method='rm_fit',npix_window=[21,21],sampling=[401,401],cutoff=0.5,cutoff_sensitivity=0.003):
     """
     Fit one or more elliptical gaussian components on an image region
 
@@ -43,45 +43,62 @@ def fit_gaussian(img_dataset,image_data_variable_to_fit='PSF',beam_set_name='RES
     import dask.array as da
     from scipy.interpolate import interpn
     
-
-    
     sampling = np.array(sampling)
     npix_window = np.array(npix_window)
     delta = np.array(img_dataset.incr[0:2])*3600*180/np.pi
     chunks = img_dataset[image_data_variable_to_fit].data.chunks[2:] + (3,)
-    
+    ellipse_parms  = da.map_blocks(rm_fit,img_dataset[image_data_variable_to_fit].data,npix_window,sampling,cutoff,cutoff_sensitivity,delta,dtype=np.double,drop_axis=[0,1],new_axis=[2],chunks=chunks)
 
-    ellipse_parms  = da.map_blocks(casa_fit,img_dataset[image_data_variable_to_fit].data,npix_window,sampling,cutoff,delta,dtype=np.double,drop_axis=[0,1],new_axis=[2],chunks=chunks)
-        
     img_dataset[beam_set_name] = xr.DataArray(ellipse_parms,dims=['chan','pol','elps_index'])
-    
     return img_dataset
     
+    
+##############################################################
+########################### rm_fit ###########################
+def fit_ellipse(x,y):
+    x = x[:,np.newaxis]
+    y = y[:,np.newaxis]
+    D =  np.hstack((x*x, x*y, y*y, x, y, np.ones_like(x)))
+    S = np.dot(D.T,D)
+    C = np.zeros([6,6])
+    C[0,2] = C[2,0] = 2; C[1,1] = -1
+    E, V =  linalg.eig(np.dot(linalg.inv(S), C))
+    n =  np.argmax(E)
+    a = V[:,n]
+    if a[0] < 0:
+        a = -a
+    return a
 
+def ellipse_center(a):
+    b,c,d,f,g,a = a[1]/2, a[2], a[3]/2, a[4]/2, a[5], a[0]
+    num = b*b-a*c
+    x0=(c*d-b*f)/num
+    y0=(a*f-b*d)/num
+    return np.array([x0,y0])
 
-################################################################
-########################### casa_fit ###########################
-def gaussian2D(params, sampling):
-    width_x, width_y, rotation = params
-    rotation = 90-rotation
+def ellipse_angle_of_rotation(a):
+    b,c,d,f,g,a = a[1]/2, a[2], a[3]/2, a[4]/2, a[5], a[0]
+    if b == 0:
+        if a > c:
+            return 0
+        else:
+            return np.pi/2
+    else:
+        if a < c:
+            return np.arctan(2*b/(a-c))/2
+        else:
+            return np.pi/2 + np.arctan(2*b/(a-c))/2
 
-    rotation = np.deg2rad(rotation)
-    x, y = np.indices((sampling[0]*2+1,sampling[1]*2+1))
-    x = x - sampling[0]
-    y = y - sampling[1]
+def ellipse_axis_length(a):
+    b,c,d,f,g,a = a[1]/2, a[2], a[3]/2, a[4]/2, a[5], a[0]
+    up = 2*(a*f*f+c*d*d+g*b*b-2*b*d*f-a*c*g)
+    down1=(b*b-a*c)*(np.sqrt((a-c)**2 + 4*b*b)-(a+c))
+    down2=(b*b-a*c)*(-np.sqrt((a-c)**2 + 4*b*b)-(a+c))
+    res1=np.sqrt(up/down1)
+    res2=np.sqrt(up/down2)
+    return np.array([res1, res2])
 
-    xp = x * np.cos(rotation) - y * np.sin(rotation)
-    yp = x * np.sin(rotation) + y * np.cos(rotation)
-    g = 1.*np.exp(-(((xp)/width_x)**2+((yp)/width_y)**2)/2.)
-    return g
-
-def beam_chi2(params, psf, sampling):
-    psf_ravel = psf[~np.isnan(psf)]
-    gaussian = gaussian2D(params, sampling)[~np.isnan(psf)]
-    chi2 = np.sum((gaussian-psf_ravel)**2)
-    return chi2
-
-def casa_fit(img_to_fit,npix_window,sampling,cutoff,delta):
+def rm_fit(img_to_fit,npix_window,sampling,cutoff,cutoff_sensitivity,delta):
     import numpy.linalg as linalg
     
     #ellipse_parms = np.zeros(img_to_fit.shape[2:4] + (3,),dtype=numba.double)
@@ -106,20 +123,34 @@ def casa_fit(img_to_fit,npix_window,sampling,cutoff,delta):
         for pol in range(img_to_fit.shape[3]):
             
             interp_img_to_fit = np.reshape(interpn((d0,d1),img_to_fit[:,:,chan,pol],points,method="splinef2d"),[sampling[1],sampling[0]]).T
+        
+            ellipse_points = np.argwhere(np.abs(interp_img_to_fit-cutoff) < cutoff_sensitivity)
+            x_mean = np.mean(ellipse_points[:,0])
+            y_mean = np.mean(ellipse_points[:,1])
+            x =  ellipse_points[:,0] - x_mean
+            y =  ellipse_points[:,1] - y_mean
             
-            interp_img_to_fit[interp_img_to_fit<cutoff] = np.nan
-
-            print(interp_img_to_fit.shape)
-            # Fit a gaussian to the thresholded points
-            p0 = [2.5, 2.5, 0.]
-            res = optimize.minimize(beam_chi2, p0, args=(interp_img_to_fit, sampling//2))
-
+            a = fit_ellipse(x,y)
+            center = ellipse_center(a)
+            center[0] += x_mean
+            center[1] += y_mean
+            phi = ellipse_angle_of_rotation(a)
+            axes = ellipse_axis_length(a)
+            center, phi, axes
+            
+            # Should we change this to radians?
             # convert to useful units
-            phi = res.x[2] - 90.
+            phi = np.degrees(phi) - 90. # Astronomers use east of north
             if phi < -90.:
                 phi += 180.
-
-            ellipse_parms[chan,pol,0] = np.max(np.abs(res.x[0:2]))*np.abs(delta[0])*2.355/(sampling[0]/npix_window[0])
-            ellipse_parms[chan,pol,1] = np.min(np.abs(res.x[0:2]))*np.abs(delta[1])*2.355/(sampling[1]/npix_window[1])
+                
+            ellipse_parms[chan,pol,0] = axes[0]/(sampling[0]-1)*(npix_window[0]-1)*np.abs(delta[0])*2
+            ellipse_parms[chan,pol,1] = axes[1]/(sampling[1]-1)*(npix_window[1]-1)*np.abs(delta[1])*2
             ellipse_parms[chan,pol,2] = phi
+            
     return ellipse_parms
+    
+############################################################################################################################
+
+
+

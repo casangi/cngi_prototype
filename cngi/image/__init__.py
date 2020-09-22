@@ -3,6 +3,7 @@ from .contsub import contsub
 from .corr_to_stokes import corr_to_stokes
 from .cube_to_mfs import cube_to_mfs
 from .fit_gaussian import fit_gaussian
+from .fit_gaussian_rl import fit_gaussian_rl
 from .fourier_transform import fourier_transform
 from .gaussianbeam import gaussianbeam
 from .implot import implot
