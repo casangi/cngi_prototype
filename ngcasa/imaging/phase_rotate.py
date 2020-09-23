@@ -127,7 +127,7 @@ def phase_rotate(vis_dataset, global_dataset, rotation_parms, sel_parms, storage
         phase_rotation[i_field,:] = np.matmul(rotmat_image_phase_center,(image_phase_center_cosine - field_phase_center_cosine))
 
     #Apply rotation matrix to uvw
-    @jit(nopython=True, cache=True, nogil=True)
+    #@jit(nopython=True, cache=True, nogil=True)
     def apply_rotation_matrix(uvw, field_id, uvw_rotmat):
         #print(uvw.shape,field_id.shape,uvw_rotmat.shape)
         for i_time in range(uvw.shape[0]):
@@ -139,7 +139,7 @@ def phase_rotate(vis_dataset, global_dataset, rotation_parms, sel_parms, storage
     
     uvw = da.map_blocks(apply_rotation_matrix,vis_dataset[_sel_parms['uvw_in']].data, vis_dataset.field_id.data[:,None,None],uvw_rotmat,dtype=np.double)
 
-    dask.visualize(uvw,filename='uvw')
+    #dask.visualize(uvw,filename='uvw')
     
     #Apply rotation to vis data
     def apply_phasor(vis_data,uvw, field_id,freq_chan,phase_rotation,common_tangent_reprojection):
@@ -169,20 +169,20 @@ def phase_rotate(vis_dataset, global_dataset, rotation_parms, sel_parms, storage
     freq_chan = da.from_array(vis_dataset.coords['chan'].values, chunks=(chan_chunk_size))
     vis_rot = da.map_blocks(apply_phasor,vis_dataset[_sel_parms['data_in']].data,uvw[:,:,:,None], vis_dataset.field_id.data[:,None,None,None],freq_chan[None,None,:,None],phase_rotation,_rotation_parms['common_tangent_reprojection'],dtype=np.complex)
     
-    dask.visualize(vis_rot,filename='vis_rot')
+    #dask.visualize(vis_rot,filename='vis_rot')
     
     vis_dataset[_sel_parms['uvw_out']] =  xr.DataArray(uvw, dims=vis_dataset[_sel_parms['uvw_in']].dims)
     vis_dataset[_sel_parms['data_out']] =  xr.DataArray(vis_rot, dims=vis_dataset[_sel_parms['data_in']].dims)
     
-    dask.visualize(vis_dataset[_sel_parms['uvw_out']],filename='uvw_rot_dataset')
-    dask.visualize(vis_dataset[_sel_parms['data_out']],filename='vis_rot_dataset')
-    dask.visualize(vis_dataset,filename='vis_dataset_before_append')
+    #dask.visualize(vis_dataset[_sel_parms['uvw_out']],filename='uvw_rot_dataset')
+    #dask.visualize(vis_dataset[_sel_parms['data_out']],filename='vis_rot_dataset')
+    #dask.visualize(vis_dataset,filename='vis_dataset_before_append')
     
     list_xarray_data_variables = [vis_dataset[_sel_parms['uvw_out']],vis_dataset[_sel_parms['data_out']]]
     return _store(vis_dataset,list_xarray_data_variables,_storage_parms)
 
 
-@jit(nopython=True,cache=True, nogil=True)
+#@jit(nopython=True,cache=True, nogil=True)
 def phasor_loop(phase_direction,uvw,phase_rotation,field_id,end_slice):
     for i_time in range(uvw.shape[0]):
         phase_direction[i_time,:] = uvw[i_time,:,0:end_slice,0] @ phase_rotation[field_id[i_time,0,0,0],0:end_slice]
