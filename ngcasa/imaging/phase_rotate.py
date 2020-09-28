@@ -159,7 +159,7 @@ def phase_rotate(vis_dataset, global_dataset, rotation_parms, sel_parms, storage
         n_pol = vis_data.shape[3]
         
         phase_direction = np.transpose(np.broadcast_to(phase_direction,((n_chan,)+uvw.shape[0:2])), axes=(1,2,0))
-        phasor = np.exp(2.0*1j*np.pi*phase_direction*np.broadcast_to(freq_chan[:,0,0,0],uvw.shape[0:2]+(n_chan,))/scipy.constants.c) # phasor_ngcasa = - phasor_casa. Sign flip is due to CASA gridders convention sign flip.
+        phasor = np.exp(2.0*1j*np.pi*phase_direction*np.broadcast_to(freq_chan[0,0,:,0],uvw.shape[0:2]+(n_chan,))/scipy.constants.c) # phasor_ngcasa = - phasor_casa. Sign flip is due to CASA gridders convention sign flip.
         phasor = np.transpose(np.broadcast_to(phasor,((n_pol,)+vis_data.shape[0:3])), axes=(1,2,3,0))
         vis_rot = vis_data*phasor
         
