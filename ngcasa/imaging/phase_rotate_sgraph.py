@@ -22,7 +22,10 @@ import scipy
 
 warnings.filterwarnings("ignore", category=NumbaPerformanceWarning) #Suppress  NumbaPerformanceWarning: '@' is faster on contiguous arrays warning. This happens for phasor_loop and apply_rotation_matrix functions.
 
-def phase_rotate(vis_dataset, global_dataset, rotation_parms, sel_parms, storage_parms):
+def ndim_list(shape):
+    return [ndim_list(shape[1:]) if len(shape) > 1 else None for _ in range(shape[0])]
+
+def phase_rotate_sgraph(vis_dataset, global_dataset, rotation_parms, sel_parms, storage_parms):
     """
     Rotate uvw with faceting style rephasing for multifield mosaic.
     The specified phasecenter and field phase centers are assumed to be in the same frame.
@@ -57,6 +60,7 @@ def phase_rotate(vis_dataset, global_dataset, rotation_parms, sel_parms, storage
     import numba
     from numba import double
     import dask
+    import itertools
     
     _sel_parms = copy.deepcopy(sel_parms)
     _rotation_parms = copy.deepcopy(rotation_parms)
@@ -101,45 +105,37 @@ def phase_rotate(vis_dataset, global_dataset, rotation_parms, sel_parms, storage
         
         field_phase_center_cosine = _directional_cosine(field_phase_center)
         phase_rotation[i_field,:] = np.matmul(rotmat_image_phase_center,(image_phase_center_cosine - field_phase_center_cosine))
-
-    #Apply rotation matrix to uvw
-    #@jit(nopython=True, cache=True, nogil=True)
-    def apply_rotation_matrix(uvw, field_id, uvw_rotmat):
-        #print(uvw.shape,field_id.shape,uvw_rotmat.shape)
-        for i_time in range(uvw.shape[0]):
-            #print('The index is',np.where(field_names==field[i_time])[1][0],field_id[i_time,0,0])
-            #uvw[i_time,:,0:2] = -uvw[i_time,:,0:2] this gives the same result as casa (in the ftmachines uvw(negateUV(vb)) is used). In ngcasa we don't do this since the uvw definition in the gridder and vis.zarr are the same.
-            #uvw[i_time,:,:] = np.matmul(uvw[i_time,:,:],uvw_rotmat[field_id[i_time],:,:])
-            uvw[i_time,:,:] = uvw[i_time,:,:] @ uvw_rotmat[field_id[i_time,0,0],:,:]
-        return uvw
     
-    uvw = da.map_blocks(apply_rotation_matrix,vis_dataset[_sel_parms['uvw_in']].data, vis_dataset.field_id.data[:,None,None],uvw_rotmat,dtype=np.double)
-
-    #dask.visualize(uvw,filename='uvw')
-        
-    chan_chunk_size = vis_dataset[_sel_parms['data_in']].chunks[2][0]
-    freq_chan = da.from_array(vis_dataset.coords['chan'].values, chunks=(chan_chunk_size))
+    chunk_sizes = vis_dataset[sel_parms["data_in"]].chunks
+    freq_chan = da.from_array(vis_dataset.coords['chan'].values, chunks=(chunk_sizes[2][0]))
+    n_chunks_in_each_dim = vis_dataset[_sel_parms['data_in']].data.numblocks
+    iter_chunks_indx = itertools.product(np.arange(n_chunks_in_each_dim[0]), np.arange(n_chunks_in_each_dim[1]),
+                                         np.arange(n_chunks_in_each_dim[2]), np.arange(n_chunks_in_each_dim[3]))
+                                         
+    list_of_vis_data = ndim_list(n_chunks_in_each_dim)
+    list_of_uvw = ndim_list(n_chunks_in_each_dim[0:2]+(1,))
     
-    #print('2. numpy',vis_dataset[_sel_parms['data_in']][:,0,0,0].values)
-    vis_rot = da.map_blocks(apply_phasor,vis_dataset[_sel_parms['data_in']].data,uvw[:,:,:,None], vis_dataset.field_id.data[:,None,None,None],freq_chan[None,None,:,None],phase_rotation,_rotation_parms['common_tangent_reprojection'],dtype=np.complex)
+    for c_time, c_baseline, c_chan, c_pol in iter_chunks_indx:
+        vis_data_and_uvw = dask.delayed(apply_phasor)(
+        vis_dataset[sel_parms["data_in"]].data.partitions[c_time, c_baseline, c_chan, c_pol],
+        vis_dataset[sel_parms["uvw_in"]].data.partitions[c_time, c_baseline, 0],
+        vis_dataset.field_id.data.partitions[c_time],
+        freq_chan.partitions[c_chan],
+        dask.delayed(uvw_rotmat),
+        dask.delayed(phase_rotation), dask.delayed(_rotation_parms['common_tangent_reprojection']))
     
-#    dask.visualize(vis_rot,filename='vis_rot')
+        list_of_vis_data[c_time][c_baseline][c_chan][c_pol] = da.from_delayed(vis_data_and_uvw[0], (chunk_sizes[0][c_time], chunk_sizes[1][c_baseline], chunk_sizes[2][c_chan], chunk_sizes[3][c_pol]),dtype=np.complex128)
+        list_of_uvw[c_time][c_baseline][0]  = da.from_delayed(vis_data_and_uvw[1],(chunk_sizes[0][c_time], chunk_sizes[1][c_baseline], 3),dtype=np.float64)
     
-    vis_dataset[_sel_parms['uvw_out']] =  xr.DataArray(uvw, dims=vis_dataset[_sel_parms['uvw_in']].dims)
-    vis_dataset[_sel_parms['data_out']] =  xr.DataArray(vis_rot, dims=vis_dataset[_sel_parms['data_in']].dims)
+    vis_dataset[_sel_parms['data_out']] =  xr.DataArray(da.block(list_of_vis_data), dims=vis_dataset[_sel_parms['data_in']].dims)
+    vis_dataset[_sel_parms['uvw_out']] =  xr.DataArray(da.block(list_of_uvw), dims=vis_dataset[_sel_parms['uvw_in']].dims)
     
-#    dask.visualize(vis_dataset[_sel_parms['uvw_out']],filename='uvw_rot_dataset')
-#    dask.visualize(vis_dataset[_sel_parms['data_out']],filename='vis_rot_dataset')
-#    dask.visualize(vis_dataset,filename='vis_dataset_before_append')
+    #dask.visualize(vis_dataset[_sel_parms['uvw_out']],filename='uvw_rot_dataset')
+    #dask.visualize(vis_dataset[_sel_parms['data_out']],filename='vis_rot_dataset')
+    #dask.visualize(vis_dataset,filename='vis_dataset_before_append_custom_graph')
     
     list_xarray_data_variables = [vis_dataset[_sel_parms['uvw_out']],vis_dataset[_sel_parms['data_out']]]
     return _store(vis_dataset,list_xarray_data_variables,_storage_parms)
-
-
-#@jit(nopython=True,cache=True, nogil=True)
-def phasor_loop(phase_direction,uvw,phase_rotation,field_id,end_slice):
-    for i_time in range(uvw.shape[0]):
-        phase_direction[i_time,:] = uvw[i_time,:,0:end_slice,0] @ phase_rotation[field_id[i_time,0,0,0],0:end_slice]
 
 
 def _directional_cosine(phase_center_in_radians):
@@ -158,10 +154,16 @@ def _directional_cosine(phase_center_in_radians):
    
 
 #Apply rotation to vis data
-def apply_phasor(vis_data,uvw, field_id,freq_chan,phase_rotation,common_tangent_reprojection):
-    #print(vis_data.shape,uvw.shape,field_id.shape,freq_chan.shape,phase_rotation.shape)
+def apply_phasor(vis_data,uvw, field_id,freq_chan,uvw_rotmat,phase_rotation,common_tangent_reprojection):
+
+    #print(vis_data.shape, uvw.shape, field_id.shape, freq_chan.shape, uvw_rotmat.shape, phase_rotation.shape)
     
-    #print(vis_data[:,0,0,0])
+    for i_time in range(uvw.shape[0]):
+        #print('The index is',np.where(field_names==field[i_time])[1][0],field_id[i_time,0,0])
+        #uvw[i_time,:,0:2] = -uvw[i_time,:,0:2] this gives the same result as casa (in the ftmachines uvw(negateUV(vb)) is used). In ngcasa we don't do this since the uvw definition in the gridder and vis.zarr are the same.
+        #uvw[i_time,:,:] = np.matmul(uvw[i_time,:,:],uvw_rotmat[field_id[i_time],:,:])
+        uvw[i_time,:,:] = uvw[i_time,:,:] @ uvw_rotmat[field_id[i_time],:,:]
+    ########################################
     
     if common_tangent_reprojection:
         end_slice = 2
@@ -171,9 +173,9 @@ def apply_phasor(vis_data,uvw, field_id,freq_chan,phase_rotation,common_tangent_
     #start = time.time()
     
     phase_direction = np.zeros(uvw.shape[0:2],np.double) #N_time x N_baseline
-    phasor_loop(phase_direction,uvw,phase_rotation,field_id,end_slice)
-    #for i_time in range(uvw.shape[0]):
-    #    phase_direction[i_time,:] = uvw[i_time,:,0:end_slice,0] @ phase_rotation[field_id[i_time,0,0,0],0:end_slice]
+    #phasor_loop(phase_direction,uvw,phase_rotation,field_id,end_slice)
+    for i_time in range(uvw.shape[0]):
+        phase_direction[i_time,:] = uvw[i_time,:,0:end_slice] @ phase_rotation[field_id[i_time],0:end_slice]
     
     
     
@@ -184,7 +186,7 @@ def apply_phasor(vis_data,uvw, field_id,freq_chan,phase_rotation,common_tangent_
     phase_direction = np.transpose(np.broadcast_to(phase_direction,((n_chan,)+uvw.shape[0:2])), axes=(1,2,0)) #N_time x N_baseline x N_chan
 
     
-    phasor = np.exp(2.0*1j*np.pi*phase_direction*np.broadcast_to(freq_chan[0,0,:,0],uvw.shape[0:2]+(n_chan,))/scipy.constants.c) # phasor_ngcasa = - phasor_casa. Sign flip is due to CASA gridders convention sign flip.
+    phasor = np.exp(2.0*1j*np.pi*phase_direction*np.broadcast_to(freq_chan[:],uvw.shape[0:2]+(n_chan,))/scipy.constants.c) # phasor_ngcasa = - phasor_casa. Sign flip is due to CASA gridders convention sign flip.
     phasor = np.transpose(np.broadcast_to(phasor,((n_pol,)+vis_data.shape[0:3])), axes=(1,2,3,0))
     vis_data = vis_data*phasor
     
@@ -194,4 +196,6 @@ def apply_phasor(vis_data,uvw, field_id,freq_chan,phase_rotation,common_tangent_
     #vis_rot[np.isnan(vis_rot)] = np.nan
     vis_data = (vis_data.astype(np.complex64)).astype(np.complex128)
     
-    return vis_data
+    print(vis_data.shape,uvw.shape)
+    
+    return vis_data, uvw

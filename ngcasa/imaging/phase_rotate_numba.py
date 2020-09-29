@@ -43,6 +43,8 @@ def phase_rotate_numba(vis_dataset, global_dataset, rotation_parms, sel_parms, s
     #Important: Can not applyflags before calling rotate (uvw coordinates are also flagged). This will destroy the rotation transform.
     #Performance improvements apply_rotation_matrix (jit code)
     
+    #print('1. numba',vis_dataset.DATA[:,0,0,0].values)
+    
     from ngcasa._ngcasa_utils._store import _store
     from scipy.spatial.transform import Rotation as R
     import scipy
@@ -69,31 +71,6 @@ def phase_rotate_numba(vis_dataset, global_dataset, rotation_parms, sel_parms, s
     assert(_sel_parms['uvw_out'] != _sel_parms['uvw_in']), "######### ERROR: sel_parms checking failed sel_parms['uvw_out'] can not be the same as sel_parms['uvw_in']."
     assert(_sel_parms['data_out'] != _sel_parms['data_in']), "######### ERROR: sel_parms checking failed sel_parms['data_out'] can not be the same as sel_parms['data_in']."
 
-    '''
-    #I think this should be included in vis_dataset. There should also be a beter pythonic way to do the loop inside gen_field_indx.
-    def gen_field_indx(vis_data_field_names, field_names):
-        field_indx = np.zeros(vis_data_field_names.shape,np.int)
-        for i_field, field_name in enumerate(field_names):
-            field_indx[vis_data_field_names == field_name] = i_field
-            
-        return field_indx
-    field_indx = da.map_blocks(gen_field_indx, vis_dataset['field'].data, global_dataset['field'], dtype=np.int)
-    '''
-
-    #If no image phase center is specified use first field
-    '''
-    if isinstance(_rotation_parms['image_phase_center'],int):
-        ra_image = global_dataset.FIELD_PHASE_DIR.values[_rotation_parms['image_phase_center'],:,vis_dataset.attrs['ddi']][0]
-        dec_image = global_dataset.FIELD_PHASE_DIR.values[_rotation_parms['image_phase_center'],:,vis_dataset.attrs['ddi']][1]
-    else:
-        if 'image_phase_center' in _rotation_parms:
-            ra_image = _rotation_parms['image_phase_center'][0]
-            dec_image = _rotation_parms['image_phase_center'][1]
-        else:
-            ra_image = global_dataset.FIELD_PHASE_DIR.values[0,:,vis_dataset.attrs['ddi']][0]
-            dec_image = global_dataset.FIELD_PHASE_DIR.values[0,:,vis_dataset.attrs['ddi']][1]
-    '''
-       
     #Phase center
     ra_image = _rotation_parms['image_phase_center'][0]
     dec_image = _rotation_parms['image_phase_center'][1]
@@ -145,6 +122,8 @@ def phase_rotate_numba(vis_dataset, global_dataset, rotation_parms, sel_parms, s
         
     chan_chunk_size = vis_dataset[_sel_parms['data_in']].chunks[2][0]
     freq_chan = da.from_array(vis_dataset.coords['chan'].values, chunks=(chan_chunk_size))
+    
+    #print('2. numba',vis_dataset[_sel_parms['data_in']][:,0,0,0].values)
     vis_rot = da.map_blocks(apply_phasor,vis_dataset[_sel_parms['data_in']].data,uvw[:,:,:,None], vis_dataset.field_id.data[:,None,None,None],freq_chan[None,None,:,None],phase_rotation,_rotation_parms['common_tangent_reprojection'],dtype=np.complex)
     
     #dask.visualize(uvw,filename='uvw_rot')
@@ -187,6 +166,8 @@ def _directional_cosine(phase_center_in_radians):
 def apply_phasor(vis_data,uvw, field_id,freq_chan,phase_rotation,common_tangent_reprojection):
     #print(vis_data.shape,uvw.shape,field_id.shape,freq_chan.shape,phase_rotation.shape)
     
+    #print(vis_data[:,0,0,0])
+    
     if common_tangent_reprojection:
         end_slice = 2
     else:
@@ -208,10 +189,13 @@ def apply_phasor(vis_data,uvw, field_id,freq_chan,phase_rotation,common_tangent_
             else:
                 phase_direction = uvw[i_time,i_baseline,0,0] * phase_rotation[field_id[i_time,0,0,0],0] + uvw[i_time,i_baseline,1,0] * phase_rotation[field_id[i_time,0,0,0],1] +uvw[i_time,i_baseline,2,0] * phase_rotation[field_id[i_time,0,0,0],2]
                 
+            
             for i_chan in range(N_chan):
                 for i_pol in range(N_pol):
-                    vis_data[i_time,i_baseline,i_chan,i_pol] = vis_data[i_time,i_baseline,i_chan,i_pol]*np.exp(2.0*1j*np.pi*phase_direction*freq_chan[0,0,i_chan,0])/scipy.constants.c
+                    vis_data[i_time,i_baseline,i_chan,i_pol] = vis_data[i_time,i_baseline,i_chan,i_pol]*np.exp(2.0*1j*np.pi*phase_direction*freq_chan[0,0,i_chan,0]/scipy.constants.c)
     #print('Time to apply phasor',time.time()-start)
+    
+    #print(vis_data[:,0,0,0])
     
     #vis_rot[np.isnan(vis_rot)] = np.nan
     vis_data = (vis_data.astype(np.complex64)).astype(np.complex128)
