@@ -12,12 +12,12 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-def _normalize(image, sum_weight, img_dataset, gcf_dataset, direction, normtype, sel_parms):
+def _normalize(image, sum_weight, img_dataset, gcf_dataset, direction, norm_parms, sel_parms):
     """
     PB normalization on the cubes
 
     direction : 'forward''reverse'
-    normtype : 'flatnoise','flatsky','common','pbsquare'
+    norm_type : 'flatnoise','flatsky','common','pbsquare'
 
     Multiply and/or divide by PB models, accounting for masks/regions.
 
@@ -31,6 +31,8 @@ def _normalize(image, sum_weight, img_dataset, gcf_dataset, direction, normtype,
     import dask.array as da
     import numpy as np
     import copy
+    
+    norm_type = norm_parms['norm_type']
     
     def normalize_image(image, sum_weights,  normalizing_image, oversampling, correct_oversampling):
         sum_weights_copy = copy.deepcopy(sum_weights) ##Don't mutate inputs, therefore do deep copy (https://docs.dask.org/en/latest/delayed-best-practices.html).
@@ -55,28 +57,30 @@ def _normalize(image, sum_weight, img_dataset, gcf_dataset, direction, normtype,
     if direction == 'forward':
         oversampling = gcf_dataset.oversampling
         correct_oversampling = True
-        if normtype == 'flat_noise':
+        if norm_type == 'flat_noise':
             # Divide the raw image by sqrt(.weight) so that the input to the minor cycle represents the product of the sky and PB. The noise is 'flat' across the region covered by each PB.
             normalizing_image = gcf_dataset.PS_CORR_IMAGE.data[:,:,None,None]*img_dataset[sel_parms['pb']].data
             normalized_image = da.map_blocks(normalize_image, image, sum_weight[None,None,:,:], normalizing_image, oversampling, correct_oversampling, dtype=np.double)
-        elif normtype == 'flat_sky':
+        elif norm_type == 'flat_sky':
             #  Divide the raw image by .weight so that the input to the minor cycle represents only the sky. The noise is higher in the outer regions of the primary beam where the sensitivity is low.
             normalizing_image = gcf_dataset.PS_CORR_IMAGE.data[:,:,None,None]*img_dataset[sel_parms['weight_pb']].data
             normalized_image = da.map_blocks(normalize_image, image, sum_weight[None,None,:,:], normalizing_image, oversampling, correct_oversampling, dtype=np.double)
-        elif normtype == 'none':
+        elif norm_type == 'none':
             print('in normalize none ')
             #No normalization after gridding and FFT. The minor cycle sees the sky times pb square
             normalizing_image = gcf_dataset.PS_CORR_IMAGE.data[:,:,None,None]
             normalized_image = da.map_blocks(normalize_image, image, sum_weight[None,None,:,:], normalizing_image, oversampling, correct_oversampling, dtype=np.double)
             #normalized_image = image
         
-        normalized_image[img_dataset[sel_parms['pb']].data < 0.2] = 0.0
+        #normalized_image[img_dataset[sel_parms['pb']].data < 0.2] = 0.0
+        
+        if norm_parms['single_precision']:
+            normalized_image = normalized_image.astype(np.float32)
         
         return normalized_image
     elif direction == 'reverse':
             print('reverse operation not yet implemented not yet implemented')
         
     
-    print(direction,normtype)
     
     

@@ -19,6 +19,7 @@ from numba import jit
 import warnings
 from numba.errors import NumbaPerformanceWarning
 import scipy
+from scipy.constants import c
 
 warnings.filterwarnings("ignore", category=NumbaPerformanceWarning) #Suppress  NumbaPerformanceWarning: '@' is faster on contiguous arrays warning. This happens for phasor_loop and apply_rotation_matrix functions.
 
@@ -69,6 +70,8 @@ def phase_rotate(vis_dataset, global_dataset, rotation_parms, sel_parms, storage
     
     assert(_sel_parms['uvw_out'] != _sel_parms['uvw_in']), "######### ERROR: sel_parms checking failed sel_parms['uvw_out'] can not be the same as sel_parms['uvw_in']."
     assert(_sel_parms['data_out'] != _sel_parms['data_in']), "######### ERROR: sel_parms checking failed sel_parms['data_out'] can not be the same as sel_parms['data_in']."
+    
+    print('$%$%$%$%$%$$%$$% single_precision is', _rotation_parms['single_precision'])
     
     #Phase center
     ra_image = _rotation_parms['image_phase_center'][0]
@@ -121,7 +124,7 @@ def phase_rotate(vis_dataset, global_dataset, rotation_parms, sel_parms, storage
     freq_chan = da.from_array(vis_dataset.coords['chan'].values, chunks=(chan_chunk_size))
     
     #print('2. numpy',vis_dataset[_sel_parms['data_in']][:,0,0,0].values)
-    vis_rot = da.map_blocks(apply_phasor,vis_dataset[_sel_parms['data_in']].data,uvw[:,:,:,None], vis_dataset.field_id.data[:,None,None,None],freq_chan[None,None,:,None],phase_rotation,_rotation_parms['common_tangent_reprojection'],dtype=np.complex)
+    vis_rot = da.map_blocks(apply_phasor,vis_dataset[_sel_parms['data_in']].data,uvw[:,:,:,None], vis_dataset.field_id.data[:,None,None,None],freq_chan[None,None,:,None],phase_rotation,_rotation_parms['common_tangent_reprojection'],_rotation_parms['single_precision'],dtype=np.complex)
     
 #    dask.visualize(vis_rot,filename='vis_rot')
     
@@ -158,7 +161,7 @@ def _directional_cosine(phase_center_in_radians):
    
 
 #Apply rotation to vis data
-def apply_phasor(vis_data,uvw, field_id,freq_chan,phase_rotation,common_tangent_reprojection):
+def apply_phasor(vis_data,uvw, field_id,freq_chan,phase_rotation,common_tangent_reprojection,single_precision):
     #print(vis_data.shape,uvw.shape,field_id.shape,freq_chan.shape,phase_rotation.shape)
     
     #print(vis_data[:,0,0,0])
@@ -192,6 +195,7 @@ def apply_phasor(vis_data,uvw, field_id,freq_chan,phase_rotation,common_tangent_
     #print(vis_data[:,0,0,0])
     
     #vis_rot[np.isnan(vis_rot)] = np.nan
-    vis_data = (vis_data.astype(np.complex64)).astype(np.complex128)
+    if single_precision:
+        vis_data = (vis_data.astype(np.complex64)).astype(np.complex128)
     
     return vis_data
