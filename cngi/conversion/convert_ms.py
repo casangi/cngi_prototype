@@ -76,7 +76,9 @@ def convert_ms(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
     if ddi is None:
         MS = tb(infile)
         MS.open(infile, nomodify=True, lockoptions={'option': 'usernoread'})
-        ddis = MS.taql('select distinct DATA_DESC_ID from %s' % prefix + '.ms').getcol('DATA_DESC_ID')
+        MSsel = MS.taql('select distinct DATA_DESC_ID from %s' % prefix + '.ms')
+        ddis = MSsel.getcol('DATA_DESC_ID')
+        MSsel.close()
         MS.close()
     
     # initialize list of xarray datasets to be returned by this function
@@ -178,7 +180,8 @@ def convert_ms(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
         if ms_meta.nrows() > 0:
             funique, fidx, fcount = np.unique(ms_meta.getcol('NAME'), return_inverse=True, return_counts=True)
             mcoords['field'] = [funique[ii] if fcount[ii] == 1 else funique[ii] + ' (%s)' % str(nn) for nn, ii in enumerate(fidx)]
-            max_poly = np.max(ms_meta.taql('select distinct NUM_POLY from %s' % os.path.join(infile, tables[-1])).getcol('NUM_POLY')) + 1
+            mmsel = ms_meta.taql('select distinct NUM_POLY from %s' % os.path.join(infile, tables[-1]))
+            max_poly = np.max(mmsel.getcol('NUM_POLY')) + 1
             tshape = (2, max_poly)
             for col in ms_meta.colnames():
                 if col in ['NAME']: continue
@@ -191,6 +194,7 @@ def convert_ms(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
                     data = ms_meta.getcol(col).transpose()
                     if col == 'TIME': data = convert_time(data)
                     mvars['FIELD_' + col] = xarray.DataArray(data, dims=['field'])
+            mmsel.close()
         ms_meta.close()
 
     ## FLAG_CMD table
@@ -292,7 +296,8 @@ def convert_ms(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
         ms_meta.open(os.path.join(infile, tables[-1]), nomodify=True, lockoptions={'option': 'usernoread'})
         if ms_meta.nrows() > 0:
             mcoords['source'] = np.unique(ms_meta.getcol('SOURCE_ID'))
-            max_lines = np.max(ms_meta.taql('select distinct NUM_LINES from %s' % os.path.join(infile, tables[-1])).getcol('NUM_LINES'))
+            mmsel = ms_meta.taql('select distinct NUM_LINES from %s' % os.path.join(infile, tables[-1]))
+            max_lines = np.max(mmsel.getcol('NUM_LINES'))
             srcidx, spwidx = ms_meta.getcol('SOURCE_ID'), ms_meta.getcol('SPECTRAL_WINDOW_ID')
             tshape = (2, max_lines)
             for col in ms_meta.colnames():
@@ -318,6 +323,7 @@ def convert_ms(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
                             mvars['SRC_' + col] = xarray.DataArray(metadata, dims=['spw', 'source', 'd' + str(data.shape[1])])
                 except Exception:
                     print('WARNING : unable to process col %s of table %s' % (col, tables[-1]))
+            mmsel.close()
         ms_meta.close()
 
     ## STATE table
@@ -523,6 +529,7 @@ def convert_ms(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
             x_dataset = xarray.open_zarr(outfile + '/' + str(ddi))
 
         xds_list += [x_dataset]
+        tb_tool.close()
         ms_ddi.close()
         print('Completed ddi', ddi, ' process time ', time.time() - start_ddi)
         print('**********************************')
