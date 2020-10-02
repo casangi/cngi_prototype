@@ -95,6 +95,7 @@ def convert_image(infile, outfile=None, artifacts=None, compressor=None, chunk_s
     for imtype in imtypes:
         if os.path.exists(prefix + '.' + imtype):
             rc = IA.open(prefix + '.' + imtype)
+            csys = IA.coordsys()
             summary = IA.summary(list=False)  # imhead would be better but chokes on big images
             ims = tuple(IA.shape())  # image shape
             coord_names = [ss.replace(' ', '_').lower().replace('stokes', 'pol').replace('frequency', 'chan') for ss in summary['axisnames']]
@@ -105,7 +106,7 @@ def convert_image(infile, outfile=None, artifacts=None, compressor=None, chunk_s
             sphr_dims = [dd for dd in range(len(ims)) if QA.isangle(summary['axisunits'][dd])]
             coord_idxs = np.mgrid[[range(ims[dd]) if dd in sphr_dims else range(1) for dd in range(len(ims))]]
             coord_idxs = coord_idxs.reshape(len(ims), -1)
-            coord_world = IA.coordsys().toworldmany(coord_idxs.astype(float))['numeric']
+            coord_world = csys.toworldmany(coord_idxs.astype(float))['numeric']
             coord_world = coord_world[sphr_dims].reshape((len(sphr_dims),) + tuple(np.array(ims)[sphr_dims]))
             spi = ['d' + str(dd) for dd in sphr_dims]
             coords = dict([(coord_names[dd], (spi, coord_world[di])) for di, dd in enumerate(sphr_dims)])
@@ -114,7 +115,7 @@ def convert_image(infile, outfile=None, artifacts=None, compressor=None, chunk_s
             cart_dims = [dd for dd in range(len(ims)) if dd not in sphr_dims]
             coord_idxs = np.mgrid[[range(ims[dd]) if dd in cart_dims else range(1) for dd in range(len(ims))]]
             coord_idxs = coord_idxs.reshape(len(ims), -1)
-            coord_world = IA.coordsys().toworldmany(coord_idxs.astype(float))['numeric']
+            coord_world = csys.toworldmany(coord_idxs.astype(float))['numeric']
             coord_world = coord_world[cart_dims].reshape((len(cart_dims),) + tuple(np.array(ims)[cart_dims]))
             for dd, cs in enumerate(list(coord_world)):
                 spi = tuple([slice(None) if di == dd else slice(1) for di in range(cs.ndim)])
@@ -169,6 +170,7 @@ def convert_image(infile, outfile=None, artifacts=None, compressor=None, chunk_s
                 difmeta += [tm]
                 imtypes = [_ for _ in imtypes if _ != imtype]
 
+            rc = csys.done()
             rc = IA.close()
         else:
             imtypes = [_ for _ in imtypes if _ != imtype]
