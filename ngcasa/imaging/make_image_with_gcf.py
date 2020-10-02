@@ -14,35 +14,45 @@
 
 def make_image_with_gcf(vis_dataset, gcf_dataset, img_dataset, grid_parms, norm_parms, sel_parms, storage_parms):
     """
-    Creates a cube or continuum dirty image from the user specified visibility, uvw and imaging weight data. Only the prolate spheroidal convolutional gridding function is supported (this will change in a future releases.)
+    Creates a cube or continuum dirty image from the user specified visibility, uvw and imaging weight data. A gridding convolution function (gcf_dataset), primary beam image (img_dataset) and a primary beam weight image (img_dataset) must be supplied.
     
     Parameters
     ----------
     vis_dataset : xarray.core.dataset.Dataset
         Input visibility dataset.
+    gcf_dataset : xarray.core.dataset.Dataset
+         Input gridding convolution dataset.
+    img_dataset : xarray.core.dataset.Dataset
+         Input image dataset.
     grid_parms : dictionary
-    grid_parms['imsize'] : list of int, length = 2
+    grid_parms['image_size'] : list of int, length = 2
         The image size (no padding).
-    grid_parms['cell']  : list of number, length = 2, units = arcseconds
+    grid_parms['cell_size']  : list of number, length = 2, units = arcseconds
         The image cell size.
     grid_parms['chan_mode'] : {'continuum'/'cube'}, default = 'continuum'
         Create a continuum or cube image.
-    grid_parms['oversampling'] : int, default = 100
-        The oversampling used for the convolutional gridding kernel. This will be removed in a later release and incorporated in the function that creates gridding convolutional kernels.
-    grid_parms['support'] : int, default = 7
-        The full support used for convolutional gridding kernel. This will be removed in a later release and incorporated in the function that creates gridding convolutional kernels.
     grid_parms['fft_padding'] : number, acceptable range [1,100], default = 1.2
         The factor that determines how much the gridded visibilities are padded before the fft is done.
-    grid_parms['uvw_name'] : str, default ='UVW'
+    norm_parms : dictionary
+    
+    
+    
+        
+    sel_parms : dictionary
+    sel_parms['uvw'] : str, default ='UVW'
         The name of uvw data variable that will be used to grid the visibilities.
-    grid_parms['data_name'] : str, default = 'DATA'
+    sel_parms['data'] : str, default = 'DATA'
         The name of the visibility data to be gridded.
-    grid_parms['imaging_weight_name'] : str, default ='IMAGING_WEIGHT'
+    sel_parms['imaging_weight'] : str, default ='IMAGING_WEIGHT'
         The name of the imaging weights to be used.
-    grid_parms['image_name'] : str, default ='DIRTY_IMAGE'
+    sel_parms['image'] : str, default ='IMAGE'
         The created image name.
-    grid_parms['sum_weight_name'] : str, default ='SUM_WEIGHT'
+    sel_parms['sum_weight'] : str, default ='SUM_WEIGHT'
         The created sum of weights name.
+    sel_parms['pb'] : str, default ='PB'
+         The primary beam image to use for normalization.
+    sel_parms['weight_pb'] : str, default ='WEIGHT_PB'
+         The primary beam weight image to use for normalization.
     storage_parms : dictionary
     storage_parms['to_disk'] : bool, default = False
         If true the dask graph is executed and saved to disk in the zarr format.
@@ -65,7 +75,7 @@ def make_image_with_gcf(vis_dataset, gcf_dataset, img_dataset, grid_parms, norm_
     image_dataset : xarray.core.dataset.Dataset
         The image_dataset will contain the image created and the sum of weights.
     """
-    print('######################### Start make_image #########################')
+    print('######################### Start make_image_with_gcf #########################')
     import numpy as np
     from numba import jit
     import time

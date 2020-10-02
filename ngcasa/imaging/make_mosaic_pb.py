@@ -29,10 +29,13 @@ def make_mosaic_pb(vis_dataset,gcf_dataset,img_dataset,sel_parms,grid_parms,stor
     
     Parameters
     ----------
+    vis_dataset : xarray.core.dataset.Dataset
+        Input visibility dataset.
+    gcf_dataset : xarray.core.dataset.Dataset
+        Input gridding convolution function dataset.
     img_dataset : xarray.core.dataset.Dataset
-        Input image dataset.
+        Input image dataset. ()
     make_pb_parms : dictionary
-    
     make_pb_parms['function'] : {'airy'}, default='airy'
         Only the airy disk function is currently supported.
     grid_parms['imsize'] : list of int, length = 2
@@ -66,6 +69,7 @@ def make_mosaic_pb(vis_dataset,gcf_dataset,img_dataset,sel_parms,grid_parms,stor
     -------
     img_xds : xarray.core.dataset.Dataset
     """
+    print('######################### Start make_mosaic_pb #########################')
     
     from ngcasa._ngcasa_utils._store import _store
     from ngcasa._ngcasa_utils._check_parms import _check_storage_parms, _check_sel_parms, _check_existence_sel_parms

@@ -34,7 +34,7 @@ def _store(dataset,list_xarray_data_variables,storage_parms):
         if storage_parms['append']:
             data_variables_name = ""
             for data_variable in list_xarray_data_variables:
-                data_variables_name = data_variables_name + data_variable.name
+                data_variables_name = data_variables_name + ", " + data_variable.name
             print('Atempting to add ', data_variables_name, ' to ', storage_parms['outfile'])
             
             #try:

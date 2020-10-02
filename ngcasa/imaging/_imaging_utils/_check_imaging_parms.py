@@ -45,14 +45,22 @@ def _check_gcf_parms(gcf_parms):
     parms_passed = True
     
     if not(_check_parms(gcf_parms, 'function', [str], acceptable_data=['alma_airy','airy'], default='alma_airy')): parms_passed = False
+    if not(_check_parms(gcf_parms, 'freq_chan', [list,np.array],list_acceptable_data_types=[numbers.Number],list_len=-1)): parms_passed = False
+    if not(_check_parms(gcf_parms, 'list_dish_diameters', [list,np.array],list_acceptable_data_types=[numbers.Number],list_len=-1)): parms_passed = False
+    if not(_check_parms(gcf_parms, 'list_blockage_diameters', [list,np.array],list_acceptable_data_types=[numbers.Number],list_len=-1)): parms_passed = False
+    if not(_check_parms(gcf_parms, 'unique_ant_indx', [list,np.array],list_acceptable_data_types=[numbers.Number],list_len=-1)): parms_passed = False
+ 
+    if not(_check_parms(gcf_parms, 'pol', [list,np.array],list_acceptable_data_types=[numbers.Number],list_len=-1)): parms_passed = False
     if not(_check_parms(gcf_parms, 'chan_tolerance_factor', [numbers.Number], default=0.005)): parms_passed = False
-    if not(_check_parms(gcf_parms, 'oversampling', [list], list_acceptable_data_types=[np.int], list_len=2)): parms_passed = False
-    if not(_check_parms(gcf_parms, 'max_support', [list], list_acceptable_data_types=[np.int], list_len=2)): parms_passed = False
-    if not(_check_parms(gcf_parms, 'image_phase_center', [list], list_acceptable_data_types=[numbers.Number], list_len=2)): parms_passed = False
+    if not(_check_parms(gcf_parms, 'oversampling', [list,np.array], list_acceptable_data_types=[np.int], list_len=2, default=[10,10])): parms_passed = False
+    if not(_check_parms(gcf_parms, 'max_support', [list,np.array], list_acceptable_data_types=[np.int], list_len=2, default=[15,15])): parms_passed = False
+    if not(_check_parms(gcf_parms, 'image_phase_center', [list,np.array], list_acceptable_data_types=[numbers.Number], list_len=2)): parms_passed = False
+    if not(_check_parms(gcf_parms, 'support_cut_level', [numbers.Number], default=2.5*10**-2)): parms_passed = False
+    if not(_check_parms(gcf_parms, 'a_chan_num_chunk', [np.int], default=3)): parms_passed = False
     
-    if gcf_parms['function'] == 'airy':
-        if not(_check_parms(gcf_parms, 'list_dish_diameters', [list],list_acceptable_data_types=[numbers.Number],list_len=-1)): parms_passed = False
-        if not(_check_parms(gcf_parms, 'list_blockage_diameters', [list],list_acceptable_data_types=[numbers.Number],list_len=-1)): parms_passed = False
+    if gcf_parms['function'] == 'airy' or gcf_parms['function'] == 'alma_airy':
+        if not(_check_parms(gcf_parms, 'list_dish_diameters', [list,np.array],list_acceptable_data_types=[numbers.Number],list_len=-1)): parms_passed = False
+        if not(_check_parms(gcf_parms, 'list_blockage_diameters', [list,np.array],list_acceptable_data_types=[numbers.Number],list_len=-1)): parms_passed = False
     
         if len(gcf_parms['list_dish_diameters']) != len(gcf_parms['list_blockage_diameters']):
             print('######### ERROR:Parameter ', 'list_dish_diameters and list_blockage_diameters must be the same length.')
@@ -64,6 +72,12 @@ def _check_gcf_parms(gcf_parms):
         gcf_parms['oversampling'] = np.array(gcf_parms['oversampling']).astype(int)
         gcf_parms['max_support'] = np.array(gcf_parms['max_support']).astype(int)
         gcf_parms['image_phase_center'] =  np.array(gcf_parms['image_phase_center'])
+        gcf_parms['freq_chan'] =  np.array(gcf_parms['freq_chan'])
+        gcf_parms['list_dish_diameters'] =  np.array(gcf_parms['list_dish_diameters'])
+        gcf_parms['list_blockage_diameters'] =  np.array(gcf_parms['list_blockage_diameters'])
+        gcf_parms['unique_ant_indx'] =  np.array(gcf_parms['unique_ant_indx'])
+        gcf_parms['basline_ant'] =  np.array(gcf_parms['basline_ant'])
+        gcf_parms['pol'] =  np.array(gcf_parms['pol'])
         
     return parms_passed
     

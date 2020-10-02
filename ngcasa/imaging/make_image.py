@@ -21,7 +21,7 @@
 
 def make_image(vis_dataset, img_dataset, grid_parms, sel_parms, storage_parms):
     """
-    Creates a cube or continuum dirty image from the user specified visibility, uvw and imaging weight data. Only the prolate spheroidal convolutional gridding function is supported.
+    Creates a cube or continuum dirty image from the user specified visibility, uvw and imaging weight data. Only the prolate spheroidal convolutional gridding function is supported. See make_image_with_gcf function for creating an image with A-projection.
     
     Parameters
     ----------
