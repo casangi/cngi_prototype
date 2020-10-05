@@ -27,7 +27,8 @@ setup(
                       'scikit-learn>=0.22.2',
                       'toolz>=0.10.0',
                       'xarray>=0.15.0',
-                      'zarr>=2.3.2'],
+                      'zarr>=2.3.2',
+                      'fsspec>=0.6.2'],
     extras_require={
         'dev': [
             'pytest>=5.3.5',
