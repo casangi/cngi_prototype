@@ -34,10 +34,20 @@ def make_image_with_gcf(vis_dataset, gcf_dataset, img_dataset, grid_parms, norm_
     grid_parms['fft_padding'] : number, acceptable range [1,100], default = 1.2
         The factor that determines how much the gridded visibilities are padded before the fft is done.
     norm_parms : dictionary
-    
-    
-    
-        
+    norm_parms['norm_type'] : {'none'/'flat_noise'/'flat_sky'}, default = 'flat_sky'
+         Gridded (and FT'd) images represent the PB-weighted sky image.
+         Qualitatively it can be approximated as two instances of the PB
+         applied to the sky image (one naturally present in the data
+         and one introduced during gridding via the convolution functions).
+         normtype='flat_noise' : Divide the raw image by sqrt(sel_parms['weight_pb']) so that
+                                             the input to the minor cycle represents the
+                                             product of the sky and PB. The noise is 'flat'
+                                             across the region covered by each PB.
+        normtype='flat_sky' : Divide the raw image by sel_parms['weight_pb'] so that the input
+                                         to the minor cycle represents only the sky.
+                                         The noise is higher in the outer regions of the
+                                         primary beam where the sensitivity is low.
+        normtype='none' : No normalization after gridding and FFT.
     sel_parms : dictionary
     sel_parms['uvw'] : str, default ='UVW'
         The name of uvw data variable that will be used to grid the visibilities.

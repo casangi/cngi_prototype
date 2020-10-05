@@ -95,13 +95,13 @@ def make_mosaic_pb(vis_dataset,gcf_dataset,img_dataset,sel_parms,grid_parms,stor
     
     _grid_parms['grid_weights'] = True
     _grid_parms['do_psf'] = False
-    _grid_parms['image_size_padded'] = _grid_parms['image_size']
+    #_grid_parms['image_size_padded'] = _grid_parms['image_size']
     _grid_parms['oversampling'] = np.array(gcf_dataset.attrs['oversampling'])
     grids_and_sum_weights = _graph_aperture_grid(vis_dataset,gcf_dataset,_grid_parms,_sel_parms)
     
 
     #grids_and_sum_weights = _graph_aperture_grid(vis_dataset,gcf_dataset,_grid_parms)
-    weight_image = (dafft.fftshift(dafft.ifft2(dafft.ifftshift(grids_and_sum_weights[0], axes=(0, 1)), axes=(0, 1)), axes=(0, 1))).real*(_grid_parms['image_size'][0] * _grid_parms['image_size'][1])
+    weight_image = _remove_padding(dafft.fftshift(dafft.ifft2(dafft.ifftshift(grids_and_sum_weights[0], axes=(0, 1)), axes=(0, 1)), axes=(0, 1)),_grid_parms['image_size']).real*(_grid_parms['image_size_padded'][0] * _grid_parms['image_size_padded'][1])
     
     #############Move this to Normalizer#############
     def correct_image(weight_image, sum_weights):

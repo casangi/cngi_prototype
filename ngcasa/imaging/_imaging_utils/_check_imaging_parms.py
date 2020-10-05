@@ -109,7 +109,7 @@ def _check_norm_parms(norm_parms):
     import numbers
     parms_passed = True
     
-    if not(_check_parms(norm_parms, 'norm_type', [str], default='flat_noise', acceptable_data=['flat_noise','flat_sky','none'])): parms_passed = False
+    if not(_check_parms(norm_parms, 'norm_type', [str], default='flat_sky', acceptable_data=['flat_noise','flat_sky','none'])): parms_passed = False
     
     if not(_check_parms(norm_parms, 'single_precision', [bool], default=True)): parms_passed = False
     
