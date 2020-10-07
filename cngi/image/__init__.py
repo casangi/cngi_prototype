@@ -9,7 +9,7 @@ from .gaussianbeam import gaussianbeam
 from .implot import implot
 from .mask import mask
 from .mfs_to_cube import mfs_to_cube
-from .moments import moment
+from .moments import moments
 from .posvel import posvel
 from .rebin import rebin
 from .reframe import reframe

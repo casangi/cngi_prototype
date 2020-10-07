@@ -13,7 +13,7 @@
 #   limitations under the License.
 
 ########################
-def moment(ds, **kwargs):
+def moments(ds, **kwargs):
     """
     .. todo::
         This function is not yet implemented
@@ -85,8 +85,9 @@ def moment(ds, **kwargs):
     # moment calculation
     if code == -1:
         new_ds = ds.mean(dim=axis, keep_attrs=True)
+        return new_ds
     if code == 0:
-        new_ds = xds.sum(dim='chan', keep_attrs=True)
+        new_ds = ds.sum(dim='chan', keep_attrs=True)
     if code == 1:
         new_ds = (ds.sum('chan', keep_attrs=True) /
                   ds.integrate(dim=axis, keep_attrs=True))
@@ -95,7 +96,7 @@ def moment(ds, **kwargs):
     if code == 10:
         new_ds = ds.reduce(func=min, dim='chan', keepdims=True)
     else:
-        raise NotImplementedError(f"Moment code={code} is not yet supported")
+        raise NotImplementedError(f"Moments code={code} is not yet supported")
 
     return new_ds
 
