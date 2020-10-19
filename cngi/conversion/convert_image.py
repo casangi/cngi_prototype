@@ -130,6 +130,7 @@ def convert_image(infile, outfile=None, artifacts=None, compressor=None, chunk_s
             omits = ['axisnames', 'hasmask', 'masks', 'defaultmask', 'ndim', 'refpix', 'refval', 'shape',
                      'tileshape', 'messages', 'perplanebeams']
             nested = [kk for kk in summary.keys() if isinstance(summary[kk], dict)]
+
             tm['attrs'] = dict([(kk.lower(), summary[kk]) for kk in summary.keys() if kk not in omits + nested])
             tm['attrs'].update(dict([(kk, list(nested_to_record(summary[kk], sep='.').items())) for kk in nested if kk not in omits]))
             
@@ -210,13 +211,15 @@ def convert_image(infile, outfile=None, artifacts=None, compressor=None, chunk_s
                 xdas['MASK'] = xa(imchunk.astype(bool), dims=meta['dims'])
 
             rc = IA.close()
-        
+
+
         chunking = dict([(dd, chunk_shape[ii]) for ii,dd in enumerate(['d0','d1','chan','pol']) if chunk_shape[ii] > 0])
         xds = xd(xdas, coords=chunk_coords, attrs=meta['attrs']).chunk(chunking)
         
         # for everyone's sanity, lets make sure the dimensions are ordered the same way as visibility data
         xds = xds.transpose('d0','d1','chan','pol')
-        
+        xds.attrs['axisunits'] = ['rad', 'rad', 'Hz', '']
+
         if (chan == 0) and (not nofile):
             # xds = xd(xdas, coords=chunk_coords, attrs=nested_to_record(meta['attrs'], sep='_'))
             encoding = dict(zip(list(xds.data_vars), cycle([{'compressor': compressor}])))
