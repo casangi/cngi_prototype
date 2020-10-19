@@ -13,11 +13,13 @@
 #   limitations under the License.
 
 ########################
+import xarray as xa
+import numpy as np
+
+xa.set_options(keep_attrs=True)
+
 def moments(ds, **kwargs):
     """
-    .. todo::
-        This function is not yet implemented
-    
     Collapse an n-dimensional image cube into a moment by taking a linear combination of individual planes
     
     .. note::
@@ -82,23 +84,63 @@ def moments(ds, **kwargs):
         print("No valid input code detected, assuming default (-1)")
         code = -1
 
-    # moment calculation
-    if code == -1:
-        new_ds = ds.mean(dim=axis, keep_attrs=True)
-        return new_ds
-    if code == 0:
-        new_ds = ds.sum(dim='chan', keep_attrs=True)
-    if code == 1:
-        new_ds = (ds.sum('chan', keep_attrs=True) /
-                  ds.integrate(dim=axis, keep_attrs=True))
-    if code == 8:
-        new_ds = ds.max(dim=axis, keep_atrs=True)
-    if code == 10:
-        new_ds = ds.reduce(func=min, dim='chan', keepdims=True)
-    else:
-        raise NotImplementedError(f"Moments code={code} is not yet supported")
+    #This factor is related to the width (in world coordinate units) of a pixel along the moment axis
+    #todo: need to find out how casa6 does
+    channelSingleFactor=0.49100335
+    intensity=ds.IMAGE
+    code=kwargs['moments']
+    deltachan= ds.coords['chan'].values[1]-ds.coords['chan'].values[0]
+        # moment calculation
+    if -1 in code or 0 in code or 1 in code or 2 in code:
+        average = intensity.mean(dim='chan')
+        ds["MOMENTS_AVERAGE"]=average.sel(pol=1)
+        ds["MOMENTS_INTERGRATED"]=average.sel(pol=1)*channelSingleFactor*intensity.shape[2]
 
-    return new_ds
+        sum1 = 0
+        for i in range(intensity.shape[2]):
+            sum1 += intensity[:, :, i, :] * i * deltachan
+        mo = deltachan * intensity.sum(dim='chan')
+        intensityweightedcoor = sum1/mo
+        ds["MOMENTS_WEIGHTED_COORD"] = intensityweightedcoor.sel(pol=1)
+
+        sum1=0
+        for i in range(intensity.shape[2]):
+            temp= i*deltachan-intensityweightedcoor
+            temp= temp*temp
+            sum1 = intensity[:, :, i, :]*temp
+        ds["MOMENTS_WEIGHTED_DISPERSION_COORD"] = (sum1 / mo).sel(pol=1)
+
+    if 3 in code:
+        ds["MOMENTS_MEDIAN"] = intensity.median(dim='chan').sel(pol=1)
+    if 4 in code:
+        mediacoordinate = intensity.median(dim='chan')
+        ds["MOMENTS_MEDIAN_COORD"] = mediacoordinate
+    if 5 in code:
+        '''
+        sd = (intensity - average) * (intensity - average)
+        standarddeviation = np.sqrt(sd.sum(dim='chan') / (intensity.shape[2]-1))
+        ds["MOMENTS_STANDARD_DEVIATION"] = standarddeviation.sel(pol=1)
+        '''
+        ds["MOMENTS_STANDARD_DEVIATION"] = intensity.std(dim='chan').sel(pol=1)
+    if 6 in code:
+        ds["MOMENTS_RMS"] = np.sqrt((np.fabs(intensity * intensity)).mean(dim='chan')).sel(pol=1)
+    if 7 in code:
+        average = intensity.mean(dim='chan')
+        sd = np.fabs((intensity-average))
+        absmeandev = sd.mean(dim='chan')
+        ds["MOMENTS_ABS_MEAN_DEV"] = absmeandev.sel(pol=1)
+    if 8 in code:
+        ds["MOMENTS_MAXIMUM"] = intensity.max(dim='chan').sel(pol=1)
+    if 9 in code:
+        ds["MOMENTS_MAXIMUM_COORD"] = intensity.argmax(dim='chan').sel(pol=1)
+    if 10 in code:
+        ds["MOMENTS_MINIMUM"] = intensity.min(dim='chan').sel(pol=1)
+    if 11 in code:
+        ds["MOMENTS_MINIMUM_COORD"] = intensity.argmin(dim='chan').sel(pol=1)
+    #else:
+    #   raise NotImplementedError(f"Moments code={code} is not yet supported")
+
+    return ds
 
 
 
