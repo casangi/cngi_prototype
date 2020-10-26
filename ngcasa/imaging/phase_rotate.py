@@ -19,7 +19,6 @@ from numba import jit
 import warnings
 from numba.errors import NumbaPerformanceWarning
 import scipy
-from scipy.constants import c
 
 warnings.filterwarnings("ignore", category=NumbaPerformanceWarning) #Suppress  NumbaPerformanceWarning: '@' is faster on contiguous arrays warning. This happens for phasor_loop and apply_rotation_matrix functions.
 
