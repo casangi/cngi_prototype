@@ -19,3 +19,4 @@ toolz>=0.10.0
 xarray>=0.15.0
 zarr>=2.3.2
 fsspec>=0.6.2
+astropy==4.0
