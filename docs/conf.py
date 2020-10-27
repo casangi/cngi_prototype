@@ -65,7 +65,7 @@ autoapi_dirs = ['../cngi', '../ngcasa']
 autoapi_add_toctree_entry = False
 autoapi_generate_api_docs = True
 autoapi_root = '_api/autoapi'
-autoapi_options = ['members', 'imported-members', 'undoc-members', 'show-module-summary']
+autoapi_options = ['show-module-summary']
 autoapi_template_dir = '_templates'
 autoapi_keep_files = True
 

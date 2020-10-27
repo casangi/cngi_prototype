@@ -1,4 +1,6 @@
-#__init__.py
+"""
+Flagging subpackage modules
+"""
 from .manual_flag import manual_flag
 from .manual_unflag import manual_unflag
 from .shadow import shadow

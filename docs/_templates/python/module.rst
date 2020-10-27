@@ -10,12 +10,20 @@
 {{ obj.name }}
 ======={{ "=" * obj.name|length }}
 
+{% if obj.docstring %}
+{{ obj.docstring|prepare_docstring }}
+{% endif %}
+
 {% for subpackage in visible_subpackages %}
 {% set visible_submodules = subpackage.submodules|selectattr("display")|list %}
 {% if visible_submodules %}
 
 {{ subpackage.short_name }}
 ---------------------------
+
+{% if subpackage.docstring %}
+{{ subpackage.docstring|prepare_docstring }}
+{% endif %}
 
 .. toctree::
    :hidden:
@@ -29,9 +37,18 @@
    :nosignatures:
 
 {% for submodule in visible_submodules %}
-   {{ obj.name }}.{{ subpackage.short_name }}.{{ submodule.short_name }}
+{% if submodule.all is not none %}
+{% set visible_children = submodule.children|selectattr("short_name", "in", submodule.all)|list %}
+{% else %}
+{% set visible_children = submodule.children|selectattr("display")|rejectattr("imported")|list %}
+{% endif %}
+{% if visible_children %}
+{% set visible_functions = visible_children|selectattr("type", "equalto", "function")|list %}
+{% for function in visible_functions %}
+   {{ function.id }}
 {% endfor %}
-
+{% endif %}
+{% endfor %}
 {% endif %}
 
 {% endfor %}
@@ -46,7 +63,6 @@
 {% endif %}
 {% if visible_children %}
 
-{% set visible_classes = visible_children|selectattr("type", "equalto", "class")|list %}
 {% set visible_functions = visible_children|selectattr("type", "equalto", "function")|list %}
 
 :mod:`{{ obj.name }}`
