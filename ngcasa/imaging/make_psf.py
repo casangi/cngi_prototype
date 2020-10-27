@@ -69,7 +69,7 @@ def make_psf(vis_dataset, img_dataset, grid_parms, sel_parms, storage_parms):
     image_dataset : xarray.core.dataset.Dataset
         The image_dataset will contain the image created and the sum of weights.
     """
-    print('######################### Start make_image #########################')
+    print('######################### Start make_psf #########################')
     import numpy as np
     from numba import jit
     import time

@@ -12,16 +12,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-import numba
-from numba import jit
 import numpy as np
-import numpy.linalg as linalg
-from scipy.interpolate import interpn
-from scipy.ndimage import zoom
-import matplotlib.pyplot as plt
-import scipy.optimize as optimize
-
-
 
 ########################
 def fit_gaussian(img_dataset,image_data_variable_to_fit='PSF',beam_set_name='RESTORE_PARMS',npix_window=[9,9],sampling=[9,9],cutoff=0.35):
@@ -83,6 +74,8 @@ def beam_chi2(params, psf, sampling):
 
 def casa_fit(img_to_fit,npix_window,sampling,cutoff,delta):
     import numpy.linalg as linalg
+    import scipy.optimize as optimize
+    from scipy.interpolate import interpn
     
     #ellipse_parms = np.zeros(img_to_fit.shape[2:4] + (3,),dtype=numba.double)
     ellipse_parms = np.zeros(img_to_fit.shape[2:4] + (3,))
