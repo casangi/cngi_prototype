@@ -1,0 +1,11 @@
+################################################
+# minimal set of packages needed by sphinx to build documentation
+# since mock imports doesnt work with automodapi, and some ngcasa modules import things
+# at the top level, additional packages (numba, dask, scipy etc) are needed right now
+# that will slow down readthedocs
+################################################
+pip==20.2.4
+nbsphinx==0.7.1
+sphinx-autoapi==1.5.1
+sphinx-rtd-theme==0.5.0
+recommonmark==0.6.0

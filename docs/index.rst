@@ -12,7 +12,8 @@ infrastructure of CASA with a parallel, scalable, and largely off-the-shelf solu
    :hidden:
    :maxdepth: 3
 
-   readme
+   getting_started
+   api
    visibilities
    images
    coordinates
@@ -23,7 +24,6 @@ infrastructure of CASA with a parallel, scalable, and largely off-the-shelf solu
    prototypes
    benchmark
    external
-   api
    verification
    design
    development
