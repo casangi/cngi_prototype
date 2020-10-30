@@ -11,17 +11,11 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
+"""
+this module will be included in the api
+"""
 
-import numba
-from numba import jit
 import numpy as np
-import numpy.linalg as linalg
-from scipy.interpolate import interpn
-from scipy.ndimage import zoom
-import matplotlib.pyplot as plt
-import scipy.optimize as optimize
-
-
 
 ########################
 def fit_gaussian_rl(img_dataset,image_data_variable_to_fit='PSF',beam_set_name='RESTORE_PARMS',fit_method='rm_fit',npix_window=[21,21],sampling=[401,401],cutoff=0.5,cutoff_sensitivity=0.003):
@@ -56,6 +50,7 @@ def fit_gaussian_rl(img_dataset,image_data_variable_to_fit='PSF',beam_set_name='
 ##############################################################
 ########################### rm_fit ###########################
 def fit_ellipse(x,y):
+    import numpy.linalg as linalg
     x = x[:,np.newaxis]
     y = y[:,np.newaxis]
     D =  np.hstack((x*x, x*y, y*y, x, y, np.ones_like(x)))
@@ -100,6 +95,7 @@ def ellipse_axis_length(a):
 
 def rm_fit(img_to_fit,npix_window,sampling,cutoff,cutoff_sensitivity,delta):
     import numpy.linalg as linalg
+    from scipy.interpolate import interpn
     
     #ellipse_parms = np.zeros(img_to_fit.shape[2:4] + (3,),dtype=numba.double)
     ellipse_parms = np.zeros(img_to_fit.shape[2:4] + (3,))

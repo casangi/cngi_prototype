@@ -1,4 +1,6 @@
-#__init__.py
+"""
+Deconvolution subpackage modules
+"""
 from .make_mask import make_mask
 from .is_converged import is_converged
 from .deconvolve_point_clean import deconvolve_point_clean

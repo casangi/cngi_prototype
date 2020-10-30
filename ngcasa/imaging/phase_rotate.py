@@ -11,7 +11,9 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
-
+"""
+this module will be included in the api
+"""
 
 import numpy as np
 from numba import jit
@@ -19,7 +21,6 @@ from numba import jit
 import warnings
 from numba.errors import NumbaPerformanceWarning
 import scipy
-from scipy.constants import c
 
 warnings.filterwarnings("ignore", category=NumbaPerformanceWarning) #Suppress  NumbaPerformanceWarning: '@' is faster on contiguous arrays warning. This happens for phasor_loop and apply_rotation_matrix functions.
 

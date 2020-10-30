@@ -14,8 +14,6 @@
 from numba import jit
 import numpy as np
 import math
-import matplotlib.pyplot as plt
-import time
 #from numba import gdb
 
 def ndim_list(shape):
@@ -262,7 +260,7 @@ def _aperture_weight_grid_jit(grid, sum_weight, uvw, freq_chan, chan_map, pol_ma
 
 def _aperture_grid_numpy_wrap(vis_data,uvw,imaging_weight,field,cf_baseline_map,cf_chan_map,cf_pol_map,conv_kernel,weight_support,phase_gradient,freq_chan,grid_parms):
     #print('imaging_weight ', imaging_weight.shape)
-    
+    import time
     
     n_chan = imaging_weight.shape[2]
     if grid_parms['chan_mode'] == 'cube':

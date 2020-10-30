@@ -11,6 +11,9 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
+"""
+this module will be included in the api
+"""
 
 #Removed for now.
 #grid_parms['oversampling'] : int, default = 100
@@ -69,7 +72,7 @@ def make_psf(vis_dataset, img_dataset, grid_parms, sel_parms, storage_parms):
     image_dataset : xarray.core.dataset.Dataset
         The image_dataset will contain the image created and the sum of weights.
     """
-    print('######################### Start make_image #########################')
+    print('######################### Start make_psf #########################')
     import numpy as np
     from numba import jit
     import time

@@ -11,6 +11,10 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
+"""
+this module will be included in the api
+"""
+
 import numpy as np
 
 '''
@@ -440,6 +444,8 @@ def create_cf_chan_map(freq_chan,chan_tolerance_factor):
     n_pb_chan = int(np.floor( (np.max(freq_chan)-np.min(freq_chan))/tol) + 0.5) ;
 
     #Create PB's for each channel
+    if n_pb_chan == 0:
+        n_pb_chan = 1
     
     if n_pb_chan >= n_chan:
         cf_chan_map = np.arange(n_chan)
