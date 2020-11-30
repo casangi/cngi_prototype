@@ -37,9 +37,7 @@ warnings.filterwarnings('ignore', category=FutureWarning)
 # CASA's modified julian day reference time is (of course) 1858-11-17
 # this requires a correction of 3506716800 seconds which is hardcoded to save time
 def convert_time(rawtimes):
-    # correction = (pd.to_datetime(0, unit='s') - pd.to_datetime('1858-11-17', format='%Y-%m-%d')).total_seconds()
     correction = 3506716800.0
-    # return rawtimes
     return pd.to_datetime(np.array(rawtimes) - correction, unit='s').values
 
 
@@ -74,11 +72,13 @@ def compute_dimensions(tb_tool):
 # infile/outfile can be the main table or specific subtable
 # if infile/outfile are the main table, subtable can also be specified
 # rowdim is used to rename the row axis dimension to the specified value
-def convert_simple_table(infile, outfile, subtable='', rowdim='d0', compressor=Blosc(cname='zstd', clevel=2, shuffle=0),
-                         chunk_shape=(40000, 20, 1), nofile=False):
+# timecols is a list of column names to convert to datetimes
+def convert_simple_table(infile, outfile, subtable='', rowdim='d0', timecols=[], compressor=None, chunk_shape=(40000, 20, 1), nofile=False):
     
     if not infile.endswith('/'): infile = infile + '/'
     if not outfile.endswith('/'): outfile = outfile + '/'
+    if compressor is None:
+        compressor = Blosc(cname='zstd', clevel=2, shuffle=0)
     
     tb_tool = tb()
     tb_tool.open(infile+subtable, nomodify=True, lockoptions={'option': 'usernoread'})  # allow concurrent reads
@@ -111,6 +111,10 @@ def convert_simple_table(infile, outfile, subtable='', rowdim='d0', compressor=B
                                  for kk in np.arange(start_idx + 1, start_idx + len(data) + 1)])
             else:
                 data = tb_tool.getcol(col, start_idx, chunk_shape[0]).transpose()
+                
+            # convert col values to datetime if desired
+            if col in timecols:
+                data = convert_time(data)
 
             # if this column has additional dimensionality beyond the expanded dims, we need to create/reuse placeholder names
             for dd in data.shape[1:]:
@@ -128,13 +132,17 @@ def convert_simple_table(infile, outfile, subtable='', rowdim='d0', compressor=B
         xds = xarray.Dataset(mvars)
         if (not nofile) and (start_idx == 0):
             encoding = dict(zip(list(xds.data_vars), cycle([{'compressor': compressor}])))
+            xds = xds.assign_attrs({'name': infile[infile[:-1].rindex('/') + 1:-1]})
             xds.to_zarr(outfile+subtable, mode='w', encoding=encoding, consolidated=True)
         elif not nofile:
-            xds.to_zarr(outfile+subtable, mode='a', append_dim='d0', compute=True, consolidated=True)
+            xds.to_zarr(outfile+subtable, mode='a', append_dim=rowdim, compute=True, consolidated=True)
     
     tb_tool.close()
     if not nofile:
+        #xarray.Dataset(attrs={'name': infile[infile[:-1].rindex('/') + 1:-1]}).to_zarr(outfile+subtable, mode='a', compute=True, consolidated=True)
         xds = xarray.open_zarr(outfile+subtable)
+    #else:
+    #    xds = xds.assign_attrs({'name': infile[infile[:-1].rindex('/') + 1:-1]})
     
     return xds
 
@@ -148,11 +156,13 @@ def convert_simple_table(infile, outfile, subtable='', rowdim='d0', compressor=B
 # if infile/outfile are the main table, subtable can also be specified
 # keys are a dict mapping source columns to target dims, use a tuple when combining cols (ie {('ANTENNA1','ANTENNA2'):'baseline'}
 # subsel is a dict of col name : col val to subselect in the table (ie {'DATA_DESC_ID' : 0}
-def convert_expanded_table(infile, outfile, keys, subtable='', subsel=None, compressor=Blosc(cname='zstd', clevel=2, shuffle=0),
-                           chunk_shape=(100, 20, 1), nofile=False):
+# timecols is a list of column names to convert to datetimes
+def convert_expanded_table(infile, outfile, keys, subtable='', subsel=None, timecols=[], compressor=None, chunk_shape=(100, 20, 1), nofile=False):
     
     if not infile.endswith('/'): infile = infile + '/'
     if not outfile.endswith('/'): outfile = outfile + '/'
+    if compressor is None:
+        compressor = Blosc(cname='zstd', clevel=2, shuffle=0)
     
     tb_tool = tb()
     tb_tool.open(infile+subtable, nomodify=True, lockoptions={'option': 'usernoread'})  # allow concurrent reads
@@ -183,16 +193,23 @@ def convert_expanded_table(infile, outfile, keys, subtable='', subsel=None, comp
     else:
         tsel = [list(subsel.keys())[0], list(subsel.values())[0]]
         sorted_table = tb_tool.taql('select * from %s where %s = %s ORDERBY %s' % (infile+subtable, tsel[0], tsel[1], ordering))
+    
     row_key, exp_keys = list(keys.keys())[0], list(keys.keys())[1:] if len(keys) > 1 else []
     target_row_key, target_exp_keys = list(keys.values())[0], list(keys.values())[1:] if len(keys) > 1 else []
     rows = np.hstack([sorted_table.getcol(rr)[:,None] for rr in np.atleast_1d(row_key)]).squeeze()
     unique_row_keys, row_changes, row_idxs = np.unique(rows, axis=0, return_index=True, return_inverse=True)
-    unique_row_keys = np.arange(len(unique_row_keys)) if unique_row_keys.ndim > 1 else unique_row_keys
+    if unique_row_keys.ndim > 1:  # use index values when grouping columns
+        unique_row_keys = np.arange(len(unique_row_keys))
+    elif target_row_key in timecols:  # convert to datetime
+        unique_row_keys = convert_time(unique_row_keys)
+    
     for kk, key in enumerate(exp_keys):
         rows = np.hstack([sorted_table.getcol(rr)[:,None] for rr in np.atleast_1d(key)]).squeeze()
         midxs[target_exp_keys[kk]] = list(np.unique(rows, axis=0, return_inverse=True))
         if midxs[target_exp_keys[kk]][0].ndim > 1:
             midxs[target_exp_keys[kk]][0] = np.arange(len(midxs[target_exp_keys[kk]][0]))
+        elif target_exp_keys[kk] in timecols:
+            midxs[target_exp_keys[kk]][0] = convert_time(midxs[target_exp_keys[kk]][0])
     
     # store the dimension shapes known so far (grows later on) and the coordinate values
     mdims = dict([(target_row_key, len(unique_row_keys))] + [(mm, midxs[mm][0].shape[0]) for mm in list(midxs.keys())])
@@ -209,7 +226,7 @@ def convert_expanded_table(infile, outfile, keys, subtable='', subsel=None, comp
         
         for col in sorted_table.colnames():
             if col in bad_cols: continue
-            if col in [np.atleast_1d(key)[ii] for key in keys.keys() for ii in range(len(np.atleast_1d(key)))]: continue  # skip coordinate columns
+            if col in keys.keys(): continue  # skip dim columns (unless they are tuples)
             print('reading chunk %s of %s, col %s...' % (str(start_idx // chunk_shape[0]), str(len(unique_row_keys) // chunk_shape[0]), col), end='\r')
 
             if col in cshape:   # if this column has a varying shape, it needs to be normalized
