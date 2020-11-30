@@ -88,6 +88,7 @@ def convert_table(infile, outfile=None, subtable=None, keys=None, timecols=None,
                                              keys=keys,
                                              subtable=subtable,
                                              subsel=None,
+                                             timecols=[] if timecols is None else timecols,
                                              compressor=compressor,
                                              chunk_shape=chunk_shape,
                                              nofile=nofile)
