@@ -157,7 +157,8 @@ def convert_simple_table(infile, outfile, subtable='', rowdim='d0', timecols=[],
 # keys are a dict mapping source columns to target dims, use a tuple when combining cols (ie {('ANTENNA1','ANTENNA2'):'baseline'}
 # subsel is a dict of col name : col val to subselect in the table (ie {'DATA_DESC_ID' : 0}
 # timecols is a list of column names to convert to datetimes
-def convert_expanded_table(infile, outfile, keys, subtable='', subsel=None, timecols=[], compressor=None, chunk_shape=(100, 20, 1), nofile=False):
+# dimnames is a dictionary mapping old to new dimension names for remaining dims (not in keys)
+def convert_expanded_table(infile, outfile, keys, subtable='', subsel=None, timecols=[], dimnames={}, compressor=None, chunk_shape=(100, 20, 1), nofile=False):
     
     if not infile.endswith('/'): infile = infile + '/'
     if not outfile.endswith('/'): outfile = outfile + '/'
@@ -217,7 +218,6 @@ def convert_expanded_table(infile, outfile, keys, subtable='', subsel=None, time
 
     # we want to parse the table in batches equal to the specified number of unique row keys, not number of rows
     # so we need to compute the proper number of rows to get the correct number of unique row keys
-    print('processing table...')
     for cc, start_idx in enumerate(range(0, len(unique_row_keys), chunk_shape[0])):
         chunk = np.arange(min(chunk_shape[0], len(unique_row_keys) - start_idx)) + start_idx
         end_idx = row_changes[chunk[-1] + 1] if chunk[-1] + 1 < len(row_changes) else len(row_idxs)
@@ -261,7 +261,7 @@ def convert_expanded_table(infile, outfile, keys, subtable='', subsel=None, time
             # store as a dict of data variables
             mvars[col.upper()] = xarray.DataArray(fulldata, dims=dims).chunk(dict(zip(dims, chunking)))
         
-        xds = xarray.Dataset(mvars, coords=mcoords)
+        xds = xarray.Dataset(mvars, coords=mcoords).rename(dimnames)
         if (not nofile) and (start_idx == 0):
             encoding = dict(zip(list(xds.data_vars), cycle([{'compressor': compressor}])))
             xds.to_zarr(outfile+subtable, mode='w', encoding=encoding, consolidated=True)
@@ -270,7 +270,6 @@ def convert_expanded_table(infile, outfile, keys, subtable='', subsel=None, time
 
     sorted_table.close()
     tb_tool.close()
-    print('complete')
     if not nofile:
         xds = xarray.open_zarr(outfile + subtable)
 
