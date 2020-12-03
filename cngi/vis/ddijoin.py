@@ -18,16 +18,22 @@ this module will be included in the api
 ########################
 def ddijoin(xds1, xds2):
     """
+    --todo: implement, still in development
+
     Concatenate together two Visibility Datasets of compatible shape
 
     Extended Summary
     ----------------
     The data variables of the two datasets are merged together, with some
-    limitations (see the Notes section).
+    limitations (see "Current Limitations" in the Notes section).
 
-    Coordinates are compared for equality, and certain known attributes are updated,
-    namely "ddi". For the rest, the values from the second dataset override those
-    from the first.
+    Coordinate values that are not also being used as dimensions are compared for
+    equality.
+
+    Certain known attributes are updated, namely "ddi". For the rest, they are
+    merged where keys are present in one dataset but not the other, or the values
+    from the first dataset override those from the second where the keys are the
+    same.
 
     Parameters
     ----------
@@ -68,24 +74,67 @@ def ddijoin(xds1, xds2):
     D) numerically merge the values (average, max, min, etc)
     E) override the values in xds1 with the values in xds2
 
-    *Current limitations:*
-    Joins are allowed for datasets that have all different coordinate values.
+    *Current Limitations:*
+    Joins are allowed for datasets that have all different dimension values.
         Example: xds1 covers time range 22:00-22:59, and xds2 covers time range 23:00-24:00
-    Joins are allowed for datasets that have overlapping coordinate values with matching data values at all of those coordinates.
+    Joins are allowed for datasets that have overlapping dimension values with matching data values at all of those coordinates.
         Example: xds1.PROCESSOR_ID[0][0] == xds2.PROCESSOR_ID[0][0]
-    Joins are not allowed for datasets that have overlapping coordinate values with mismatched data values at any of those coordinates.
+    Joins are not allowed for datasets that have overlapping dimension values with mismatched data values at any of those coordinates.
         Example: xds1.PROCESSOR_ID[0][0] != xds2.PROCESSOR_ID[0][0]
         See "Conflicts in data variable values", above
     Joins between 'global' datasets, such as those returned by cngi.dio.read_vis(ddi='global'), are probably meaningless and should be avoided.
-    Datasets must have the same shape.
-        Example xds1.DATA.shape == xds2.DATA.shape
+    Datasets do not need to have the same shape.
+        Example xds1.DATA.shape != xds2.DATA.shape
 
     Examples
     --------
     ### Use cases (some of them), to be turned into examples:
+    ### Note: these use cases come from CASA's mstransform(combinespws=True) and may not apply to ddijoin.
     # universal calibration across spws
     # autoflagging with broadband rfi
     # uvcontfit and uvcontsub
     # joining datasets that had previously been split, operated on, and are now being re-joined
     """
-    return {}
+
+    import xarray as xr
+    import xarray.core.merge
+    import cngi._helper._specials as specials
+
+    # get some values
+    func_name = ddijoin.__name__
+
+    # verify that the non-dimension coordinates are the same in both datasets
+    # Example for why we do this check: joining two vis datasets with mismatched "antenna" coordinates is probably invalid.
+    for coord_name in xds1.coords:
+        # skip dimension coordinates, errors in these coordinates will be caught by xr.merge
+        if coord_name in xds1.dims or coord_name in xds2.dims:
+            continue
+        # skip missing coordinates
+        if not coord_name in xds2.coords:
+            continue
+        # verify that the coordinates match
+        assert((xds1.coords[coord_name] == xds2.coords[coord_name]).all()), f"######### ERROR: coordinate \"{coord_name}\" mismatch between datasets"
+
+    # perform the data_vars and dimension coordinates merge
+    try:
+        xds_merged = xr.merge([xds1, xds2], compat='no_conflicts', combine_attrs='override')
+    except xarray.core.merge.MergeError as e:
+        raise RuntimeError(f"{func_name} can't join datasets with conflicting data variable values at overlapping indexes. See help({func_name}) for more info.") from e
+
+    # copy any attributes from xds2 that don't exist in xds1
+    # xds_merged.attrs = xds_merged.attrs.copy() # xr.merge does not apparently make a copy of the attributes
+    for attr_name in xds2.attrs:
+        if attr_name in xds1.attrs:
+            continue
+        xds_merged.attrs[attr_name] = xds2.attrs[attr_name]
+
+    # set the special attributes
+    for attr_name in specials.attrs():
+        if not attr_name in xds_merged.attrs:
+            continue
+        elif attr_name == "ddi":
+            xds_merged.attrs[attr_name] = f"{func_name}({xds1.attrs['ddi']},{xds2.attrs['ddi']})"
+        else:
+            raise RuntimeError(f"Programmer error: did not anticipate the special attribute {attr_name}! Don't know how to join this attribute!")
+
+    return xds_merged
