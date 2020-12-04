@@ -11,6 +11,9 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
+"""
+this module will be included in the api
+"""
 
 
 def convert_ms(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100, 400, 20, 1), nofile=False):
@@ -451,6 +454,7 @@ def convert_ms(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
             end_idx = time_changes[chunk[-1] + 1] if chunk[-1] + 1 < len(time_changes) else len(time_idxs)
             idx_range = np.arange(time_changes[chunk[0]], end_idx)  # indices (rows) in main table to be read
             coords.update({'time': unique_times[chunk]})
+            # print(f"cc: {cc}, start_row_indx: {start_row_indx}, chunk: {chunk}, idx_range[{len(idx_range)}]: {idx_range}, baseline_idxs[{len(baseline_idxs)}]: {baseline_idxs}")
 
             chunkdata = {}
             for col in ms_ddi.colnames():
@@ -493,6 +497,8 @@ def convert_ms(infile, outfile=None, ddi=None, compressor=None, chunk_shape=(100
                 elif (data.ndim == 2) and (data.shape[1] == n_pol):
                     fulldata = np.full((len(chunk), n_baseline, n_pol), np.nan, dtype=data.dtype)
                     fulldata[time_idxs[idx_range] - chunk[0], baseline_idxs[idx_range], :] = data
+                    # print(f"col name: {col}, fulldata.shape: {fulldata.shape}, data.shape: {data.shape}, " +
+                    #       f"fdtimes[{len(idx_range)}]: {time_idxs[idx_range] - chunk[0]}, fdbaselines[{len(idx_range)}]: {baseline_idxs[idx_range]}")
                     chunkdata[col] = xarray.DataArray(fulldata, dims=['time', 'baseline', 'pol'])
 
                 elif (data.ndim == 2) and (data.shape[1] == n_chan):

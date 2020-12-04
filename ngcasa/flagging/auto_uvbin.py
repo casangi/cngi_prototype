@@ -11,6 +11,10 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
+"""
+this module will be included in the api
+"""
+
 def auto_uvbin(vis_dataset,auto_uvbin_parms, storage_parms):
     """
     .. todo::

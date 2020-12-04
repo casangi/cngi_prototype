@@ -40,15 +40,13 @@ release = u'0.1b'
 # ones.
 extensions = [
     'nbsphinx',
-    'sphinx.ext.autodoc',
-    'sphinx.ext.autosummary',
     'sphinx.ext.todo',
     'sphinx.ext.viewcode',
     'sphinx.ext.coverage',
     'sphinx.ext.githubpages',
     'sphinx.ext.napoleon',
-    'sphinx_automodapi.automodapi',
-    'm2r'
+    'autoapi.extension',
+    'recommonmark'
 ]
 
 todo_include_todos = True
@@ -63,6 +61,13 @@ Open in Colab: https://colab.research.google.com/github/casangi/cngi_prototype/b
 ----
 """
 
+autoapi_dirs = ['../cngi', '../ngcasa']
+autoapi_add_toctree_entry = False
+autoapi_generate_api_docs = True
+autoapi_root = '_api/autoapi'
+autoapi_options = ['show-module-summary']
+autoapi_template_dir = '_templates'
+autoapi_keep_files = True
 
 # Napoleon settings
 #napoleon_google_docstring = True
@@ -77,7 +82,7 @@ Open in Colab: https://colab.research.google.com/github/casangi/cngi_prototype/b
 #napoleon_use_rtype = True
 
 #List of imports to mock (this ensures readthedocs works)
-autodoc_mock_imports = ['numcodecs','os','numpy','time','xarray','numba','itertools','zarr']
+#autodoc_mock_imports = ['numcodecs','os','numpy','time','xarray', 'numba', 'itertools','zarr','dask']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

@@ -1,4 +1,4 @@
-#   Copyright 2020 AUI, Inc. Washington DC, USA
+#   Copyright 2019 AUI, Inc. Washington DC, USA
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -11,13 +11,17 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
+"""
+this module will be included in the api
+"""
 
 
-def convert_table(infile, outfile=None, compressor=None, nofile=False):
+
+def convert_table(infile, outfile=None, subtable=None, keys=None, timecols=None, compressor=None, chunk_shape=(40000, 20, 1), append=False, nofile=False):
     """
-    Convert casacore table format to xarray Dataset and zarr storage format
+    Convert casacore table format to xarray Dataset and zarr storage format.
 
-    This function requires CASA6 casatools module.
+    This function requires CASA6 casatools module. Table rows may be renamed or expanded to n-dim arrays based on column values specified in keys.
 
     Parameters
     ----------
@@ -25,71 +29,69 @@ def convert_table(infile, outfile=None, compressor=None, nofile=False):
         Input table filename
     outfile : str
         Output zarr filename. If None, will use infile name with .tbl.zarr extension
+    subtable : str
+        Name of the subtable to process. If None, main table will be used
+    keys : dict or str
+        Source column mappings to dimensions. Can be a dict mapping source columns to target dims, use a tuple when combining cols
+        (ie {('ANTENNA1','ANTENNA2'):'baseline'} or a string to rename the row axis dimension to the specified value.  Default of None
+    timecols : list
+        list of strings specifying column names to convert to datetime format from casacore time.  Default is None
     compressor : numcodecs.blosc.Blosc
         The blosc compressor to use when saving the converted data to disk using zarr.
         If None the zstd compression algorithm used with compression level 2.
+    chunk_shape : int
+        Shape of desired chunking in the form of (dim0, dim1, ..., dimN), use -1 for entire axis in one chunk. Default is (80000, 10).
+        Chunking is applied per column / data variable.  If too few dimensions are specified, last chunk size is reused as necessary.
+        Note: chunk size is the product of the four numbers, and data is batch processed by the first axis, so that will drive memory needed for conversion.
+    append : bool
+        Append an xarray dataset as a new partition to an existing zarr directory.  False will overwrite zarr directory with a single new partition
     nofile : bool
-        Allows legacy MS to be directly read without file conversion. If set to true, no output file will be written and entire MS will be held in memory.
-        Requires ~4x the memory of the MS size.  Default is False
+        Allows legacy table to be directly read without file conversion. If set to true, no output file will be written and entire table will be held in memory.
+        Requires ~4x the memory of the table size.  Default is False
     Returns
     -------
     New xarray.core.dataset.Dataset
       New xarray Dataset of table data contents. One element in list per DDI plus the metadata global.
     """
     import os
-    from casatools import table as tb
     from numcodecs import Blosc
-    import xarray
-    import numpy as np
-    from itertools import cycle
-    import warnings
-    warnings.filterwarnings('ignore', category=FutureWarning)
-
-    if compressor is None:
-        compressor = Blosc(cname='zstd', clevel=2, shuffle=0)
+    import cngi._helper.table_conversion as tblconv
 
     # parse filename to use
     infile = os.path.expanduser(infile)
     prefix = infile[:infile.rindex('.')]
-    if outfile is None:
-        outfile = prefix + '.tbl.zarr'
-    else:
-        outfile = os.path.expanduser(outfile)
+    if outfile is None: outfile = prefix + '.tbl.zarr'
+    outfile = os.path.expanduser(outfile)
+    if not infile.endswith('/'): infile = infile + '/'
+    if not outfile.endswith('/'): outfile = outfile + '/'
+    if subtable is None: subtable = ''
+    if compressor is None:
+        compressor = Blosc(cname='zstd', clevel=2, shuffle=0)
+        
+    print('processing %s to %s' % (infile+subtable, outfile+subtable))
 
     # need to manually remove existing zarr file (if any)
-    print('processing %s ' % infile)
-    if not nofile:
+    if (not nofile) and (not append):
         os.system("rm -fr " + outfile)
         os.system("mkdir " + outfile)
     
-    tb_tool = tb()
-    tb_tool.open(infile, nomodify=True, lockoptions={'option': 'usernoread'})  # allow concurrent reads
-    
-    mvars = {}
-    print('processing table...')
-    for col in tb_tool.colnames():
-        if not tb_tool.iscelldefined(col, 0):
-            print("##### ERROR processing column %s, skipping..." % col)
-            continue
-        if tb_tool.isvarcol(col):
-            data = tb_tool.getvarcol(col)
-            tshape = np.max([list(data['r' + str(kk)].shape) for kk in np.arange(len(data)) + 1], axis=0)
-            # expand the variable shaped column to the maximum size of each dimension
-            # blame the person who devised the tb.getvarcol return structure
-            data = [np.pad(data['r'+str(kk)], np.stack((tshape*0, tshape-data['r'+str(kk)].shape),-1)) for kk in np.arange(len(data))+1]
-            data = np.array(data)
-        else:
-            data = tb_tool.getcol(col).transpose()
-        dims = ['d0'] + ['d%s_%s' % (str(ii), str(data.shape[ii])) for ii in range(1,data.ndim)]
-        mvars[col.upper()] = xarray.DataArray(data, dims=dims)
-    
-    tb_tool.close()
-
-    xds = xarray.Dataset(mvars)
-    
-    if not nofile:
-        print('writing...')
-        encoding = dict(zip(list(xds.data_vars), cycle([{'compressor': compressor}])))
-        xds.to_zarr(outfile, mode='w', encoding=encoding, consolidated=True)
+    if (keys is None) or (type(keys) is str):
+        xds = tblconv.convert_simple_table(infile, outfile,
+                                           subtable=subtable,
+                                           rowdim='d0' if keys is None else keys,
+                                           timecols=[] if timecols is None else timecols,
+                                           compressor=compressor,
+                                           chunk_shape=chunk_shape,
+                                           nofile=nofile)
+    else:
+        xds = tblconv.convert_expanded_table(infile, outfile,
+                                             keys=keys,
+                                             subtable=subtable,
+                                             subsel=None,
+                                             timecols=[] if timecols is None else timecols,
+                                             dimnames={},
+                                             compressor=compressor,
+                                             chunk_shape=chunk_shape,
+                                             nofile=nofile)
     
     return xds

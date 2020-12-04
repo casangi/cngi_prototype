@@ -6,17 +6,8 @@ descriptions have not been completed yet. As each function is completed, its
 description will be populated.
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
 
-   _api/conversion
-   _api/dio
-   _api/vis
-   _api/images
-   _api/calibration
-   _api/flagging
-   _api/imaging
-   _api/deconvolution
-   _api/simulator
-   _api/direct
-
+   _api/autoapi/cngi/index
+   _api/autoapi/ngcasa/index
 
