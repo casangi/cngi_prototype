@@ -54,7 +54,7 @@ def _airy_disk(freq_chan,pol,pb_parms,grid_parms):
     for i, (dish_diameter, blockage_diameter) in enumerate(zip(list_dish_diameters, list_blockage_diameters)):
         
         aperture = dish_diameter/2
-        x_grid, y_grid = np.meshgrid(y,x)
+        x_grid, y_grid = np.meshgrid(x,y,indexing='ij')
         
         #r_grid = (np.sin(np.sqrt(x_grid**2 + y_grid**2))[:,:,None]*k*aperture) #d0 x d1 x chan
         r_grid = (np.sqrt(x_grid**2 + y_grid**2)[:,:,None]*k*aperture) #d0 x d1 x chan
@@ -107,7 +107,7 @@ def _alma_airy_disk(freq_chan,pol,pb_parms,grid_parms):
     for i, (dish_diameter, blockage_diameter) in enumerate(zip(list_dish_diameters, list_blockage_diameters)):
         
         aperture = dish_diameter/2
-        x_grid, y_grid = np.meshgrid(y,x)
+        x_grid, y_grid = np.meshgrid(x,y,indexing='ij')
         
         #r_grid = (np.sin(np.sqrt(x_grid**2 + y_grid**2))[:,:,None]*k*aperture) #d0 x d1 x chan
         r_grid = (np.sqrt(x_grid**2 + y_grid**2)[:,:,None]*k*aperture) #d0 x d1 x chan
@@ -162,7 +162,7 @@ def _airy_disk_rorder(freq_chan,pol,pb_parms,grid_parms):
     for i, (dish_diameter, blockage_diameter) in enumerate(zip(list_dish_diameters, list_blockage_diameters)):
         
         aperture = dish_diameter/2
-        x_grid, y_grid = np.meshgrid(y,x)
+        x_grid, y_grid = np.meshgrid(x,y,indexing='ij')
         
         #r_grid = (np.sin(np.sqrt(x_grid**2 + y_grid**2))[:,:,None]*k*aperture) #d0 x d1 x chan
         r_grid = np.moveaxis((np.sqrt(x_grid**2 + y_grid**2)[:,:,None]*k*aperture),2,0) #chan x d0 x d1
@@ -214,7 +214,7 @@ def _alma_airy_disk_rorder(freq_chan,pol,pb_parms,grid_parms):
     for i, (dish_diameter, blockage_diameter) in enumerate(zip(list_dish_diameters, list_blockage_diameters)):
         
         aperture = dish_diameter/2
-        x_grid, y_grid = np.meshgrid(y,x)
+        x_grid, y_grid = np.meshgrid(x,y,indexing='ij')
         
         #r_grid = (np.sin(np.sqrt(x_grid**2 + y_grid**2))[:,:,None]*k*aperture) #d0 x d1 x chan
         r_grid = np.moveaxis((np.sqrt(x_grid**2 + y_grid**2)[:,:,None]*k*aperture),2,0) #chan x d0 x d1

@@ -90,7 +90,7 @@ def casa_fit(img_to_fit,npix_window,sampling,cutoff,delta):
     d1 = np.arange(0, npix_window[1])*np.abs(delta[1])
     interp_d0 = np.linspace(0, npix_window[0]-1, sampling[0])*np.abs(delta[0])
     interp_d1 = np.linspace(0, npix_window[1]-1, sampling[1])*np.abs(delta[1])
-    xp, yp = np.meshgrid(interp_d0, interp_d1)
+    xp, yp = np.meshgrid(interp_d0, interp_d1,indexing='ij')
     points = np.vstack((np.ravel(xp), np.ravel(yp))).T
     
     #img_to_fit = np.reshape(interpn((d0,d1),img_to_fit[:,:,0,0],points,method="splinef2d"),[sampling[1],sampling[0]]).T
