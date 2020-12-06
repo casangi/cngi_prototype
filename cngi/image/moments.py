@@ -17,6 +17,7 @@ this module will be included in the api
 
 import xarray as xa
 import numpy as np
+from cngi.image import imageUtility as iu
 
 xa.set_options(keep_attrs=True)
 
@@ -37,29 +38,17 @@ def moments(ds, **kwargs):
         number that selects which moment to calculate from the following list
 
         -1 - mean value of the spectrum (default)
-
-        0  - integrated value of the spectrum  
-
+        0  - integrated value of the spectrum
         1  - intensity weighted coordinate; traditionally used to get ’velocity fields’
-
-        2  - intensity weighted dispersion of the coordinate; traditionally used to get ’velocity dispersion’  
-
-        3  - median of I  
-
-        4  - median coordinate  
-
-        5  - standard deviation about the mean of the spectrum  
-
-        6  - root mean square of the spectrum  
-
-        7  - absolute mean deviation of the spectrum  
-
-        8  - maximum value of the spectrum  
-
-        9  - coordinate of the maximum value of the spectrum  
-
-        10 - minimum value of the spectrum  
-
+        2  - intensity weighted dispersion of the coordinate; traditionally used to get ’velocity dispersion’
+        3  - median of I
+        4  - median coordinate
+        5  - standard deviation about the mean of the spectrum
+        6  - root mean square of the spectrum
+        7  - absolute mean deviation of the spectrum
+        8  - maximum value of the spectrum
+        9  - coordinate of the maximum value of the spectrum
+        10 - minimum value of the spectrum
         11 - coordinate of the minimum value of the spectrum
 
     **kwargs
@@ -72,75 +61,93 @@ def moments(ds, **kwargs):
     """
 
     # input parameter checking
+    # moment: int array: a List of moments to compute
+    if 'moment' in kwargs.keys():
+        moment = kwargs['moment']
+        assert np.min(moment) in range(-1,12), "Input to moment parameter must be between -1 and 11"
+        assert np.max(moment) in range(-1,12)
+    else:
+        print("No valid input code detected, assuming default to calculate all image moments)")
+        moment = np.arange(-1,12)
+
+    # axis: string int: the moment axis: ra, dec, lat, long, spectral or stokes.
     if 'axis' in kwargs.keys():
         axis = kwargs['axis']
     else:
-        print("No axis specified."
-              "Defaulting to reducing along frequency dimension")
-        axis = 'chan'
+        print("No valid axis is specified, set default 'chan')")
+        axis='chan'
 
-    if 'code' in kwargs.keys():
-        code = int(kwargs['code'])
-        assert code in range(-1,12), "Input to 'code' parameter must be between -1 and 11"
+    # chans: string, Channels to use. Default is to use all channels.
+    if ('chans' in kwargs.keys()):
+        chans = iu.selectedchannels(chans = kwargs['chans'],shapeLength = ds.dims['chan'])
     else:
-        print("No valid input code detected, assuming default (-1)")
-        code = -1
+        print("No channel is specified. Set to default -1 to use all channels")
+        chans = np.arange(ds.dims['chan'])
 
     #This factor is related to the width (in world coordinate units) of a pixel along the moment axis
-    #todo: need to find out how casa6 does
-    channelSingleFactor=0.49100335
-    intensity=ds.IMAGE
-    code=kwargs['moments']
-    deltachan= ds.coords['chan'].values[1]-ds.coords['chan'].values[0]
-        # moment calculation
-    if -1 in code or 0 in code or 1 in code or 2 in code:
-        average = intensity.mean(dim='chan')
-        ds["MOMENTS_AVERAGE"]=average.sel(pol=1)
-        ds["MOMENTS_INTERGRATED"]=average.sel(pol=1)*channelSingleFactor*intensity.shape[2]
+    # light speed in kilometer per second
+    lightSpeed = 2.99792458*pow(10,5)
+    f0 = float(ds.attrs['rest_frequency'].replace('hz', ''))
+    v = (1 - ds.coords[axis] / f0) * lightSpeed
+    deltaV = (ds.coords[axis].values[1]-ds.coords[axis].values[0])*lightSpeed / f0
+    intensity=ds.IMAGE[:,:,chans,:]
+
+    # moments calculation
+    if -1 in moment or 0 in moment or 1 in moment or 2 in moment:
+        #ds["MOMENTS_AVERAGE"]=intensity.mean(dim=axis)
+        ds["MOMENTS_AVERAGE"] = intensity.sum(dim=axis) / intensity.shape[2]
+        ds["MOMENTS_INTERGRATED"]=intensity.sum(dim=axis)*deltaV
 
         sum1 = 0
         for i in range(intensity.shape[2]):
-            sum1 += intensity[:, :, i, :] * i * deltachan
-        mo = deltachan * intensity.sum(dim='chan')
-        intensityweightedcoor = sum1/mo
-        ds["MOMENTS_WEIGHTED_COORD"] = intensityweightedcoor.sel(pol=1)
+            sum1 += intensity[:, :, i, :] *  v[i]
+        ds["MOMENTS_WEIGHTED_COORD"] = sum1/ds["MOMENTS_INTERGRATED"]
 
         sum1=0
         for i in range(intensity.shape[2]):
-            temp= i*deltachan-intensityweightedcoor
-            temp= temp*temp
-            sum1 = intensity[:, :, i, :]*temp
-        ds["MOMENTS_WEIGHTED_DISPERSION_COORD"] = (sum1 / mo).sel(pol=1)
+            sum1 = intensity[:, :, i, :]*pow((v[i]-ds["MOMENTS_WEIGHTED_COORD"]),2)
+        ds["MOMENTS_WEIGHTED_DISPERSION_COORD"] = np.sqrt(sum1 / ds["MOMENTS_INTERGRATED"])
 
-    if 3 in code:
-        ds["MOMENTS_MEDIAN"] = intensity.median(dim='chan').sel(pol=1)
-    if 4 in code:
-        mediacoordinate = intensity.median(dim='chan')
-        ds["MOMENTS_MEDIAN_COORD"] = mediacoordinate
-    if 5 in code:
-        '''
-        sd = (intensity - average) * (intensity - average)
-        standarddeviation = np.sqrt(sd.sum(dim='chan') / (intensity.shape[2]-1))
-        ds["MOMENTS_STANDARD_DEVIATION"] = standarddeviation.sel(pol=1)
-        '''
-        ds["MOMENTS_STANDARD_DEVIATION"] = intensity.std(dim='chan').sel(pol=1)
-    if 6 in code:
-        ds["MOMENTS_RMS"] = np.sqrt((np.fabs(intensity * intensity)).mean(dim='chan')).sel(pol=1)
-    if 7 in code:
-        average = intensity.mean(dim='chan')
-        sd = np.fabs((intensity-average))
-        absmeandev = sd.mean(dim='chan')
-        ds["MOMENTS_ABS_MEAN_DEV"] = absmeandev.sel(pol=1)
-    if 8 in code:
-        ds["MOMENTS_MAXIMUM"] = intensity.max(dim='chan').sel(pol=1)
-    if 9 in code:
-        ds["MOMENTS_MAXIMUM_COORD"] = intensity.argmax(dim='chan').sel(pol=1)
-    if 10 in code:
-        ds["MOMENTS_MINIMUM"] = intensity.min(dim='chan').sel(pol=1)
-    if 11 in code:
-        ds["MOMENTS_MINIMUM_COORD"] = intensity.argmin(dim='chan').sel(pol=1)
-    #else:
-    #   raise NotImplementedError(f"Moments code={code} is not yet supported")
+    if 3 in moment:
+        ds["MOMENTS_MEDIAN"] = intensity.median(dim=axis)
+    if 4 in moment:
+        ds["MOMENTS_MEDIAN_COORD"] = np.quantile(intensity.values, .25)
+    if 5 in moment:
+
+        sd = pow((intensity - intensity.mean(dim=axis)),2)
+        standarddeviation = np.sqrt(sd.sum(dim=axis) / (intensity.shape[2]-1))
+        ds["MOMENTS_STANDARD_DEVIATION"] = standarddeviation
+
+        # The default xarray.std returns large difference between casa6 and CNGI
+        # ds["MOMENTS_STANDARD_DEVIATION"] = intensity.std(dim=axis)
+    if 6 in moment:
+        ds["MOMENTS_RMS"] = np.sqrt((np.fabs(intensity * intensity)).mean(dim=axis))
+    if 7 in moment:
+        sd = np.fabs((intensity-intensity.mean(dim=axis)))
+        absmeandev = sd.mean(dim=axis)
+        ds["MOMENTS_ABS_MEAN_DEV"] = absmeandev
+    if 8 in moment:
+        ds["MOMENTS_MAXIMUM"] = intensity.max(dim=axis)
+    # moments of maximum coordinate unit is km/m
+    if 9 in moment:
+        mcnparray = intensity.argmax(dim=axis).values.astype(np.float32)
+        for i in range(intensity.shape[2]):
+            mcnparray[mcnparray==i]=v[i]
+
+        ds["MOMENTS_MAXIMUM_COORD"] = xa.DataArray(mcnparray,
+                                                   coords=ds["MOMENTS_MAXIMUM"].coords,
+                                                   dims=ds["MOMENTS_MAXIMUM"].dims)
+    if 10 in moment:
+        ds["MOMENTS_MINIMUM"] = intensity.min(dim=axis)
+    # moments of maximum coordinate unit is km/m
+    if 11 in moment:
+        mcnparray = intensity.argmin(dim=axis).values.astype(np.float32)
+        for i in range(intensity.shape[2]):
+            mcnparray[mcnparray == i] = v[i]
+
+        ds["MOMENTS_MINIMUM_COORD"] = xa.DataArray(mcnparray,
+                                                   coords=ds["MOMENTS_MAXIMUM"].coords,
+                                                   dims=ds["MOMENTS_MAXIMUM"].dims)
 
     return ds
 
