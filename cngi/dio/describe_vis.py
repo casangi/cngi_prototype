@@ -31,17 +31,24 @@ def describe_vis(infile):
         Summary information
     """
     import os
+    import numpy as np
     import pandas as pd
     from xarray import open_zarr
     
     infile = os.path.expanduser(infile)  # does nothing if $HOME is unknown
     summary = pd.DataFrame([])
-    for ii, ddi in enumerate(os.listdir(infile)):
-        if ddi == 'global': continue
-        dpath = os.path.join(infile, str(ddi))
-        xds = open_zarr(dpath)
-        sdf = {'ddi': ddi, 'spw_id':xds.spw.values[0], 'size_GB': xds.nbytes / 1024 ** 3, 'channels':len(xds.chan), 'times': len(xds.time),
-               'baselines':len(xds.baseline), 'fields':len(xds.field)}
+    parts = os.listdir(infile)
+    for ii, part in enumerate(parts):
+        if part.startswith('global_'): continue
+        print('processing partition %i of %i' % (ii+1, len(parts)), end='\r')
+        xds = open_zarr(os.path.join(infile, str(part)))
+        sdf = {'partition': part, 'spw_id':xds.spw_id.values[0], 'pol_id':xds.pol_id.values[0],
+               'times': len(xds.time),
+               'baselines': len(xds.baseline),
+               'chans': len(xds.chan),
+               'pols': len(xds.pol),
+               'size_MB': np.ceil(xds.nbytes / 1024 ** 2).astype(int)}
         summary = pd.concat([summary, pd.DataFrame(sdf, index=[ii])], axis=0, sort=False)
     
-    return summary.set_index('ddi')
+    print(' '*50, end='\r')
+    return summary.set_index('partition').sort_index()

@@ -16,7 +16,7 @@ this module will be included in the api
 """
 
 #############################################
-def write_vis(xds, outfile='vis.zarr', ddi=0, append=True):
+def write_vis(xds, outfile='vis.zarr', partition='part0', compressor=None, append=True):
     """
     Write xarray Visibility Dataset to zarr format on disk
   
@@ -26,10 +26,13 @@ def write_vis(xds, outfile='vis.zarr', ddi=0, append=True):
         Visibility Dataset to write to disk
     outfile : str
         output filename, generally ends in .zarr
-    int : ddi
-        Data Description ID of Visibility data to write. Defaults to 0
+    partition : str
+        Name of partition to write into outfile. Overwrites existing partition of same name. Default is 'part0'
+    compressor : numcodecs.blosc.Blosc
+        The blosc compressor to use when saving the converted data to disk using zarr.
+        If None the zstd compression algorithm used with compression level 2.
     append : bool
-        Append this DDI in to an existing zarr directory. False will erase old zarr directory. Default=True
+        Append this partition in to an existing zarr directory. False will erase old zarr directory. Default=True
     
     Returns
     -------
@@ -40,14 +43,13 @@ def write_vis(xds, outfile='vis.zarr', ddi=0, append=True):
     
     outfile = os.path.expanduser(outfile)
     
+    if compressor is None:
+        compressor = Blosc(cname='zstd', clevel=2, shuffle=0)
+        
     # need to manually remove existing parquet file (if any)
     if not append:
       tmp = os.system("rm -fr " + outfile)
-    else:  # still need to remove existing ddi (if any)
-      tmp = os.system("rm -fr " + outfile + '/' + str(ddi))
+      tmp = os.system("mkdir " + outfile)
     
-    tmp = os.system("mkdir " + outfile)
-    
-    compressor = Blosc(cname='zstd', clevel=2, shuffle=0)
     encoding = dict(zip(list(xds.data_vars), cycle([{'compressor': compressor}])))
-    xds.to_zarr(outfile + '/' + str(ddi), mode='w', encoding=encoding)
+    xds.to_zarr(os.path.join(outfile, partition), mode='w', encoding=encoding)

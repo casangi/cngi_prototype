@@ -1,4 +1,4 @@
-#   Copyright 2019 AUI, Inc. Washington DC, USA
+#   Copyright 2020 AUI, Inc. Washington DC, USA
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -12,8 +12,14 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+#################################
+# Helper File
+#
+# Not exposed in API
+#
+#################################
 
-#####
+
 ## compute the synthesized beam for a grid of specified size
 ## equation drawn from: https://casa.nrao.edu/casadocs/latest/casa-fundamentals/definition_synthesized_beam
 ## d1, d2, incr in arcseconds, theta in degrees, incr in radians

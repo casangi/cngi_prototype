@@ -17,7 +17,7 @@ this module will be included in the api
 
 
 
-def convert_table(infile, outfile=None, subtable=None, keys=None, timecols=None, compressor=None, chunk_shape=(40000, 20, 1), append=False, nofile=False):
+def convert_table(infile, outfile=None, subtable=None, keys=None, timecols=None, ignorecols=None, compressor=None, chunk_shape=(40000, 20, 1), append=False, nofile=False):
     """
     Convert casacore table format to xarray Dataset and zarr storage format.
 
@@ -36,6 +36,8 @@ def convert_table(infile, outfile=None, subtable=None, keys=None, timecols=None,
         (ie {('ANTENNA1','ANTENNA2'):'baseline'} or a string to rename the row axis dimension to the specified value.  Default of None
     timecols : list
         list of strings specifying column names to convert to datetime format from casacore time.  Default is None
+    ignorecols : list
+        list of column names to ignore. This is useful if a particular column is causing errors.  Default is None
     compressor : numcodecs.blosc.Blosc
         The blosc compressor to use when saving the converted data to disk using zarr.
         If None the zstd compression algorithm used with compression level 2.
@@ -80,6 +82,7 @@ def convert_table(infile, outfile=None, subtable=None, keys=None, timecols=None,
                                            subtable=subtable,
                                            rowdim='d0' if keys is None else keys,
                                            timecols=[] if timecols is None else timecols,
+                                           ignore= [] if ignorecols is None else ignorecols,
                                            compressor=compressor,
                                            chunk_shape=chunk_shape,
                                            nofile=nofile)
@@ -90,6 +93,7 @@ def convert_table(infile, outfile=None, subtable=None, keys=None, timecols=None,
                                              subsel=None,
                                              timecols=[] if timecols is None else timecols,
                                              dimnames={},
+                                             ignore=[] if ignorecols is None else ignorecols,
                                              compressor=compressor,
                                              chunk_shape=chunk_shape,
                                              nofile=nofile)

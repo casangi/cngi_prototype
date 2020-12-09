@@ -46,23 +46,33 @@ def convert_time(rawtimes):
 # compute dimensions of variable shaped columns
 # this will be used to standardize the shape to the largest value of each dimension
 # this does not work on columns with variable dimension lengths (i.e. ndim changes between 2 and 3)
-def compute_dimensions(tb_tool):
+# columns designated as ignore will be treated as bad
+def compute_dimensions(tbobj, ignore):
     cshape = {}
     bad_cols = []
-    for col in tb_tool.colnames():
-        if not tb_tool.iscelldefined(col, 0):
+    for col in tbobj.colnames():
+        if col in ignore:
+            bad_cols += [col]
+            continue
+        if not tbobj.iscelldefined(col, 0):
             print("##### ERROR processing column %s, skipping..." % col)
             bad_cols += [col]
             continue
-        if tb_tool.isvarcol(col):
-            tshape = list(np.unique(tb_tool.getcolshapestring(col)))  # list of string shapes
-            if len(tshape) == 1: continue  # this column does not actually vary in shape
-            tshape = [list(np.fromstring(nn[1:-1], dtype=int, sep=',')) for nn in tshape]  # list of int shapes
-            if len(np.unique([len(nn) for nn in tshape])) > 1:
-                print('##### ERROR processing column %s, shape has variable dimensionality, skipping...' % col)
-                bad_cols += [col]
-                continue
-            cshape[col] = np.max([nn for nn in tshape], axis=0)  # store the max dimensionality of this col
+        try:
+            if tbobj.isvarcol(col):
+                # find unique shapes in this col, if there is only 1, it isn't really a var col
+                tshape = np.unique([np.unique(tbobj.getcolshapestring(col, sidx, 10000)) for sidx in range(0, tbobj.nrows(), 10000)])
+                if len(tshape) == 1: continue
+                tshape = [list(np.fromstring(nn[1:-1], dtype=int, sep=',')) for nn in tshape]  # list of int shapes
+                if len(np.unique([len(nn) for nn in tshape])) > 1:
+                    print('##### ERROR processing column %s, shape has variable dimensionality, skipping...' % col)
+                    bad_cols += [col]
+                    continue
+                cshape[col] = np.max([nn for nn in tshape], axis=0)  # store the max dimensionality of this col
+        except Exception:
+            print("##### ERROR processing column %s, skipping..." % col)
+            bad_cols += [col]
+            continue
     return cshape, bad_cols
 
 
@@ -73,15 +83,14 @@ def compute_dimensions(tb_tool):
 # if infile/outfile are the main table, subtable can also be specified
 # rowdim is used to rename the row axis dimension to the specified value
 # timecols is a list of column names to convert to datetimes
-def convert_simple_table(infile, outfile, subtable='', rowdim='d0', timecols=[], compressor=None, chunk_shape=(40000, 20, 1), nofile=False):
+# ignore is a list of columns to ignore
+def convert_simple_table(infile, outfile, subtable='', rowdim='d0', timecols=[], ignore=[], compressor=None, chunk_shape=(40000, 20, 1), nofile=False):
     
-    if not infile.endswith('/'): infile = infile + '/'
-    if not outfile.endswith('/'): outfile = outfile + '/'
     if compressor is None:
         compressor = Blosc(cname='zstd', clevel=2, shuffle=0)
     
     tb_tool = tb()
-    tb_tool.open(infile+subtable, nomodify=True, lockoptions={'option': 'usernoread'})  # allow concurrent reads
+    tb_tool.open(os.path.join(infile, subtable), nomodify=True, lockoptions={'option': 'usernoread'})  # allow concurrent reads
     
     # sometimes they are empty
     if tb_tool.nrows() == 0:
@@ -95,23 +104,31 @@ def convert_simple_table(infile, outfile, subtable='', rowdim='d0', timecols=[],
     # master dataset holders
     mvars = {}
     mdims = {rowdim: tb_tool.nrows()}  # keys are dimension names, values are dimension sizes
-    cshape, bad_cols = compute_dimensions(tb_tool)
+    cshape, bad_cols = compute_dimensions(tb_tool, ignore)
     
     for start_idx in range(0, tb_tool.nrows(), chunk_shape[0]):
         for col in tb_tool.colnames():
             if col in bad_cols: continue
-            print('reading chunk %s of %s, col %s...' % (str(start_idx // chunk_shape[0]), str(tb_tool.nrows() // chunk_shape[0]), col), end='\r')
+            print('reading chunk %s of %s, col %s...%s' % (str(start_idx // chunk_shape[0]), str(tb_tool.nrows() // chunk_shape[0]), col, ' '*20), end='\r')
 
-            if col in cshape:   # if this column has a varying shape, it needs to be normalized
-                data = tb_tool.getvarcol(col, start_idx, chunk_shape[0])
-                tshape = cshape[col]  # grab the max dimensionality of this col
-                # expand the variable shaped column to the maximum size of each dimension
-                # blame the person who devised the tb.getvarcol return structure
-                data = np.array([np.pad(data['r' + str(kk)][..., 0], np.stack((tshape * 0, tshape - data['r' + str(kk)].shape[:-1]), -1)).transpose()
-                                 for kk in np.arange(start_idx + 1, start_idx + len(data) + 1)])
-            else:
-                data = tb_tool.getcol(col, start_idx, chunk_shape[0]).transpose()
-                
+            try:
+                if col in cshape:   # if this column has a varying shape, it needs to be normalized
+                    data = tb_tool.getvarcol(col, start_idx, chunk_shape[0])
+                    tshape = cshape[col]  # grab the max dimensionality of this col
+                    # expand the variable shaped column to the maximum size of each dimension
+                    # blame the person who devised the tb.getvarcol return structure
+                    data = np.array([np.pad(data['r' + str(kk)][..., 0], np.stack((tshape * 0, tshape - data['r' + str(kk)].shape[:-1]), -1)).transpose()
+                                     for kk in np.arange(start_idx + 1, start_idx + len(data) + 1)])
+                else:
+                    data = tb_tool.getcol(col, start_idx, chunk_shape[0]).transpose()
+            except Exception:
+                print("##### ERROR processing column %s, skipping..." % col)
+                bad_cols += [col]
+                continue
+            
+            # sometimes, even though the table has >0 rows, certain columns still return 0 rows
+            if len(data) == 0: continue
+            
             # convert col values to datetime if desired
             if col in timecols:
                 data = convert_time(data)
@@ -132,17 +149,14 @@ def convert_simple_table(infile, outfile, subtable='', rowdim='d0', timecols=[],
         xds = xarray.Dataset(mvars)
         if (not nofile) and (start_idx == 0):
             encoding = dict(zip(list(xds.data_vars), cycle([{'compressor': compressor}])))
-            xds = xds.assign_attrs({'name': infile[infile[:-1].rindex('/') + 1:-1]})
-            xds.to_zarr(outfile+subtable, mode='w', encoding=encoding, consolidated=True)
+            xds = xds.assign_attrs({'name': infile[infile[:-1].rfind('/') + 1:-1]})
+            xds.to_zarr(os.path.join(outfile,subtable), mode='w', encoding=encoding, consolidated=True)
         elif not nofile:
-            xds.to_zarr(outfile+subtable, mode='a', append_dim=rowdim, compute=True, consolidated=True)
+            xds.to_zarr(os.path.join(outfile,subtable), mode='a', append_dim=rowdim, compute=True, consolidated=True)
     
     tb_tool.close()
     if not nofile:
-        #xarray.Dataset(attrs={'name': infile[infile[:-1].rindex('/') + 1:-1]}).to_zarr(outfile+subtable, mode='a', compute=True, consolidated=True)
-        xds = xarray.open_zarr(outfile+subtable)
-    #else:
-    #    xds = xds.assign_attrs({'name': infile[infile[:-1].rindex('/') + 1:-1]})
+        xds = xarray.open_zarr(os.path.join(outfile,subtable))
     
     return xds
 
@@ -158,28 +172,23 @@ def convert_simple_table(infile, outfile, subtable='', rowdim='d0', timecols=[],
 # subsel is a dict of col name : col val to subselect in the table (ie {'DATA_DESC_ID' : 0}
 # timecols is a list of column names to convert to datetimes
 # dimnames is a dictionary mapping old to new dimension names for remaining dims (not in keys)
-def convert_expanded_table(infile, outfile, keys, subtable='', subsel=None, timecols=[], dimnames={}, compressor=None, chunk_shape=(100, 20, 1), nofile=False):
+# ignore is a list of column names to ignore
+def convert_expanded_table(infile, outfile, keys, subtable='', subsel=None, timecols=[], dimnames={}, ignore=[], compressor=None, chunk_shape=(100, 20, 1), nofile=False):
     
-    if not infile.endswith('/'): infile = infile + '/'
-    if not outfile.endswith('/'): outfile = outfile + '/'
     if compressor is None:
         compressor = Blosc(cname='zstd', clevel=2, shuffle=0)
     
     tb_tool = tb()
-    tb_tool.open(infile+subtable, nomodify=True, lockoptions={'option': 'usernoread'})  # allow concurrent reads
+    tb_tool.open(os.path.join(infile,subtable), nomodify=True, lockoptions={'option': 'usernoread'})  # allow concurrent reads
     
     # sometimes they are empty
     if tb_tool.nrows() == 0:
         tb_tool.close()
         return xarray.Dataset()
-    
+        
     # handle no chunking of first axis
     if chunk_shape[0] == -1:
         chunk_shape[0] = tb_tool.nrows()
-    
-    # master dataset holders
-    mvars, midxs = {}, {}
-    cshape, bad_cols = compute_dimensions(tb_tool)
     
     # sort table by value of dimensions to be expanded
     # load and store the column to be used as the key for the first dimension (aka the row key)
@@ -194,7 +203,11 @@ def convert_expanded_table(infile, outfile, keys, subtable='', subsel=None, time
     else:
         tsel = [list(subsel.keys())[0], list(subsel.values())[0]]
         sorted_table = tb_tool.taql('select * from %s where %s = %s ORDERBY %s' % (infile+subtable, tsel[0], tsel[1], ordering))
-    
+
+    # master dataset holders
+    mvars, midxs = {}, {}
+    cshape, bad_cols = compute_dimensions(sorted_table, ignore)
+
     row_key, exp_keys = list(keys.keys())[0], list(keys.keys())[1:] if len(keys) > 1 else []
     target_row_key, target_exp_keys = list(keys.values())[0], list(keys.values())[1:] if len(keys) > 1 else []
     rows = np.hstack([sorted_table.getcol(rr)[:,None] for rr in np.atleast_1d(row_key)]).squeeze()
@@ -227,18 +240,26 @@ def convert_expanded_table(infile, outfile, keys, subtable='', subsel=None, time
         for col in sorted_table.colnames():
             if col in bad_cols: continue
             if col in keys.keys(): continue  # skip dim columns (unless they are tuples)
-            print('reading chunk %s of %s, col %s...' % (str(start_idx // chunk_shape[0]), str(len(unique_row_keys) // chunk_shape[0]), col), end='\r')
+            print('reading chunk %s of %s, col %s...%s' % (str(start_idx // chunk_shape[0]), str(len(unique_row_keys) // chunk_shape[0]), col, ' '*20), end='\r')
 
-            if col in cshape:   # if this column has a varying shape, it needs to be normalized
-                data = sorted_table.getvarcol(col, idx_range[0], len(idx_range))
-                tshape = cshape[col]  # grab the max dimensionality of this col
-                # expand the variable shaped column to the maximum size of each dimension
-                # blame the person who devised the tb.getvarcol return structure
-                data = np.array([np.pad(data['r' + str(kk)][..., 0], np.stack((tshape * 0, tshape - data['r' + str(kk)].shape[:-1]), -1)).transpose()
-                                 for kk in np.arange(start_idx + 1, start_idx + len(data) + 1)])
-            else:
-                data = sorted_table.getcol(col, idx_range[0], len(idx_range)).transpose()
-
+            try:
+                if col in cshape:   # if this column has a varying shape, it needs to be normalized
+                    data = sorted_table.getvarcol(col, idx_range[0], len(idx_range))
+                    tshape = cshape[col]  # grab the max dimensionality of this col
+                    # expand the variable shaped column to the maximum size of each dimension
+                    # blame the person who devised the tb.getvarcol return structure
+                    data = np.array([np.pad(data['r' + str(kk)][..., 0], np.stack((tshape * 0, tshape - data['r' + str(kk)].shape[:-1]), -1)).transpose()
+                                     for kk in np.arange(start_idx + 1, start_idx + len(data) + 1)])
+                else:
+                    data = sorted_table.getcol(col, idx_range[0], len(idx_range)).transpose()
+            except Exception:
+                print("##### ERROR processing column %s, skipping..." % col)
+                bad_cols += [col]
+                continue
+                
+            # sometimes, even though the table has >0 rows, certain columns still return 0 rows
+            if len(data) == 0: continue
+            
             # compute the full shape of this chunk with the expanded dimensions and initialize to NANs
             fullshape = (len(chunk),) + tuple([midxs[mm][0].shape[0] for mm in list(midxs.keys())]) + data.shape[1:]
             fulldata = np.full(fullshape, np.nan, dtype=data.dtype)
@@ -264,13 +285,13 @@ def convert_expanded_table(infile, outfile, keys, subtable='', subsel=None, time
         xds = xarray.Dataset(mvars, coords=mcoords).rename(dimnames)
         if (not nofile) and (start_idx == 0):
             encoding = dict(zip(list(xds.data_vars), cycle([{'compressor': compressor}])))
-            xds.to_zarr(outfile+subtable, mode='w', encoding=encoding, consolidated=True)
+            xds.to_zarr(os.path.join(outfile,subtable), mode='w', encoding=encoding, consolidated=True)
         elif not nofile:
-            xds.to_zarr(outfile+subtable, mode='a', append_dim=row_key.lower(), compute=True, consolidated=True)
+            xds.to_zarr(os.path.join(outfile,subtable), mode='a', append_dim=row_key.lower(), compute=True, consolidated=True)
 
     sorted_table.close()
     tb_tool.close()
     if not nofile:
-        xds = xarray.open_zarr(outfile + subtable)
+        xds = xarray.open_zarr(os.path.join(outfile,subtable) + subtable)
 
     return xds
