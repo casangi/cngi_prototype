@@ -39,10 +39,10 @@ def describe_vis(infile):
     summary = pd.DataFrame([])
     parts = os.listdir(infile)
     for ii, part in enumerate(parts):
-        if part.startswith('global_'): continue
+        if part.startswith('global'): continue
         print('processing partition %i of %i' % (ii+1, len(parts)), end='\r')
         xds = open_zarr(os.path.join(infile, str(part)))
-        sdf = {'partition': part, 'spw_id':xds.spw_id.values[0], 'pol_id':xds.pol_id.values[0],
+        sdf = {'xds': part, 'spw_id':xds.spw_id.values[0], 'pol_id':xds.pol_id.values[0],
                'times': len(xds.time),
                'baselines': len(xds.baseline),
                'chans': len(xds.chan),
@@ -51,4 +51,4 @@ def describe_vis(infile):
         summary = pd.concat([summary, pd.DataFrame(sdf, index=[ii])], axis=0, sort=False)
     
     print(' '*50, end='\r')
-    return summary.set_index('partition').sort_index()
+    return summary.set_index('xds').sort_index()

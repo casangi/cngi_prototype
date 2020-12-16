@@ -59,6 +59,8 @@ def convert_image(infile, outfile=None, artifacts=None, compressor=None, chunk_s
     warnings.simplefilter("ignore", category=FutureWarning)  # suppress noisy warnings about bool types
 
     print("converting Image...")
+    
+    # TODO - find and save projection type
 
     infile = os.path.expanduser(infile)
     prefix = infile[:infile.rindex('.')]

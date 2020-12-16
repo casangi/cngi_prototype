@@ -26,6 +26,7 @@ import xarray
 import numpy as np
 from itertools import cycle
 import warnings
+import time
 
 warnings.filterwarnings('ignore', category=FutureWarning)
 
@@ -47,15 +48,12 @@ def convert_time(rawtimes):
 # this will be used to standardize the shape to the largest value of each dimension
 # this does not work on columns with variable dimension lengths (i.e. ndim changes between 2 and 3)
 # columns designated as ignore will be treated as bad
-def compute_dimensions(tbobj, ignore):
+def compute_dimensions(tbobj, ignore=[]):
     cshape = {}
     bad_cols = []
     for col in tbobj.colnames():
-        if col in ignore:
-            bad_cols += [col]
-            continue
+        if col in ignore: continue
         if not tbobj.iscelldefined(col, 0):
-            print("##### ERROR processing column %s, skipping..." % col)
             bad_cols += [col]
             continue
         try:
@@ -70,7 +68,6 @@ def compute_dimensions(tbobj, ignore):
                     continue
                 cshape[col] = np.max([nn for nn in tshape], axis=0)  # store the max dimensionality of this col
         except Exception:
-            print("##### ERROR processing column %s, skipping..." % col)
             bad_cols += [col]
             continue
     return cshape, bad_cols
@@ -102,15 +99,14 @@ def convert_simple_table(infile, outfile, subtable='', rowdim='d0', timecols=[],
         chunk_shape[0] = tb_tool.nrows()
     
     # master dataset holders
-    mvars = {}
+    mvars, mcoords = {}, {}
     mdims = {rowdim: tb_tool.nrows()}  # keys are dimension names, values are dimension sizes
     cshape, bad_cols = compute_dimensions(tb_tool, ignore)
     
     for start_idx in range(0, tb_tool.nrows(), chunk_shape[0]):
         for col in tb_tool.colnames():
-            if col in bad_cols: continue
+            if (col in ignore) or (col in bad_cols): continue
             print('reading chunk %s of %s, col %s...%s' % (str(start_idx // chunk_shape[0]), str(tb_tool.nrows() // chunk_shape[0]), col, ' '*20), end='\r')
-
             try:
                 if col in cshape:   # if this column has a varying shape, it needs to be normalized
                     data = tb_tool.getvarcol(col, start_idx, chunk_shape[0])
@@ -122,7 +118,6 @@ def convert_simple_table(infile, outfile, subtable='', rowdim='d0', timecols=[],
                 else:
                     data = tb_tool.getcol(col, start_idx, chunk_shape[0]).transpose()
             except Exception:
-                print("##### ERROR processing column %s, skipping..." % col)
                 bad_cols += [col]
                 continue
             
@@ -139,17 +134,20 @@ def convert_simple_table(infile, outfile, subtable='', rowdim='d0', timecols=[],
                     mdims['d%i' % len(mdims.keys())] = dd
             dims = [rowdim] + [ii for yy in data.shape[1:] for ii in mdims.keys() if mdims[ii] == yy]
 
-            
             chunking = [chunk_shape[di] if di < len(chunk_shape) else chunk_shape[-1] for di, dk in enumerate(dims)]
             chunking = [cs if cs > 0 else data.shape[ci] for ci, cs in enumerate(chunking)]
             
-            # store as a list of data variables
-            mvars[col.upper()] = xarray.DataArray(data, dims=dims).chunk(dict(zip(dims, chunking)))
+            # store ID columns as a list of coordinates, otherwise store as a list of data variables
+            if col.upper().endswith('_ID'):
+                mcoords[col.lower()] = xarray.DataArray(data, dims=dims)
+            else:
+                mvars[col.upper()] = xarray.DataArray(data, dims=dims).chunk(dict(zip(dims, chunking)))
             
-        xds = xarray.Dataset(mvars)
+        xds = xarray.Dataset(mvars, coords=mcoords)
         if (not nofile) and (start_idx == 0):
             encoding = dict(zip(list(xds.data_vars), cycle([{'compressor': compressor}])))
-            xds = xds.assign_attrs({'name': infile[infile[:-1].rfind('/') + 1:-1]})
+            if len(subtable) > 0: xds = xds.assign_attrs({'name': subtable+' table'})
+            if len(bad_cols) > 0: xds = xds.assign_attrs({'bad_cols': bad_cols})
             xds.to_zarr(os.path.join(outfile,subtable), mode='w', encoding=encoding, consolidated=True)
         elif not nofile:
             xds.to_zarr(os.path.join(outfile,subtable), mode='a', append_dim=rowdim, compute=True, consolidated=True)
@@ -228,7 +226,8 @@ def convert_expanded_table(infile, outfile, keys, subtable='', subsel=None, time
     # store the dimension shapes known so far (grows later on) and the coordinate values
     mdims = dict([(target_row_key, len(unique_row_keys))] + [(mm, midxs[mm][0].shape[0]) for mm in list(midxs.keys())])
     mcoords = dict([(target_row_key, [])] + [(mm, xarray.DataArray(midxs[mm][0], dims=target_exp_keys[ii])) for ii,mm in enumerate(list(midxs.keys()))])
-
+    start = time.time()
+    
     # we want to parse the table in batches equal to the specified number of unique row keys, not number of rows
     # so we need to compute the proper number of rows to get the correct number of unique row keys
     for cc, start_idx in enumerate(range(0, len(unique_row_keys), chunk_shape[0])):
@@ -236,11 +235,13 @@ def convert_expanded_table(infile, outfile, keys, subtable='', subsel=None, time
         end_idx = row_changes[chunk[-1] + 1] if chunk[-1] + 1 < len(row_changes) else len(row_idxs)
         idx_range = np.arange(row_changes[chunk[0]], end_idx)  # indices of table to be read, they are contiguous because table is sorted
         mcoords.update({row_key.lower(): xarray.DataArray(unique_row_keys[chunk], dims=target_row_key)})
-        
+        batch = len(unique_row_keys) // chunk_shape[0]
+        rtestimate = (' remaining time est %s s'+' '*10) % str(int(((time.time() - start) / cc) * (batch - cc))) if cc > 0 else ''
+
         for col in sorted_table.colnames():
-            if col in bad_cols: continue
+            if (col in ignore) or (col in bad_cols): continue
             if col in keys.keys(): continue  # skip dim columns (unless they are tuples)
-            print('reading chunk %s of %s, col %s...%s' % (str(start_idx // chunk_shape[0]), str(len(unique_row_keys) // chunk_shape[0]), col, ' '*20), end='\r')
+            print('reading chunk %s of %s, col %s...%s' % (str(start_idx // chunk_shape[0]), str(batch), col, rtestimate), end='\r')
 
             try:
                 if col in cshape:   # if this column has a varying shape, it needs to be normalized
@@ -253,7 +254,6 @@ def convert_expanded_table(infile, outfile, keys, subtable='', subsel=None, time
                 else:
                     data = sorted_table.getcol(col, idx_range[0], len(idx_range)).transpose()
             except Exception:
-                print("##### ERROR processing column %s, skipping..." % col)
                 bad_cols += [col]
                 continue
                 
@@ -279,12 +279,13 @@ def convert_expanded_table(infile, outfile, keys, subtable='', subsel=None, time
             chunking = [chunk_shape[di] if di < len(chunk_shape) else chunk_shape[-1] for di, dk in enumerate(dims)]
             chunking = [cs if cs > 0 else fulldata.shape[ci] for ci, cs in enumerate(chunking)]
 
-            # store as a dict of data variables
+            # store in list of data variables
             mvars[col.upper()] = xarray.DataArray(fulldata, dims=dims).chunk(dict(zip(dims, chunking)))
         
         xds = xarray.Dataset(mvars, coords=mcoords).rename(dimnames)
         if (not nofile) and (start_idx == 0):
             encoding = dict(zip(list(xds.data_vars), cycle([{'compressor': compressor}])))
+            if len(bad_cols) > 0: xds = xds.assign_attrs({'bad_cols': bad_cols})
             xds.to_zarr(os.path.join(outfile,subtable), mode='w', encoding=encoding, consolidated=True)
         elif not nofile:
             xds.to_zarr(os.path.join(outfile,subtable), mode='a', append_dim=row_key.lower(), compute=True, consolidated=True)

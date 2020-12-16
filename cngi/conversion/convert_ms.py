@@ -16,7 +16,7 @@ this module will be included in the api
 """
 
 
-def convert_ms(infile, outfile=None, ddis=None, ignorecols=None, compressor=None, chunk_shape=(100, 400, 32, 1), append=False, nofile=False):
+def convert_ms(infile, outfile=None, ddis=None, ignorecols=None, compressor=None, chunk_shape=(100, 400, 32, 1), append=False):
     """
     Convert legacy format MS to xarray Visibility Dataset and zarr storage format
 
@@ -45,9 +45,6 @@ def convert_ms(infile, outfile=None, ddis=None, ignorecols=None, compressor=None
     append : bool
         Keep destination zarr store intact and add new DDI's to it. Note that duplicate DDI's will still be overwritten. Default False deletes and replaces
         entire directory.
-    nofile : bool
-        Allows legacy MS to be directly read without file conversion. If set to true, no output file will be written and entire MS will be held in memory.
-        Requires ~4x the memory of the MS size.  Default is False
     Returns
     -------
     xarray.core.dataset.Dataset
@@ -55,6 +52,7 @@ def convert_ms(infile, outfile=None, ddis=None, ignorecols=None, compressor=None
     """
     import os
     import xarray
+    import dask.array as da
     import numpy as np
     import time
     import cngi._helper.table_conversion as tblconv
@@ -69,13 +67,13 @@ def convert_ms(infile, outfile=None, ddis=None, ignorecols=None, compressor=None
     outfile = os.path.expanduser(outfile)
 
     # need to manually remove existing zarr file (if any)
-    if (not nofile) and (not append):
+    if not append:
         os.system("rm -fr " + outfile)
         os.system("mkdir " + outfile)
     
     # as part of MSv3 conversion, these columns in the main table are no longer needed
     if ignorecols is None: ignorecols = []
-    ignorecols = ignorecols + ['FLAG_CATEGORY', 'FLAG_ROW', 'WEIGHT_SPECTRUM', 'DATA_DESC_ID']
+    ignorecols = ignorecols + ['FLAG_CATEGORY', 'FLAG_ROW', 'DATA_DESC_ID']
     
     # we need the spectral window, polarization, and data description tables for processing the main table
     spw_xds = tblconv.convert_simple_table(infile, outfile='', subtable='SPECTRAL_WINDOW', ignore=ignorecols, nofile=True)
@@ -85,6 +83,7 @@ def convert_ms(infile, outfile=None, ddis=None, ignorecols=None, compressor=None
     # let's assume that each DATA_DESC_ID (ddi) is a fixed shape that may differ from others
     # form a list of ddis to process, each will be placed it in its own xarray dataset and partition
     if ddis is None: ddis = list(ddi_xds['d0'].values) + ['global']
+    else: ddis = np.atleast_1d(ddis)
     xds_list = []
     
     ####################################################################
@@ -95,49 +94,81 @@ def convert_ms(infile, outfile=None, ddis=None, ignorecols=None, compressor=None
         print('Processing ddi', ddi, end='\r')
         start_ddi = time.time()
 
-        xds = tblconv.convert_expanded_table(infile, os.path.join(outfile,'part'+str(ddi)), keys={'TIME': 'time', ('ANTENNA1', 'ANTENNA2'): 'baseline'},
-                                             subsel={'DATA_DESC_ID':ddi}, timecols=['time'], dimnames={'d2':'uvw_index', 'd3':'chan', 'd4':'pol'},
-                                             ignore=ignorecols + ['SIGMA'], compressor=compressor, chunk_shape=chunk_shape, nofile=nofile)
+        # these columns are different / absent in MSv3
+        msv2 = ['WEIGHT', 'WEIGHT_SPECTRUM', 'SIGMA', 'SIGMA_SPECTRUM']
         
+        # convert columns that are common to MSv2 and MSv3
+        xds = tblconv.convert_expanded_table(infile, os.path.join(outfile,'xds'+str(ddi)), keys={'TIME': 'time', ('ANTENNA1', 'ANTENNA2'): 'baseline'},
+                                             subsel={'DATA_DESC_ID':ddi}, timecols=['time'], dimnames={'d2':'uvw_index', 'd3':'chan', 'd4':'pol'},
+                                             ignore=ignorecols + msv2, compressor=compressor, chunk_shape=chunk_shape, nofile=False)
+        
+        # now convert just the WEIGHT and WEIGHT_SPECTRUM (if preset)
+        # WEIGHT needs to be expanded to full dimensionality (time, baseline, chan, pol)
+        wt_xds = tblconv.convert_expanded_table(infile, os.path.join(outfile,'tmp'), keys={'TIME': 'time', ('ANTENNA1', 'ANTENNA2'): 'baseline'},
+                                                subsel={'DATA_DESC_ID':ddi}, timecols=['time'], dimnames={},
+                                                ignore=ignorecols + list(xds.data_vars) + msv2[2:], compressor=compressor, chunk_shape=chunk_shape,
+                                                nofile=False)
+        
+        # if WEIGHT_SPECTRUM is present, append it to the main xds as the new WEIGHT column
+        # otherwise expand the dimensionality of WEIGHT and add it to the xds
+        if 'WEIGHT_SPECTRUM' in wt_xds.data_vars:
+            wt_xds = wt_xds.drop_vars('WEIGHT').rename({'WEIGHT_SPECTRUM':'WEIGHT', 'd2':'chan', 'd3':'pol'})
+            wt_xds.to_zarr(os.path.join(outfile, 'xds'+str(ddi)), mode='a', compute=True, consolidated=True)
+        else:
+            wts = wt_xds.WEIGHT.shape[:2] + (1,) + (wt_xds.WEIGHT.shape[-1],)
+            wt_da = da.tile(da.reshape(wt_xds.WEIGHT.data, wts), (1,1,len(xds.chan),1)).rechunk(chunk_shape)
+            wt_xds = wt_xds.drop_vars('WEIGHT').assign({'WEIGHT':xarray.DataArray(wt_da, dims=['time','baseline','chan','pol'])})
+            wt_xds.to_zarr(os.path.join(outfile, 'xds' + str(ddi)), mode='a', compute=True, consolidated=True)
+            
         # add in relevant spw and polarization attributes
         attrs = {}
         for dv in spw_xds.data_vars:
-            attrs[dv.lower()] = spw_xds[dv].values[ddi_xds['SPECTRAL_WINDOW_ID'].values[ddi]]
+            attrs[dv.lower()] = spw_xds[dv].values[ddi_xds['spectral_window_id'].values[ddi]]
             attrs[dv.lower()] = int(attrs[dv.lower()]) if type(attrs[dv.lower()]) is np.bool_ else attrs[dv.lower()]  # convert bools
         for dv in pol_xds.data_vars:
-            attrs[dv.lower()] = pol_xds[dv].values[ddi_xds['POLARIZATION_ID'].values[ddi]]
+            attrs[dv.lower()] = pol_xds[dv].values[ddi_xds['polarization_id'].values[ddi]]
             attrs[dv.lower()] = int(attrs[dv.lower()]) if type(attrs[dv.lower()]) is np.bool_ else attrs[dv.lower()]  # convert bools
 
         # grab the channel frequency values from the spw table data and pol idxs from the polarization table, add spw and pol ids
         chan = attrs.pop('chan_freq')[:len(xds.chan)]
         pol = attrs.pop('corr_type')[:len(xds.pol)]
         
-        # truncate per-chan values to the actual number of channels
-        attrs['chan_width'] = attrs['chan_width'][:len(xds.chan)]
-        attrs['effective_bw'] = attrs['effective_bw'][:len(xds.chan)]
-        attrs['resolution'] = attrs['resolution'][:len(xds.chan)]
+        # truncate per-chan values to the actual number of channels and move to coordinates
+        chan_width = xarray.DataArray(attrs.pop('chan_width')[:len(xds.chan)], dims=['chan'])
+        effective_bw = xarray.DataArray(attrs.pop('effective_bw')[:len(xds.chan)], dims=['chan'])
+        resolution = xarray.DataArray(attrs.pop('resolution')[:len(xds.chan)], dims=['chan'])
         
-        coords = {'chan': chan, 'pol': pol, 'spw_id': [ddi_xds['SPECTRAL_WINDOW_ID'].values[ddi]],
-                  'pol_id': [ddi_xds['POLARIZATION_ID'].values[ddi]]}
+        coords = {'chan':chan, 'pol':pol, 'spw_id':[ddi_xds['spectral_window_id'].values[ddi]], 'pol_id':[ddi_xds['polarization_id'].values[ddi]],
+                  'chan_width':chan_width, 'effective_bw':effective_bw, 'resolution':resolution}
         aux_xds = xarray.Dataset(coords=coords, attrs=attrs)
 
-        if not nofile:
-            aux_xds.to_zarr(os.path.join(outfile, 'part'+str(ddi)), mode='a', compute=True, consolidated=True)
-            xds = xarray.open_zarr(os.path.join(outfile,'part'+str(ddi)))
+        aux_xds.to_zarr(os.path.join(outfile, 'xds'+str(ddi)), mode='a', compute=True, consolidated=True)
+        xds = xarray.open_zarr(os.path.join(outfile,'xds'+str(ddi)))
         
-        xds_list += [('part'+str(ddi), xds)]
-        print('Completed ddi %i  process time %s s' % (ddi, str(time.time()-start_ddi)))
+        xds_list += [('xds'+str(ddi), xds)]
+        print('Completed ddi %i  process time {:0.2f} s'.format(time.time()-start_ddi) % ddi)
 
+    # clean up the tmp directory created by the weight conversion to MSv3
+    os.system("rm -fr " + os.path.join(outfile,'tmp'))
+    
     # convert other subtables to their own partitions, denoted by 'global_' prefix
     skip_tables = ['DATA_DESCRIPTION', 'SORTED_TABLE']
     subtables = sorted([tt for tt in os.listdir(infile) if os.path.isdir(os.path.join(infile, tt)) and tt not in skip_tables])
     if 'global' in ddis:
+        start_ddi = time.time()
         for ii, subtable in enumerate(subtables):
-            print('processing subtable %i of %i : %s' % (ii, len(subtables), subtable)) #, end='\r')
-            xds_list += [(subtable, tblconv.convert_simple_table(os.path.join(infile, subtable),
-                                                                 os.path.join(outfile, 'global_'+subtable),
-                                                                 timecols=['TIME'], ignore=ignorecols, compressor=compressor, nofile=nofile))]
-
+            print('processing subtable %i of %i : %s' % (ii, len(subtables), subtable), end='\r')
+            xds_list += [(subtable, tblconv.convert_simple_table(infile, os.path.join(outfile, 'global'), subtable,
+                                                                 timecols=['TIME'], ignore=ignorecols, compressor=compressor, nofile=False))]
+            
+            # to conform to MSv3, we need to add explicit ID fields to certain tables
+            if subtable in ['ANTENNA','FIELD','OBSERVATION','SCAN','SPECTRAL_WINDOW','STATE']:
+                aux_xds = xarray.Dataset(coords={subtable.lower()+'_id':xarray.DataArray(xds_list[-1][1].d0.values,dims=['d0'])})
+                aux_xds.to_zarr(os.path.join(outfile, 'global/'+subtable), mode='a', compute=True, consolidated=True)
+                xds_list[-1] = (subtable, xarray.open_zarr(os.path.join(outfile, 'global/'+subtable)))
+            
+        print('Completed subtables  process time {:0.2f} s'.format(time.time() - start_ddi))
+    
     # build the master xds to return
     mxds = xdsio.vis_xds_packager(xds_list)
     print(' '*50)

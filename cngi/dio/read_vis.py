@@ -15,8 +15,8 @@
 this module will be included in the api
 """
 
-#############################################
-def read_vis(infile, partition='part0'):
+#############################################sis14_twhya_calibrated_flagged
+def read_vis(infile, partition=None):
     """
     Read zarr format Visibility data from disk to xarray Dataset
 
@@ -25,8 +25,8 @@ def read_vis(infile, partition='part0'):
     infile : str
         input Visibility filename
     partition : string or list
-        name of partition(s) to read as returned by describe_vis. Multiple partitions in list form will return a dataset of datasets.
-        Use 'global' for global metadata. None returns everything. Default is 'part0'
+        name of partition(s) to read as returned by describe_vis. Multiple partitions in list form will return a master dataset of datasets.
+        Use 'global' for global metadata. Default None returns everything
 
     Returns
     -------
@@ -42,8 +42,8 @@ def read_vis(infile, partition='part0'):
     if partition is None: partition = os.listdir(infile)
     partition = np.atleast_1d(partition)
 
-    if 'global' in partition:
-        globals = sorted([tt for tt in os.listdir(infile) if os.path.isdir(os.path.join(infile, tt)) and tt.startswith('global_')])
+    if ('global' in partition) and (os.path.isdir(os.path.join(infile,'global'))):
+        globals = sorted(['global/'+tt for tt in os.listdir(os.path.join(infile,'global'))])
         partition = np.hstack((np.delete(partition, np.where(partition == 'global')), globals))
   
     if len(partition) == 1:
@@ -52,7 +52,7 @@ def read_vis(infile, partition='part0'):
         xds_list = []
         for part in partition:
             if os.path.isdir(os.path.join(infile, str(part))):
-                xds_list += [(part.replace('global_',''), open_zarr(os.path.join(infile, str(part))))]
+                xds_list += [(part.replace('global/',''), open_zarr(os.path.join(infile, str(part))))]
         # build the master xds to return
         xds = xdsio.vis_xds_packager(xds_list)
 

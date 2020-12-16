@@ -30,23 +30,25 @@ def vis_xds_packager(xds_list):
     
     coords = {}
     if 'ANTENNA' in mxds.attrs:
-        coords['antennas'] = mxds.ANTENNA.NAME.values
+        coords['antenna_ids'] = mxds.ANTENNA.antenna_id.values
+        coords['antennas'] = xarray.DataArray(mxds.ANTENNA.NAME.values, dims=['antenna_ids'])
     if 'FIELD' in mxds.attrs:
-        coords['fields'] = mxds.FIELD.NAME.values
+        coords['field_ids'] = mxds.FIELD.field_id.values
+        coords['fields'] = xarray.DataArray(mxds.FIELD.NAME.values, dims=['field_ids'])
     if 'FEED' in mxds.attrs:
-        coords['feeds'] = mxds.FEED.FEED_ID.values
+        coords['feed_ids'] = mxds.FEED.feed_id.values
     if 'OBSERVATION' in mxds.attrs:
-        coords['observations'] =  mxds.OBSERVATION.PROJECT.values
+        coords['observation_ids'] = mxds.OBSERVATION.observation_id.values
+        coords['observations'] = xarray.DataArray(mxds.OBSERVATION.PROJECT.values, dims=['observation_ids'])
     if 'POLARIZATION' in mxds.attrs:
-        coords['polarizations'] = mxds.POLARIZATION.d0.values
-    if 'PROCESSOR' in mxds.attrs:
-        coords['processors'] = mxds.PROCESSOR.d0.values
+        coords['polarization_ids'] = mxds.POLARIZATION.d0.values
     if 'SOURCE' in mxds.attrs:
-        coords['sources'] = mxds.SOURCE.NAME.values
+        coords['source_ids'] = mxds.SOURCE.source_id.values
+        coords['sources'] = xarray.DataArray(mxds.SOURCE.NAME.values, dims=['source_ids'])
     if 'SPECTRAL_WINDOW' in mxds.attrs:
-        coords['spws'] = mxds.SPECTRAL_WINDOW.d0.values
+        coords['spw_ids'] = mxds.SPECTRAL_WINDOW.d0.values
     if 'STATE' in mxds.attrs:
-        coords['states'] = mxds.STATE.d0.values
+        coords['state_ids'] = mxds.STATE.state_id.values
     
     mxds = mxds.assign_coords(coords)
     

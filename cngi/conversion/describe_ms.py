@@ -50,8 +50,8 @@ def describe_ms(infile):
     ddis = list(ddi_xds['d0'].values)
 
     summary = pd.DataFrame([])
-    spw_ids = ddi_xds.SPECTRAL_WINDOW_ID.values
-    pol_ids = ddi_xds.POLARIZATION_ID.values
+    spw_ids = ddi_xds.spectral_window_id.values
+    pol_ids = ddi_xds.polarization_id.values
     chans = spw_xds.NUM_CHAN.values
     pols = pol_xds.NUM_CORR.values
     tb_tool = tb()
@@ -64,7 +64,7 @@ def describe_ms(infile):
                'baselines': len(np.unique(np.hstack([sorted_table.getcol(rr)[:,None] for rr in ['ANTENNA1', 'ANTENNA2']]), axis=0)),
                'chans': chans[spw_ids[ddi]],
                'pols': pols[pol_ids[ddi]]}
-        sdf['size_MB'] = np.ceil((sdf['times']*sdf['baselines']*sdf['chans']*sdf['pols']*8) / 1024**2).astype(int)
+        sdf['size_MB'] = np.ceil((sdf['times']*sdf['baselines']*sdf['chans']*sdf['pols']*17) / 1024**2).astype(int)
         summary = pd.concat([summary, pd.DataFrame(sdf, index=[str(ddi)])], axis=0, sort=False)
         sorted_table.close()
     print(' '*50, end='\r')
