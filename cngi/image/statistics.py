@@ -16,7 +16,6 @@ this module will be included in the api
 """
 
 ########################
-from casatasks import imstat
 from cngi.conversion import convert_image
 from cngi.image import implot
 from cngi.image import statistics
