@@ -74,7 +74,7 @@ num_taylor_terms=0):
         coords = {'time':time_coords.data,'chan': chan_coords.data, 'pol': pol_coords.data, 'chan_width' : ('chan',chan_width.data),'l':l,'m':m,'right_ascension' : (('l','m'),ra/rad_to_deg),'declination' : (('l','m'),dec/rad_to_deg)}
         img_dataset.attrs['axis_units'] =  ['rad', 'rad', 'time', 'Hz', 'pol']
     else:
-        coords = {'time':time_coords.data,'taylor': np.arange(num_taylor_terms), 'pol': pol_coords.data, 'chan_width' : ('chan',chan_width.data),'l':np.arange(image_size[0]),'m':np.arange(image_size[1]),'right_ascension' : (('l','m'),ra/rad_to_deg),'declination' : (('l','m'),dec/rad_to_deg)}
+        coords = {'time':time_coords.data,'taylor': np.arange(num_taylor_terms), 'pol': pol_coords.data,'l':np.arange(image_size[0]),'m':np.arange(image_size[1]),'right_ascension' : (('l','m'),ra/rad_to_deg),'declination' : (('l','m'),dec/rad_to_deg)}
         img_dataset.attrs['axis_units'] =  ['rad', 'rad', 'time', 'taylor', 'pol']
     
     img_dataset = img_dataset.assign_coords(coords)
