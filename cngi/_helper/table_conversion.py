@@ -274,13 +274,23 @@ def convert_expanded_table(infile, outfile, keys, subtable='', subsel=None, time
                 if dd not in mdims.values():
                     mdims['d%i' % len(mdims.keys())] = dd
             dims = [kk for kk in [target_row_key]+target_exp_keys] + [ii for yy in fulldata.shape[len(keys):] for ii in mdims.keys() if mdims[ii] == yy]
-
+            
+            #Temp fix
+            if col == 'UVW':
+                dims[2]  = 'd4'
+            elif col == 'WEIGHT':
+                dims[2] = 'd3'
+            else:
+                dims = ['time', 'baseline', 'd2', 'd3'][:len(fulldata.shape)]
+            ##########
+            
             # set chunking based on passed in chunk shape, expanding last dimension if necessary
             chunking = [chunk_shape[di] if di < len(chunk_shape) else chunk_shape[-1] for di, dk in enumerate(dims)]
             chunking = [cs if cs > 0 else fulldata.shape[ci] for ci, cs in enumerate(chunking)]
 
             # store in list of data variables
             mvars[col.upper()] = xarray.DataArray(fulldata, dims=dims).chunk(dict(zip(dims, chunking)))
+        
         
         xds = xarray.Dataset(mvars, coords=mcoords).rename(dimnames)
         if (not nofile) and (start_idx == 0):

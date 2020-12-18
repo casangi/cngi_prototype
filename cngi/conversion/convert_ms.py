@@ -99,7 +99,7 @@ def convert_ms(infile, outfile=None, ddis=None, ignorecols=None, compressor=None
         
         # convert columns that are common to MSv2 and MSv3
         xds = tblconv.convert_expanded_table(infile, os.path.join(outfile,'xds'+str(ddi)), keys={'TIME': 'time', ('ANTENNA1', 'ANTENNA2'): 'baseline'},
-                                             subsel={'DATA_DESC_ID':ddi}, timecols=['time'], dimnames={'d2':'uvw_index', 'd3':'chan', 'd4':'pol'},
+                                             subsel={'DATA_DESC_ID':ddi}, timecols=['time'], dimnames={'d4':'uvw_index', 'd2':'chan', 'd3':'pol'},
                                              ignore=ignorecols + msv2, compressor=compressor, chunk_shape=chunk_shape, nofile=False)
         
         # now convert just the WEIGHT and WEIGHT_SPECTRUM (if preset)
@@ -158,14 +158,20 @@ def convert_ms(infile, outfile=None, ddis=None, ignorecols=None, compressor=None
         start_ddi = time.time()
         for ii, subtable in enumerate(subtables):
             print('processing subtable %i of %i : %s' % (ii, len(subtables), subtable), end='\r')
-            xds_list += [(subtable, tblconv.convert_simple_table(infile, os.path.join(outfile, 'global'), subtable,
+            xds_sub_list = [(subtable, tblconv.convert_simple_table(infile, os.path.join(outfile, 'global'), subtable,
                                                                  timecols=['TIME'], ignore=ignorecols, compressor=compressor, nofile=False))]
             
-            # to conform to MSv3, we need to add explicit ID fields to certain tables
-            if subtable in ['ANTENNA','FIELD','OBSERVATION','SCAN','SPECTRAL_WINDOW','STATE']:
-                aux_xds = xarray.Dataset(coords={subtable.lower()+'_id':xarray.DataArray(xds_list[-1][1].d0.values,dims=['d0'])})
-                aux_xds.to_zarr(os.path.join(outfile, 'global/'+subtable), mode='a', compute=True, consolidated=True)
-                xds_list[-1] = (subtable, xarray.open_zarr(os.path.join(outfile, 'global/'+subtable)))
+            if len(xds_sub_list[-1][1].dims) != 0:
+                # to conform to MSv3, we need to add explicit ID fields to certain tables
+                if subtable in ['ANTENNA','FIELD','OBSERVATION','SCAN','SPECTRAL_WINDOW','STATE']:
+                    #if 'd0' in xds_sub_list[-1][1].dims:
+                    aux_xds = xarray.Dataset(coords={subtable.lower()+'_id':xarray.DataArray(xds_sub_list[-1][1].d0.values,dims=['d0'])})
+                    aux_xds.to_zarr(os.path.join(outfile, 'global/'+subtable), mode='a', compute=True, consolidated=True)
+                    xds_sub_list[-1] = (subtable, xarray.open_zarr(os.path.join(outfile, 'global/'+subtable)))
+            
+                xds_list += xds_sub_list
+            else:
+                print('Empty Subtable:',subtable)
             
         print('Completed subtables  process time {:0.2f} s'.format(time.time() - start_ddi))
     
