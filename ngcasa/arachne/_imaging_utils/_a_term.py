@@ -146,3 +146,34 @@ def _compute_zc_coords(apeture_parms):
         y_grid = y_grid_rot
     
     return x_grid, y_grid
+
+
+def _create_cf_chan_map(freq_chan,chan_tolerance_factor):
+    n_chan = len(freq_chan)
+    cf_chan_map = np.zeros((n_chan,),dtype=int)
+    
+    orig_width = (np.max(freq_chan) - np.min(freq_chan))/len(freq_chan)
+    
+    tol = np.max(freq_chan)*chan_tolerance_factor
+    n_pb_chan = int(np.floor( (np.max(freq_chan)-np.min(freq_chan))/tol) + 0.5) ;
+
+    #Create PB's for each channel
+    if n_pb_chan == 0:
+        n_pb_chan = 1
+    
+    if n_pb_chan >= n_chan:
+        cf_chan_map = np.arange(n_chan)
+        pb_freq = freq_chan
+        return cf_chan_map, pb_freq
+    
+    
+    pb_delta_bandwdith = (np.max(freq_chan) - np.min(freq_chan))/n_pb_chan
+    pb_freq = np.arange(n_pb_chan)*pb_delta_bandwdith + np.min(freq_chan) + pb_delta_bandwdith/2
+
+    cf_chan_map = np.zeros((n_chan,),dtype=int)
+    for i in range(n_chan):
+        cf_chan_map[i],_ = find_nearest(pb_freq, freq_chan[i])
+
+    
+
+    return cf_chan_map, pb_freq

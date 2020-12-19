@@ -105,6 +105,7 @@ def make_gridding_convolution_function(vis_dataset, global_dataset, list_zpc_dat
     import dask
     import dask.array.fft as dafft
     from ._imaging_utils._calc_parallactic_angles import _calc_parallactic_angles_for_gcf
+    from ._imaging_utils._a_term import _create_cf_chan_map
     from ._imaging_utils._w_term import _calculate_w_list, _calc_w_sky
     import matplotlib.pylab as plt
     
@@ -132,10 +133,9 @@ def make_gridding_convolution_function(vis_dataset, global_dataset, list_zpc_dat
     PA = _calc_parallactic_angles_for_gcf(vis_dataset,global_dataset)
     print(PA)
     
-    
-    plt.figure()
-    plt.plot(PA[:,0])
-    plt.show()
+    cf_chan_map, pb_freq = _create_cf_chan_map(vis_dataset.chan,gcf_parms['chan_tolerance_factor'])
+    print(cf_chan_map)
+    print(pb_freq)
     
     return w_sky
     
