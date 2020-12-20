@@ -30,13 +30,15 @@ from scipy.constants import c
         - Include support for Heterogeneous Arrays where Aterm is different per antenna
         - Include support for time-varying PB and AIF models. Rotation, etc.
     - Wterm : FT of Fresnel kernel per baseline
+    
+    Currently creates a gcf to correct for the primary beams of antennas and supports heterogenous arrays (antennas with different dish sizes).
+    Only the airy disk and ALMA airy disk model is implemented.
+    In the future support will be added for beam squint, pointing corrections, w projection, and including a prolate spheroidal term.
 '''
 
 def make_gridding_convolution_function(vis_dataset, global_dataset, list_zpc_dataset, gcf_parms, grid_parms, storage_parms):
     """
-    Currently creates a gcf to correct for the primary beams of antennas and supports heterogenous arrays (antennas with different dish sizes).
-    Only the airy disk and ALMA airy disk model is implemented.
-    In the future support will be added for beam squint, pointing corrections, w projection, and including a prolate spheroidal term.
+    Under construction.
     
     Parameters
     ----------
@@ -107,6 +109,7 @@ def make_gridding_convolution_function(vis_dataset, global_dataset, list_zpc_dat
     from ._imaging_utils._calc_parallactic_angles import _calc_parallactic_angles_for_gcf
     from ._imaging_utils._a_term import _create_cf_chan_map
     from ._imaging_utils._w_term import _calculate_w_list, _calc_w_sky
+    from ._imaging_utils._ps_term import _create_prolate_spheroidal_image_2D
     import matplotlib.pylab as plt
     
     #To do
@@ -137,6 +140,13 @@ def make_gridding_convolution_function(vis_dataset, global_dataset, list_zpc_dat
     print(cf_chan_map)
     print(pb_freq)
     
+    
+    ps_sky = _create_prolate_spheroidal_image_2D(gcf_parms['conv_size'])
+    
+#    plt.figure()
+#    plt.imshow(ps_sky)
+#    plt.show()
+#
     return w_sky
     
 
