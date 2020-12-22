@@ -28,6 +28,7 @@ def _calc_parallactic_angles_for_gcf(mxds,gcf_parms,sel_parms):
     
     return pa, cf_time_map
 
+
 def _calc_parallactic_angles_for_vis_dataset(mxds,sel_parms):
     from astropy.coordinates import (EarthLocation, SkyCoord,
                                      AltAz, CIRS)
@@ -39,9 +40,13 @@ def _calc_parallactic_angles_for_vis_dataset(mxds,sel_parms):
     
     field_id = np.max(vis_dataset.FIELD_ID,axis=1).compute()
     
-    ra = field_dataset.PHASE_DIR[:,0,0].data.compute()
-    dec = field_dataset.PHASE_DIR[:,0,1].data.compute()
+    #ra = field_dataset.PHASE_DIR[:,0,0].data.compute()
+    #dec = field_dataset.PHASE_DIR[:,0,1].data.compute()
+    ra_dec = field_dataset.PHASE_DIR.isel(d0=field_id)
+    ra = ra_dec[:,0,0].data.compute()
+    dec = ra_dec[:,0,1].data.compute()
     phase_center = SkyCoord(ra=ra*u.rad, dec=dec*u.rad, frame='fk5') #fk5 epoch is J2000
+    
     
     telescope_name = mxds.attrs['OBSERVATION'].TELESCOPE_NAME.values[0]
     observing_location = EarthLocation.of_site(telescope_name)
@@ -58,101 +63,14 @@ def _calc_parallactic_angles_for_vis_dataset(mxds,sel_parms):
     if n_field == 1:
         phase_center = [phase_center]
     
-    '''
-    #Slow
-    pa_slow = np.zeros((n_time))
-    start = time.time()
-    for time_indx in range(n_time):
-        pa_slow[time_indx] = _calc_parallactic_angles(reference_time[time_indx], observing_location, phase_center[field_id[time_indx]])
-    print('Time to calc pa ', time.time()-start)
-    '''
-    #Larger number of calculations (a lot of unnecessary calculations), but better vectorized for astropy interface
-    pa_redunant = np.zeros((n_time,n_field))
-    pa = np.zeros((n_time))
-    start = time.time()
-    for field_indx in range(n_field):
-        pa_redunant[:,field_indx] = _calc_parallactic_angles(reference_time, observing_location, phase_center[field_indx])
-    
-    for time_indx in range(n_time):
-        pa[time_indx] = pa_redunant[time_indx,field_id[time_indx]]
-    print('Time to calc pa ', time.time()-start)
-    
-    time_chunksize = vis_dataset[sel_parms['data']].chunks[0][0]
-    
-    pa = xr.DataArray(da.from_array(pa,chunks=(time_chunksize)), dims={'time'})
-    
-    '''
-    n_field = field_dataset.dims['d0']
-    pa = np.zeros((vis_dataset.dims['time'],n_field))
-    start = time.time()
-    for field_indx in range(n_field):
-        pa[:,field_indx] = _calc_parallactic_angles(reference_time, observing_location, phase_center[field_indx])
-    print('Time to calc pa ', time.time()-start)
-    '''
-    
-    '''
-    field_ra_dec[0,0,0] = np.nan
-    
-    
-    ra = field_ra_dec[:,0,0].data#.compute()
-    dec = field_ra_dec[:,0,1].data#.compute()
-    print(ra)
-    phase_center = SkyCoord(ra=ra*u.rad, dec=dec*u.rad, frame='fk5') #fk5 epoch is J2000
-    
-    print(phase_center)
-    
-    
-    #observing_location = EarthLocation.of_site('vla')
-    telescope_name = mxds.attrs['OBSERVATION'].TELESCOPE_NAME.values[0]
-    observing_location = EarthLocation.of_site(telescope_name)
-    reference_time = Time(vis_dataset.time.values.astype(str), format='isot', scale='utc', location=observing_location)
-    
-    
     start = time.time()
     pa = _calc_parallactic_angles(reference_time, observing_location, phase_center)
     print('Time to calc pa ', time.time()-start)
     
-    print(pa)
-    '''
-    '''
-    
-    #print(field_dataset.PHASE_DIR.isel(d0=vis_dataset.FIELD_ID.data.compute()[:,0]))
-    
-    
-    
-    #reference_time = Time(vis_dataset.time.values.astype(str), format='isot', scale='utc', location=observing_location)
-    
-    #ra = vis_dataset.FIELD_ID
-    
-    #phase_center = SkyCoord(ra=*u.rad, dec=dec*u.rad, frame='fk5') #fk5 epoch is J2000
-    
-    ra = global_dataset.FIELD_PHASE_DIR[0,0,0].values
-    dec = global_dataset.FIELD_PHASE_DIR[0,1,0].values
-    phase_center = SkyCoord(ra=ra*u.rad, dec=dec*u.rad, frame='fk5') #fk5 epoch is J2000
-
-    n_ant = global_dataset.dims['antenna']
-    pa = np.zeros((vis_dataset.dims['time'],n_ant))
-    
-    start = time.time()
-    for ant_pos_indx in range(n_ant):
-        x = global_dataset.ANT_POSITION[ant_pos_indx,0].values
-        y = global_dataset.ANT_POSITION[ant_pos_indx,1].values
-        z = global_dataset.ANT_POSITION[ant_pos_indx,2].values
-        
-        #observing_location = EarthLocation(lat=34.1*u.degree, lon=-107.6*u.degree,height=2114.89*u.m,ellipsoid='WGS84')
-        #observing_location = EarthLocation.of_site('vla')
-        observing_location = EarthLocation.from_geocentric(x=x*u.m, y=y*u.m,z=z*u.m)
-        
-        reference_time = Time(vis_dataset.time.values.astype(str), format='isot', scale='utc', location=observing_location)
-        
-        pa[:,ant_pos_indx] = _calc_parallactic_angles(reference_time, observing_location, phase_center)
-    print('Time to calc pa ', time.time()-start)
-        
     time_chunksize = vis_dataset[sel_parms['data']].chunks[0][0]
-    pa = xr.DataArray(da.from_array(pa,chunks=(time_chunksize,n_ant)), dims={'time','ant'})
-    '''
-    return pa
+    pa = xr.DataArray(da.from_array(pa,chunks=(time_chunksize)), dims={'time'})
     
+    return pa
 
 
 def _calc_parallactic_angles(times, observing_location, phase_center):
@@ -185,9 +103,8 @@ def _make_cf_time_map(mxds,pa,gcf_parms):
     pa_centers,cf_time_map = find_optimal_pa_set(pa.data.compute(),gcf_parms['pa_step'])
     print('Time to make cf_time_map ', time.time()-start)
     pa_centers = np.array(pa_centers)
-    
-
     '''
+    #############################################################
     #CASA way of doing things
     ang_dif_list = np.zeros(len(pa))
     print(ang_dif_list.shape,len(pa))
@@ -219,15 +136,15 @@ def _make_cf_time_map(mxds,pa,gcf_parms):
     print(np.mean(cf_time_map[:,1]),np.mean(ang_dif_list))
     print(np.median(cf_time_map[:,1]),np.median(ang_dif_list))
     print(np.var(cf_time_map[:,1]),np.var(ang_dif_list))
-    print(pa_cf_count)
+    print(len(pa_centers),pa_cf_count)
+    #############################################################
     '''
+    
     
     return cf_time_map, pa_centers
 
-@jit(nopython=True)
+@jit(nopython=True,cache=True)
 def find_optimal_pa_set(pa,pa_step):
-    print(pa)
-    print(pa_step)
     n_time  = len(pa)
     
     neighbours = np.zeros((n_time,n_time),numba.b1)
