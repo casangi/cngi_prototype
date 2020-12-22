@@ -34,7 +34,7 @@ def describe_ms(infile):
     import os
     import pandas as pd
     import numpy as np
-    import cngi._helper.table_conversion as tblconv
+    import cngi._utils._table_conversion as tblconv
     from casatools import table as tb
     
     infile = os.path.expanduser(infile)  # does nothing if $HOME is unknown

@@ -57,7 +57,7 @@ def convert_table(infile, outfile=None, subtable=None, keys=None, timecols=None,
     """
     import os
     from numcodecs import Blosc
-    import cngi._helper.table_conversion as tblconv
+    import cngi._utils._table_conversion as tblconv
 
     # parse filename to use
     infile = os.path.expanduser(infile)

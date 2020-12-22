@@ -55,8 +55,8 @@ def convert_ms(infile, outfile=None, ddis=None, ignorecols=None, compressor=None
     import dask.array as da
     import numpy as np
     import time
-    import cngi._helper.table_conversion as tblconv
-    import cngi._helper.io as xdsio
+    import cngi._utils._table_conversion as tblconv
+    import cngi._utils._io as xdsio
     import warnings
     warnings.filterwarnings('ignore', category=FutureWarning)
 

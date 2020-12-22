@@ -228,9 +228,9 @@ def convert_image(infile, outfile=None, artifacts=None, compressor=None, chunk_s
         if (chan == 0) and (not nofile):
             # xds = xd(xdas, coords=chunk_coords, attrs=nested_to_record(meta['attrs'], sep='_'))
             encoding = dict(zip(list(xds.data_vars), cycle([{'compressor': compressor}])))
-            xds.to_zarr(outfile, mode='w', encoding=encoding)
+            xds.to_zarr(outfile, mode='w', encoding=encoding, consolidated=True)
         elif not nofile:
-            xds.to_zarr(outfile, mode='a', append_dim='chan')
+            xds.to_zarr(outfile, mode='a', append_dim='chan', consolidated=True)
 
     print("processed image size " + str(dsize) + " in " + str(np.float32(time.time() - begin)) + " seconds")
 

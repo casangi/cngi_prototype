@@ -40,7 +40,7 @@ def gaussianbeam(xds, source='commonbeam', scale=1.0, name='BEAM'):
     import xarray
     import dask.array as da
     import numpy as np
-    import cngi._helper.beams as chb
+    import cngi._utils._beams as chb
     
     # build beam from specified shape
     if not isinstance(source, str):
