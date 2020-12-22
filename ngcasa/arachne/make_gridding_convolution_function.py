@@ -36,7 +36,7 @@ from scipy.constants import c
     In the future support will be added for beam squint, pointing corrections, w projection, and including a prolate spheroidal term.
 '''
 
-def make_gridding_convolution_function(vis_dataset, global_dataset, list_zpc_dataset, gcf_parms, grid_parms, storage_parms):
+def make_gridding_convolution_function(mxds, list_zpc_dataset, gcf_parms, grid_parms, sel_parms, storage_parms):
     """
     Under construction.
     
@@ -118,36 +118,47 @@ def make_gridding_convolution_function(vis_dataset, global_dataset, list_zpc_dat
     #All the zpc_dataset should have the same pol dims and (frequencies)?
     #Go over what should the min support be?
     
+    _gcf_parms =  copy.deepcopy(gcf_parms)
+    _grid_parms = copy.deepcopy(grid_parms)
+    _sel_parms = copy.deepcopy(sel_parms)
     
+    #########################
+    #PA should be function of Time and Antenna position (if an antenna is)
+    PA, x = _calc_parallactic_angles_for_gcf(mxds,_gcf_parms,_sel_parms)
+    #print(PA)
+    
+    
+    '''
     # Create Framework
         # Decide convsize, support from oversampling for PS, A, W term.
         # Create Maps between visibilities and gcf.
     print('global_dataset.ANT_DISH_DIAMETER',global_dataset.ANT_DISH_DIAMETER.data.compute())
-    calculate_conv_size(vis_dataset, list_zpc_dataset, grid_parms)
+    calculate_conv_size(vis_dataset, list_zpc_dataset,_grid_parms)
     conv_size = np.array([2048,2048]) #Temporary
     
     
-    w_values = _calculate_w_list(gcf_parms,grid_parms)
-    gcf_parms['conv_size'] = conv_size
-    w_sky = _calc_w_sky(w_values,gcf_parms,grid_parms)
+    w_values = _calculate_w_list(_gcf_parms,_grid_parms)
+    _gcf_parms['conv_size'] = conv_size
+    w_sky = _calc_w_sky(w_values,_gcf_parms,_grid_parms)
     
     #########################
     #PA should be function of Time and Antenna position (if an antenna is)
-    PA = _calc_parallactic_angles_for_gcf(vis_dataset,global_dataset)
-    print(PA)
+    PA, x = _calc_parallactic_angles_for_gcf(vis_dataset,global_dataset,_gcf_parms,_sel_parms)
+    #print(PA)
     
-    cf_chan_map, pb_freq = _create_cf_chan_map(vis_dataset.chan,gcf_parms['chan_tolerance_factor'])
-    print(cf_chan_map)
-    print(pb_freq)
+    cf_chan_map, pb_freq = _create_cf_chan_map(vis_dataset.chan,_gcf_parms['chan_tolerance_factor'])
+    #print(cf_chan_map)
+    #print(pb_freq)
     
     
-    ps_sky = _create_prolate_spheroidal_image_2D(gcf_parms['conv_size'])
+    ps_sky = _create_prolate_spheroidal_image_2D(_gcf_parms['conv_size'])
+    '''
     
 #    plt.figure()
 #    plt.imshow(ps_sky)
 #    plt.show()
 #
-    return w_sky
+    return 0#w_sky
     
 
     
