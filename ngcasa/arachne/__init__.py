@@ -9,6 +9,6 @@ Functionality in development:
 6. Heterogeneous Pointing Corrections
 7. Heterogeneous Beam Squint Correction
 """
-from .make_gridding_convolution_function import make_gridding_convolution_function
+from .make_gcf_coords import make_gcf_coords
 
 

@@ -24,9 +24,9 @@ import numba
 
 def _calc_parallactic_angles_for_gcf(mxds,gcf_parms,sel_parms):
     pa = _calc_parallactic_angles_for_vis_dataset(mxds,sel_parms)
-    cf_time_map, pa_centers = _make_cf_time_map(mxds,pa,gcf_parms)
+    cf_time_map, pa_centers, pa_dif = _make_cf_time_map(mxds,pa,gcf_parms,sel_parms)
     
-    return pa, cf_time_map
+    return cf_time_map, pa_centers, pa_dif
 
 
 def _calc_parallactic_angles_for_vis_dataset(mxds,sel_parms):
@@ -39,33 +39,52 @@ def _calc_parallactic_angles_for_vis_dataset(mxds,sel_parms):
     field_dataset = mxds.attrs['FIELD']
     
     field_id = np.max(vis_dataset.FIELD_ID,axis=1).compute()
-    
-    #ra = field_dataset.PHASE_DIR[:,0,0].data.compute()
-    #dec = field_dataset.PHASE_DIR[:,0,1].data.compute()
-    ra_dec = field_dataset.PHASE_DIR.isel(d0=field_id)
-    ra = ra_dec[:,0,0].data.compute()
-    dec = ra_dec[:,0,1].data.compute()
-    phase_center = SkyCoord(ra=ra*u.rad, dec=dec*u.rad, frame='fk5') #fk5 epoch is J2000
-    
-    
-    telescope_name = mxds.attrs['OBSERVATION'].TELESCOPE_NAME.values[0]
-    observing_location = EarthLocation.of_site(telescope_name)
-    #observing_location = EarthLocation(lat=34.1*u.degree, lon=-107.6*u.degree,height=2114.89*u.m,ellipsoid='WGS84')
-    #x = mxds.ANTENNA.POSITION[:,0].values
-    #y = mxds.ANTENNA.POSITION[:,1].values
-    #z = mxds.ANTENNA.POSITION[:,2].values
-    #observing_location = EarthLocation.from_geocentric(x=x*u.m, y=y*u.m,z=z*u.m)
-    reference_time = Time(vis_dataset.time.values.astype(str), format='isot', scale='utc', location=observing_location)
-    
     n_field = field_dataset.dims['d0']
     n_time = vis_dataset.dims['time']
     
+    
+    #ra = field_dataset.PHASE_DIR[:,0,0].data.compute()
+    #dec = field_dataset.PHASE_DIR[:,0,1].data.compute()
+    
+    ra_dec = field_dataset.PHASE_DIR.isel(d0=field_id,drop=False)
     if n_field == 1:
-        phase_center = [phase_center]
+        ra = ra_dec[:,0].data.compute()
+        dec = ra_dec[:,1].data.compute()
+    else:
+        ra = ra_dec[:,0,0].data.compute()
+        dec = ra_dec[:,0,1].data.compute()
+    
+    phase_center = SkyCoord(ra=ra*u.rad, dec=dec*u.rad, frame='fk5') #fk5 epoch is J2000
+    
+    
+    #telescope_name = mxds.attrs['OBSERVATION'].TELESCOPE_NAME.values[0]
+    #observing_location = EarthLocation.of_site(telescope_name)
+    
+    #observing_location = EarthLocation(lat=34.1*u.degree, lon=-107.6*u.degree,height=2114.89*u.m,ellipsoid='WGS84')
+    x = mxds.ANTENNA.POSITION[0,0].values
+    y = mxds.ANTENNA.POSITION[0,1].values
+    z = mxds.ANTENNA.POSITION[0,2].values
+    observing_location = EarthLocation.from_geocentric(x=x*u.m, y=y*u.m,z=z*u.m)
+    reference_time = Time(vis_dataset.time.values.astype(str), format='isot', scale='utc', location=observing_location)
+    
+    #if n_field == 1:
+    #    phase_center = [phase_center]
     
     start = time.time()
     pa = _calc_parallactic_angles(reference_time, observing_location, phase_center)
     print('Time to calc pa ', time.time()-start)
+    
+    '''
+    print(pa)
+    q = pa%(2*np.pi)
+    print('q',q)
+    q[q > np.pi] = q[q > np.pi] - 2*np.pi
+    print('q',q)
+    
+    print(mxds.POINTING.DIRECTION.values[0,:][0])
+    print(ra_dec.values[0,:])
+    print(mxds.POINTING.DIRECTION.values[0,:][0]-ra_dec.values[0,:])
+    '''
     
     time_chunksize = vis_dataset[sel_parms['data']].chunks[0][0]
     pa = xr.DataArray(da.from_array(pa,chunks=(time_chunksize)), dims={'time'})
@@ -77,6 +96,8 @@ def _calc_parallactic_angles(times, observing_location, phase_center):
     """
     Computes parallactic angles per timestep for the given
     reference antenna position and field centre.
+    
+    Based on https://github.com/ska-sa/codex-africanus/blob/068c14fb6cf0c6802117689042de5f55dc49d07c/africanus/rime/parangles_astropy.py
     """
     from astropy.coordinates import (EarthLocation, SkyCoord,
                                      AltAz, CIRS)
@@ -94,13 +115,15 @@ def _calc_parallactic_angles(times, observing_location, phase_center):
     pole_altaz = pole_cirs.transform_to(altaz_frame)
     phase_center_altaz = phase_center_cirs.transform_to(altaz_frame)
     
+    #print('the zen angle is',phase_center_altaz.zen)
+    #print('the zen angle is',pole_altaz.zen)
+        
     return phase_center_altaz.position_angle(pole_altaz).value
 
-def _make_cf_time_map(mxds,pa,gcf_parms):
-    cf_time_map = 0
+def _make_cf_time_map(mxds,pa,gcf_parms,sel_parms):
     
     start = time.time()
-    pa_centers,cf_time_map = find_optimal_pa_set(pa.data.compute(),gcf_parms['pa_step'])
+    pa_centers,cf_time_map,pa_dif = find_optimal_pa_set(pa.data.compute(),gcf_parms['pa_step'])
     print('Time to make cf_time_map ', time.time()-start)
     pa_centers = np.array(pa_centers)
     '''
@@ -140,8 +163,15 @@ def _make_cf_time_map(mxds,pa,gcf_parms):
     #############################################################
     '''
     
+    pa_chunksize = np.ceil(len(pa_centers)/gcf_parms['cf_pa_num_chunk'])
     
-    return cf_time_map, pa_centers
+    time_chunksize = mxds.attrs[sel_parms['xds']][sel_parms['data']].chunks[0][0]
+    cf_time_map = xr.DataArray(da.from_array(cf_time_map,chunks=(time_chunksize)), dims={'time'})
+    pa_centers = xr.DataArray(da.from_array(pa_centers,chunks=(pa_chunksize)), dims={'pa'})
+    pa_dif = xr.DataArray(da.from_array(pa_dif,chunks=(time_chunksize)), dims={'time'})
+    
+    
+    return cf_time_map, pa_centers, pa_dif
 
 @jit(nopython=True,cache=True)
 def find_optimal_pa_set(pa,pa_step):
@@ -196,8 +226,10 @@ def find_optimal_pa_set(pa,pa_step):
                     neighbours[ii,group_member] = 0
                     
     pa_centers.pop(0)
+    #pa_centers.sort() #slow
     
-    cf_pa_map = np.zeros((n_time,2),numba.f8)
+    cf_pa_map = np.zeros((n_time),numba.u4)
+    pa_dif = np.zeros((n_time),numba.f8)
     
     for ii in range(n_time):
         min_dif = 42.0
@@ -211,26 +243,7 @@ def find_optimal_pa_set(pa,pa_step):
                 min_dif = ang_dif
                 group_indx = jj
         
-        cf_pa_map[ii,0] = group_indx
-        cf_pa_map[ii,1] = min_dif
-            
-          
-
+        cf_pa_map[ii] = group_indx
+        pa_dif[ii] = min_dif
     
-    '''
-    #group = [[None for _ in range(1)] for _ in range(n_time)]
-    group = [[] for _ in range(n_time)]
-    print(group)
-    
-    
-    for ii in range(n_time):
-        for jj in range(n_time):
-            
-            if np.abs(pa[ii]-pa[jj]) <= pa_step:
-                group[ii] = group[ii] + jj
-                
-    print(group)
-    '''
-    
-    
-    return pa_centers,cf_pa_map
+    return pa_centers,cf_pa_map,pa_dif
