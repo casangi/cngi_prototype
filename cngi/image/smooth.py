@@ -50,7 +50,7 @@ def smooth(xds, dv='IMAGE', kernel='gaussian', size=[1., 1., 30.], current=None,
     import xarray
     import dask.array as da
     import numpy as np
-    import cngi._helper.beams as chb
+    import cngi._utils._beams as chb
 
     # compute kernel beam
     size_corr = None
