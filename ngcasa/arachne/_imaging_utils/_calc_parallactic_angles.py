@@ -34,25 +34,47 @@ def _calc_parallactic_angles_for_vis_dataset(mxds,sel_parms):
                                      AltAz, CIRS)
     import astropy.units as u
     from astropy.time import Time
-    
     vis_dataset = mxds.attrs[sel_parms['xds']]
-    field_dataset = mxds.attrs['FIELD']
     
-    field_id = np.max(vis_dataset.FIELD_ID,axis=1).compute()
-    n_field = field_dataset.dims['d0']
-    n_time = vis_dataset.dims['time']
-    
-    
-    #ra = field_dataset.PHASE_DIR[:,0,0].data.compute()
-    #dec = field_dataset.PHASE_DIR[:,0,1].data.compute()
-    
-    ra_dec = field_dataset.PHASE_DIR.isel(d0=field_id,drop=False)
-    if n_field == 1:
-        ra = ra_dec[:,0].data.compute()
-        dec = ra_dec[:,1].data.compute()
-    else:
-        ra = ra_dec[:,0,0].data.compute()
-        dec = ra_dec[:,0,1].data.compute()
+    try:
+        ### Using pointing table
+        antenna_ids = mxds.antenna_ids.data
+        point_ant_ids = mxds.POINTING.antenna_id.data.compute()
+        print('Using Pointing dataset to calculate parallactic angles.')
+        point_times = mxds.POINTING.TIME.data.compute()
+        point_unique_times = np.unique(point_times)
+        n_point_time = len(point_unique_times)
+        n_ant = len(antenna_ids)
+        
+        ra_dec = np.zeros((n_point_time,n_ant,2))
+        ra_dec[:] = np.NaN
+        
+        for point_indx,point_ant_id in enumerate(point_ant_ids):
+            ant_indx = np.where(antenna_ids==point_ant_id)[0][0]
+            point_time = point_times[point_indx]
+            time_indx = np.where(point_unique_times==point_times[point_indx])[0][0]
+            ra_dec[time_indx,ant_indx,:] = mxds.POINTING.DIRECTION[point_indx,0,:]
+            
+        ra_dec = np.mean(ra_dec,axis=1)
+        print(ra_dec.shape)
+            
+    except:
+        #### Using field table
+        print('Using Field dataset to calculate parallactic angles.')
+        field_dataset = mxds.attrs['FIELD']
+        
+        field_id = np.max(vis_dataset.FIELD_ID,axis=1).compute()
+        n_field = field_dataset.dims['d0']
+        n_time = vis_dataset.dims['time']
+        
+        ra_dec = field_dataset.PHASE_DIR.isel(d0=field_id).data.compute()
+        
+        print(ra_dec.shape)
+        if n_field != 1:
+            ra_dec = ra_dec[:,0,:]
+        
+    ra = ra_dec[:,0]
+    dec = ra_dec[:,1]
     
     phase_center = SkyCoord(ra=ra*u.rad, dec=dec*u.rad, frame='fk5') #fk5 epoch is J2000
     
@@ -145,21 +167,23 @@ def _make_cf_time_map(mxds,pa,gcf_parms,sel_parms):
             ang_dif_list[ii] = ang_dif
             
     plt.figure()
-    plt.plot(cf_time_map[:,1])
-    plt.plot(ang_dif_list)
+    plt.plot(pa_dif,label='ngcasa')
+    plt.plot(ang_dif_list,label='casa')
+    plt.legend()
     
     plt.figure()
-    plt.hist(cf_time_map[:,1], bins='auto')
+    plt.hist(pa_dif, bins='auto')
     
     plt.figure()
     plt.hist(ang_dif_list, bins='auto')
     
-    plt.show()
     
-    print(np.mean(cf_time_map[:,1]),np.mean(ang_dif_list))
-    print(np.median(cf_time_map[:,1]),np.median(ang_dif_list))
-    print(np.var(cf_time_map[:,1]),np.var(ang_dif_list))
+    
+    print(np.mean(pa_dif),np.mean(ang_dif_list))
+    print(np.median(pa_dif),np.median(ang_dif_list))
+    print(np.var(pa_dif),np.var(ang_dif_list))
     print(len(pa_centers),pa_cf_count)
+    plt.show()
     #############################################################
     '''
     
