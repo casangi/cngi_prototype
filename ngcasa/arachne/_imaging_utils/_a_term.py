@@ -177,3 +177,50 @@ def _create_cf_chan_map(freq_chan,chan_tolerance_factor):
     
 
     return cf_chan_map, pb_freq
+
+
+##########################
+def _create_cf_baseline_map(mxds,sel_parms):
+
+    #cf_baseline_map,pb_ant_pairs = create_cf_baseline_map(mxds)
+    #unique_ant_indx,basline_ant,n_unique_ant
+    
+    ant_ids = mxds.antenna_ids
+    
+    
+    model_id = mxds.ANTENNA['MODEL_ID'].data
+    n_unique_ant = len(np.unique(mxds.ANTENNA['MODEL_ID']))
+    n_unique_ant_pairs = int((n_unique_ant**2 + n_unique_ant)/2)
+    
+    #Assuming antenna ids remain constant over time
+    ant1_id = mxds.attrs[sel_parms['xds']].ANTENNA1[0,:]
+    ant2_id = mxds.attrs[sel_parms['xds']].ANTENNA2[0,:]
+    
+    baseline_model_indx = np.zeros((len(ant1_id),2),dtype=int)
+    #print(baseline_model_indx.shape)
+    
+    #print(ant1_id.values)
+    #print(ant2_id.values)
+    for indx,id in enumerate(ant_ids):
+        baseline_model_indx[ant1_id==id,0] = model_id[indx]
+        baseline_model_indx[ant2_id==id,1] = model_id[indx]
+        
+    #print(baseline_model_indx)
+        
+    pb_ant_pairs = np.zeros((n_unique_ant_pairs,2),dtype=int)
+    k = 0
+    for i in range(n_unique_ant):
+        for j in range(i,n_unique_ant):
+           pb_ant_pairs[k,:] = [i,j]
+           k = k + 1
+    
+    cf_baseline_map = np.zeros((len(ant1_id),),dtype=int)
+    #print(cf_baseline_map.shape)
+    
+    for k,ij in enumerate(pb_ant_pairs):
+        #print(k,ij)
+        cf_baseline_map[(baseline_model_indx[:,0] == ij[0]) & (baseline_model_indx[:,1] == ij[1])] = k
+        cf_baseline_map[(baseline_model_indx[:,1] == ij[0]) & (baseline_model_indx[:,0] == ij[1])] = k
+    
+    return cf_baseline_map,pb_ant_pairs
+

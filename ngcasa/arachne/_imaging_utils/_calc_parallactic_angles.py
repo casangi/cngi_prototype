@@ -23,42 +23,35 @@ from numba import jit
 import numba
 
 def _calc_parallactic_angles_for_gcf(mxds,gcf_parms,sel_parms):
-    pa = _calc_parallactic_angles_for_vis_dataset(mxds,sel_parms)
+    pa = _calc_parallactic_angles_for_vis_dataset(mxds,gcf_parms,sel_parms)
     cf_time_map, pa_centers, pa_dif = _make_cf_time_map(mxds,pa,gcf_parms,sel_parms)
     
     return cf_time_map, pa_centers, pa_dif
 
 
-def _calc_parallactic_angles_for_vis_dataset(mxds,sel_parms):
+def _calc_parallactic_angles_for_vis_dataset(mxds,gcf_parms,sel_parms):
     from astropy.coordinates import (EarthLocation, SkyCoord,
                                      AltAz, CIRS)
     import astropy.units as u
     from astropy.time import Time
     vis_dataset = mxds.attrs[sel_parms['xds']]
     
-    try:
+    antenna_ids = mxds.antenna_ids.data
+    n_ant = len(antenna_ids)
+    
+    #try:
+    if True:
         ### Using pointing table
-        antenna_ids = mxds.antenna_ids.data
-        point_ant_ids = mxds.POINTING.antenna_id.data.compute()
         print('Using Pointing dataset to calculate parallactic angles.')
-        point_times = mxds.POINTING.TIME.data.compute()
-        point_unique_times = np.unique(point_times)
-        n_point_time = len(point_unique_times)
-        n_ant = len(antenna_ids)
+
+        #print(mxds.pointing_ra_dec)
+        ra_dec = mxds.pointing_ra_dec.interp(time=vis_dataset.time,assume_sorted=False,method=gcf_parms['interpolation_method'])
+        #print(mxds.pointing_ra_dec)
+        ra_dec = np.mean(ra_dec.data, axis=1)
         
-        ra_dec = np.zeros((n_point_time,n_ant,2))
-        ra_dec[:] = np.NaN
+        #print(ra_dec.shape)
         
-        for point_indx,point_ant_id in enumerate(point_ant_ids):
-            ant_indx = np.where(antenna_ids==point_ant_id)[0][0]
-            point_time = point_times[point_indx]
-            time_indx = np.where(point_unique_times==point_times[point_indx])[0][0]
-            ra_dec[time_indx,ant_indx,:] = mxds.POINTING.DIRECTION[point_indx,0,:]
-            
-        ra_dec = np.mean(ra_dec,axis=1)
-        print(ra_dec.shape)
-            
-    except:
+    else:
         #### Using field table
         print('Using Field dataset to calculate parallactic angles.')
         field_dataset = mxds.attrs['FIELD']
@@ -69,7 +62,7 @@ def _calc_parallactic_angles_for_vis_dataset(mxds,sel_parms):
         
         ra_dec = field_dataset.PHASE_DIR.isel(d0=field_id).data.compute()
         
-        print(ra_dec.shape)
+        #print(ra_dec.shape)
         if n_field != 1:
             ra_dec = ra_dec[:,0,:]
         
