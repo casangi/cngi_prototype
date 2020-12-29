@@ -139,7 +139,10 @@ def make_gcf_coords(mxds, list_zpc_dataset, gcf_parms, grid_parms, sel_parms, st
             print('#########  Using ', gcf_parms['a_function'], 'function')
             
             #n_unique_ant = len(_gcf_parms['list_dish_diameters'])
-            cf_baseline_map,pb_ant_pairs = _create_cf_baseline_map(mxds,sel_parms)
+            cf_ant_model_baseline_map,ant_model_pairs = _create_cf_baseline_map(mxds,sel_parms)
+            
+            #print(cf_ant_model_baseline_map)
+            #print(ant_model_pairs)
             
             try:
                 transform_pointing_table(mxds,gcf_parms,sel_parms) #temp function, should be included in convert_ms

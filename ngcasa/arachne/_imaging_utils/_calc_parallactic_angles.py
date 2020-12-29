@@ -13,6 +13,8 @@
 #   limitations under the License.
 
 #ducting - code is complex and might fail after some time if parameters is wrong (time waisting). Sensable values are also checked. Gives printout of all wrong parameters. Dirty images alone has x parametrs.
+#explore BEAM subtable? (keep it seperate with version numbers?)
+#Create function that creates beam subtable from zpc files or functions add to mxds?
 
 import numpy as np
 import xarray as xr
@@ -24,33 +26,55 @@ import numba
 
 def _calc_parallactic_angles_for_gcf(mxds,gcf_parms,sel_parms):
     pa = _calc_parallactic_angles_for_vis_dataset(mxds,gcf_parms,sel_parms)
-    cf_time_map, pa_centers, pa_dif = _make_cf_time_map(mxds,pa,gcf_parms,sel_parms)
+    pa_mean = _average_parallactic_to_match_map(mxds,pa)
     
-    return cf_time_map, pa_centers, pa_dif
+    print(pa_mean.compute())
+    
+#    print('*******')
+#    print('pa',pa)
+#    print('*******')
+#    print('pa',pa.data.compute())
+#    print('*******')
+    #cf_time_map, pa_centers, pa_dif = _make_cf_time_map(mxds,pa,gcf_parms,sel_parms)
+    
+    #return cf_time_map, pa_centers, pa_dif
+    return 0, 0, 0
 
+
+def _average_parallactic_to_match_map(mxds,pa):
+    model_id = mxds.ANTENNA['MODEL'].data.compute()
+    unique_model_id = unique_model_id = mxds.ANTENNA['model_id'].data.compute()
+    n_unique_model = len(unique_model_id)
+    
+    pa_mean = np.zeros((pa.shape[0],n_unique_model))
+    
+    for i,i_model_id in enumerate(unique_model_id):
+        print(i,i_model_id)
+        pa_mean[:,i] = np.mean(pa[:,model_id==i_model_id])
+        
+    time_chunksize = pa.chunks[0][0]
+    beam_chunksize = mxds.ANTENNA['model_id'].chunks[0][0]
+
+    pa_mean = xr.DataArray(da.from_array(pa_mean,chunks=(time_chunksize,beam_chunksize)),{'time':pa.time,'beam':unique_model_id}, dims=('time','beam'))
+    return pa_mean
 
 def _calc_parallactic_angles_for_vis_dataset(mxds,gcf_parms,sel_parms):
     from astropy.coordinates import (EarthLocation, SkyCoord,
                                      AltAz, CIRS)
     import astropy.units as u
     from astropy.time import Time
+    import copy
     vis_dataset = mxds.attrs[sel_parms['xds']]
     
     antenna_ids = mxds.antenna_ids.data
     n_ant = len(antenna_ids)
+    n_time = vis_dataset.dims['time']
     
     #try:
-    if True:
+    if False:
         ### Using pointing table
         print('Using Pointing dataset to calculate parallactic angles.')
-
-        #print(mxds.pointing_ra_dec)
-        ra_dec = mxds.pointing_ra_dec.interp(time=vis_dataset.time,assume_sorted=False,method=gcf_parms['interpolation_method'])
-        #print(mxds.pointing_ra_dec)
-        ra_dec = np.mean(ra_dec.data, axis=1)
-        
-        #print(ra_dec.shape)
-        
+        ra_dec = mxds.pointing_ra_dec.interp(time=vis_dataset.time,assume_sorted=False,method=gcf_parms['interpolation_method']).data.compute()
     else:
         #### Using field table
         print('Using Field dataset to calculate parallactic angles.')
@@ -65,45 +89,51 @@ def _calc_parallactic_angles_for_vis_dataset(mxds,gcf_parms,sel_parms):
         #print(ra_dec.shape)
         if n_field != 1:
             ra_dec = ra_dec[:,0,:]
-        
-    ra = ra_dec[:,0]
-    dec = ra_dec[:,1]
+            
+        ra_dec = np.tile(ra_dec[:,None,:],(1,n_ant,1))
     
-    phase_center = SkyCoord(ra=ra*u.rad, dec=dec*u.rad, frame='fk5') #fk5 epoch is J2000
-    
-    
-    #telescope_name = mxds.attrs['OBSERVATION'].TELESCOPE_NAME.values[0]
-    #observing_location = EarthLocation.of_site(telescope_name)
-    
-    #observing_location = EarthLocation(lat=34.1*u.degree, lon=-107.6*u.degree,height=2114.89*u.m,ellipsoid='WGS84')
-    x = mxds.ANTENNA.POSITION[0,0].values
-    y = mxds.ANTENNA.POSITION[0,1].values
-    z = mxds.ANTENNA.POSITION[0,2].values
+    ra = ra_dec[:,:,0]
+    dec = ra_dec[:,:,1]
+    #print(ra.shape)
+    phase_center = SkyCoord(ra=ra*u.rad, dec=dec*u.rad, frame='fk5') #XXXXXXXXXXXXXXXXXX fk5 epoch is J2000, when to switch over to ICRS?
+
+
+    if gcf_parms['use_array_ref_pos']:
+        telescope_name = mxds.attrs['OBSERVATION'].TELESCOPE_NAME.values[0]
+        if telescope_name=='EVLA': telescope_name='VLA'
+        observing_location = EarthLocation.of_site(telescope_name) #XXXXXXXXXXXXXXXXXX Need to check against values in CASA data repo
+        x = np.tile(np.array([observing_location.x.value])[None,:],(n_time,n_ant))
+        y = np.tile(np.array([observing_location.x.value])[None,:],(n_time,n_ant))
+        z = np.tile(np.array([observing_location.x.value])[None,:],(n_time,n_ant))
+    else:
+        ant_pos = np.tile(mxds.ANTENNA.POSITION.values[None,:,:],(n_time,1,1))
+        x = ant_pos[:,:,0]
+        y = ant_pos[:,:,1]
+        z = ant_pos[:,:,2]
     observing_location = EarthLocation.from_geocentric(x=x*u.m, y=y*u.m,z=z*u.m)
-    reference_time = Time(vis_dataset.time.values.astype(str), format='isot', scale='utc', location=observing_location)
+    #print('ol',observing_location.shape)
     
-    #if n_field == 1:
-    #    phase_center = [phase_center]
+    obs_time = np.tile(vis_dataset.time.values.astype(str)[:,None],(1,n_ant))
+    obs_time = Time(obs_time, format='isot', scale='utc', location=observing_location)
+    #print('time',obs_time.shape)
     
     start = time.time()
-    pa = _calc_parallactic_angles(reference_time, observing_location, phase_center)
+    pa = _calc_parallactic_angles(obs_time, observing_location, phase_center)
     print('Time to calc pa ', time.time()-start)
     
-    '''
-    print(pa)
-    q = pa%(2*np.pi)
-    print('q',q)
-    q[q > np.pi] = q[q > np.pi] - 2*np.pi
-    print('q',q)
+    print(pa.shape)
     
-    print(mxds.POINTING.DIRECTION.values[0,:][0])
-    print(ra_dec.values[0,:])
-    print(mxds.POINTING.DIRECTION.values[0,:][0]-ra_dec.values[0,:])
-    '''
+#    print('pa',pa.shape)
+#    plt.figure()
+#    plt.plot(pa[0,:].T)
+#    plt.show()
     
     time_chunksize = vis_dataset[sel_parms['data']].chunks[0][0]
-    pa = xr.DataArray(da.from_array(pa,chunks=(time_chunksize)), dims={'time'})
+    ant_chunksize= mxds.ANTENNA.POSITION.chunks[0][0]
     
+    #print(da.from_array(pa,chunks=(time_chunksize,ant_chunksize)))
+    
+    pa = xr.DataArray(da.from_array(pa,chunks=(time_chunksize,ant_chunksize)),{'time':vis_dataset.time,'ant':antenna_ids}, dims=('time','ant'))
     return pa
 
 
@@ -136,11 +166,21 @@ def _calc_parallactic_angles(times, observing_location, phase_center):
     return phase_center_altaz.position_angle(pole_altaz).value
 
 def _make_cf_time_map(mxds,pa,gcf_parms,sel_parms):
-    
+
+    #Finds all the antennas where the pa
     start = time.time()
-    pa_centers,cf_time_map,pa_dif = find_optimal_pa_set(pa.data.compute(),gcf_parms['pa_step'])
+    pa_centers,cf_time_map,pa_dif = _find_ant_with_large_pa_diff(pa.data.compute(),gcf_parms['ant_pa_step'])
     print('Time to make cf_time_map ', time.time()-start)
     pa_centers = np.array(pa_centers)
+    
+    '''
+    start = time.time()
+    pa_centers,cf_time_map,pa_dif = _find_optimal_pa_set(pa.data.compute(),gcf_parms['pa_step'])
+    print('Time to make cf_time_map ', time.time()-start)
+    pa_centers = np.array(pa_centers)
+    '''
+    
+    
     '''
     #############################################################
     #CASA way of doing things
@@ -179,19 +219,20 @@ def _make_cf_time_map(mxds,pa,gcf_parms,sel_parms):
     plt.show()
     #############################################################
     '''
+#
+#    pa_chunksize = np.ceil(len(pa_centers)/gcf_parms['cf_pa_num_chunk'])
+#
+#    time_chunksize = mxds.attrs[sel_parms['xds']][sel_parms['data']].chunks[0][0]
+#    cf_time_map = xr.DataArray(da.from_array(cf_time_map,chunks=(time_chunksize)), dims=('time'))
+#    pa_centers = xr.DataArray(da.from_array(pa_centers,chunks=(pa_chunksize)), dims=('pa'))
+#    pa_dif = xr.DataArray(da.from_array(pa_dif,chunks=(time_chunksize)), dims=('time'))
     
-    pa_chunksize = np.ceil(len(pa_centers)/gcf_parms['cf_pa_num_chunk'])
     
-    time_chunksize = mxds.attrs[sel_parms['xds']][sel_parms['data']].chunks[0][0]
-    cf_time_map = xr.DataArray(da.from_array(cf_time_map,chunks=(time_chunksize)), dims={'time'})
-    pa_centers = xr.DataArray(da.from_array(pa_centers,chunks=(pa_chunksize)), dims={'pa'})
-    pa_dif = xr.DataArray(da.from_array(pa_dif,chunks=(time_chunksize)), dims={'time'})
-    
-    
-    return cf_time_map, pa_centers, pa_dif
-
+    return 0,0,0
+    #return cf_time_map, pa_centers, pa_dif
+   
 @jit(nopython=True,cache=True)
-def find_optimal_pa_set(pa,pa_step):
+def _find_optimal_pa_set(pa,pa_step):
     n_time  = len(pa)
     
     neighbours = np.zeros((n_time,n_time),numba.b1)
@@ -210,14 +251,14 @@ def find_optimal_pa_set(pa,pa_step):
             if ang_dif <= pa_step:
              neighbours[ii,jj] = True
              
-    '''
-    plt.figure()
-    plt.imshow(neighbours_dis)
     
-    plt.figure()
-    plt.imshow(np.abs(neighbours_dis))
-    plt.show()
-    '''
+#    plt.figure()
+#    plt.imshow(neighbours_dis)
+#
+#    plt.figure()
+#    plt.imshow(np.abs(neighbours_dis))
+#    plt.show()
+    
     
     neighbours_rank = np.sum(neighbours,axis=1)
     
@@ -235,7 +276,7 @@ def find_optimal_pa_set(pa,pa_step):
             lonely_neighbour = False
         else:
             group_members = np.where(neighbours[highest_ranked_neighbour_indx,:]==1)[0]
-            pa_centers.append(pa[highest_ranked_neighbour_indx])
+            pa_centers.append(pa[highest_ranked_neighbour_indx]) #XXXXXXXXXXXXXXXXXX Should we average this ?
             
             for group_member in group_members:
                 for ii in range(n_time):

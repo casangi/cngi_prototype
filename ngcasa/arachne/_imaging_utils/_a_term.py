@@ -188,9 +188,10 @@ def _create_cf_baseline_map(mxds,sel_parms):
     ant_ids = mxds.antenna_ids
     
     
-    model_id = mxds.ANTENNA['MODEL_ID'].data
-    n_unique_ant = len(np.unique(mxds.ANTENNA['MODEL_ID']))
-    n_unique_ant_pairs = int((n_unique_ant**2 + n_unique_ant)/2)
+    model_id = mxds.ANTENNA['MODEL'].data.compute()
+    unique_model_id = mxds.ANTENNA['model_id'].data.compute()
+    n_unique_model = len(unique_model_id)
+    n_unique_model_pairs = int((n_unique_model**2 + n_unique_model)/2)
     
     #Assuming antenna ids remain constant over time
     ant1_id = mxds.attrs[sel_parms['xds']].ANTENNA1[0,:]
@@ -201,17 +202,19 @@ def _create_cf_baseline_map(mxds,sel_parms):
     
     #print(ant1_id.values)
     #print(ant2_id.values)
+    
+    
     for indx,id in enumerate(ant_ids):
         baseline_model_indx[ant1_id==id,0] = model_id[indx]
         baseline_model_indx[ant2_id==id,1] = model_id[indx]
         
     #print(baseline_model_indx)
         
-    pb_ant_pairs = np.zeros((n_unique_ant_pairs,2),dtype=int)
+    pb_ant_pairs = np.zeros((n_unique_model_pairs,2),dtype=int)
     k = 0
-    for i in range(n_unique_ant):
-        for j in range(i,n_unique_ant):
-           pb_ant_pairs[k,:] = [i,j]
+    for i in range(n_unique_model):
+        for j in range(i,n_unique_model):
+           pb_ant_pairs[k,:] = [unique_model_id[i],unique_model_id[j]]
            k = k + 1
     
     cf_baseline_map = np.zeros((len(ant1_id),),dtype=int)
@@ -223,4 +226,5 @@ def _create_cf_baseline_map(mxds,sel_parms):
         cf_baseline_map[(baseline_model_indx[:,1] == ij[0]) & (baseline_model_indx[:,0] == ij[1])] = k
     
     return cf_baseline_map,pb_ant_pairs
+
 
