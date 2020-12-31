@@ -24,33 +24,33 @@ import matplotlib.pyplot as plt
 from numba import jit
 import numba
 
-def _calc_parallactic_angles_for_gcf(mxds,gcf_parms,sel_parms):
+def _calc_parallactic_angles_for_gcf(mxds,beam_model_pairs,gcf_parms,sel_parms):
     pa = _calc_parallactic_angles_for_vis_dataset(mxds,gcf_parms,sel_parms)
+    #print(pa.compute())
     pa_mean = _average_parallactic_to_match_map(mxds,pa)
     
-    print(pa_mean.compute())
+
+    cf_time_map, pa_centers, pa_dif, pa_map = _make_cf_time_map(mxds,pa_mean,beam_model_pairs,gcf_parms,sel_parms)
+    #print(cf_time_map.data.compute())
+    #print(pa_map.data.compute())
     
-#    print('*******')
-#    print('pa',pa)
-#    print('*******')
-#    print('pa',pa.data.compute())
-#    print('*******')
-    #cf_time_map, pa_centers, pa_dif = _make_cf_time_map(mxds,pa,gcf_parms,sel_parms)
     
     #return cf_time_map, pa_centers, pa_dif
-    return 0, 0, 0
+    return cf_time_map, pa_centers, pa_dif, pa_map
 
 
 def _average_parallactic_to_match_map(mxds,pa):
     model_id = mxds.ANTENNA['MODEL'].data.compute()
-    unique_model_id = unique_model_id = mxds.ANTENNA['model_id'].data.compute()
+    unique_model_id = mxds.ANTENNA['model_id'].data.compute()
     n_unique_model = len(unique_model_id)
     
     pa_mean = np.zeros((pa.shape[0],n_unique_model))
     
     for i,i_model_id in enumerate(unique_model_id):
-        print(i,i_model_id)
-        pa_mean[:,i] = np.mean(pa[:,model_id==i_model_id])
+        #print(i,i_model_id)
+        #print(pa[:,model_id==i_model_id].data.compute())
+        #print(np.mean(pa[:,model_id==i_model_id].data.compute(),axis=1))
+        pa_mean[:,i] = np.mean(pa[:,model_id==i_model_id],axis=1)
         
     time_chunksize = pa.chunks[0][0]
     beam_chunksize = mxds.ANTENNA['model_id'].chunks[0][0]
@@ -121,7 +121,7 @@ def _calc_parallactic_angles_for_vis_dataset(mxds,gcf_parms,sel_parms):
     pa = _calc_parallactic_angles(obs_time, observing_location, phase_center)
     print('Time to calc pa ', time.time()-start)
     
-    print(pa.shape)
+    #print(pa.shape)
     
 #    print('pa',pa.shape)
 #    plt.figure()
@@ -165,21 +165,27 @@ def _calc_parallactic_angles(times, observing_location, phase_center):
         
     return phase_center_altaz.position_angle(pole_altaz).value
 
-def _make_cf_time_map(mxds,pa,gcf_parms,sel_parms):
+def _make_cf_time_map(mxds,pa,beam_model_pairs,gcf_parms,sel_parms):
 
     #Finds all the antennas where the pa
-    start = time.time()
-    pa_centers,cf_time_map,pa_dif = _find_ant_with_large_pa_diff(pa.data.compute(),gcf_parms['ant_pa_step'])
-    print('Time to make cf_time_map ', time.time()-start)
-    pa_centers = np.array(pa_centers)
+    #start = time.time()
+    #pa_centers,cf_time_map,pa_dif = _find_ant_with_large_pa_diff(pa.data.compute(),gcf_parms['ant_pa_step'])
+    #print('Time to make cf_time_map ', time.time()-start)
+    #pa_centers = np.array(pa_centers)
     
-    '''
     start = time.time()
-    pa_centers,cf_time_map,pa_dif = _find_optimal_pa_set(pa.data.compute(),gcf_parms['pa_step'])
-    print('Time to make cf_time_map ', time.time()-start)
-    pa_centers = np.array(pa_centers)
-    '''
+    pa_time_beam_pairs,pa_pair_map,pa_centers,pa_dif = _find_optimal_pa_set(pa.data.compute(),gcf_parms['pa_step'],beam_model_pairs,mxds.ANTENNA['model_id'].data.compute())
+    print('Time to find optimal pa set ', time.time()-start)
+    #pa_centers = np.array(pa_centers)
     
+    
+    start = time.time()
+    pa_time_beam_pairs_unique , ind = np.unique(pa_time_beam_pairs,axis=0, return_index=True)
+    pa_time_beam_pairs_unique = pa_time_beam_pairs_unique[np.argsort(ind)]
+    #print(pa_time_beam_pairs)
+    #print(pa_time_beam_pairs_unique) #NBNBNBNBNBNBNB
+    cf_time_map, pa_map = _make_map(pa_time_beam_pairs_unique,pa_time_beam_pairs,pa_pair_map,pa_centers)
+    print('Time to make cf_time_map ', time.time()-start)
     
     '''
     #############################################################
@@ -219,31 +225,85 @@ def _make_cf_time_map(mxds,pa,gcf_parms,sel_parms):
     plt.show()
     #############################################################
     '''
-#
-#    pa_chunksize = np.ceil(len(pa_centers)/gcf_parms['cf_pa_num_chunk'])
-#
-#    time_chunksize = mxds.attrs[sel_parms['xds']][sel_parms['data']].chunks[0][0]
-#    cf_time_map = xr.DataArray(da.from_array(cf_time_map,chunks=(time_chunksize)), dims=('time'))
-#    pa_centers = xr.DataArray(da.from_array(pa_centers,chunks=(pa_chunksize)), dims=('pa'))
-#    pa_dif = xr.DataArray(da.from_array(pa_dif,chunks=(time_chunksize)), dims=('time'))
+
+    pa_chunksize = int(np.ceil(len(pa_centers)/gcf_parms['cf_pa_num_chunk']))
+    time_chunksize = mxds.attrs[sel_parms['xds']][sel_parms['data']].chunks[0][0]
     
+    n_beam = pa_dif.shape[1]
+    n_beam_pair = pa_map.shape[1]
     
-    return 0,0,0
-    #return cf_time_map, pa_centers, pa_dif
-   
+    cf_time_map = xr.DataArray(da.from_array(cf_time_map,chunks=(time_chunksize)), dims=('time'))
+    pa_centers = xr.DataArray(da.from_array(pa_centers,chunks=(pa_chunksize)), dims=('pa'))
+    pa_dif = xr.DataArray(da.from_array(pa_dif,chunks=(time_chunksize,n_beam)), dims=('time','beam'))
+    pa_map = xr.DataArray(da.from_array(pa_map,chunks=(pa_chunksize,n_beam_pair,2)), dims=('cf_time','beam_pair','pair'))
+
+    
+    #return 0,0,0
+    return cf_time_map, pa_centers, pa_dif, pa_map
+  
 @jit(nopython=True,cache=True)
-def _find_optimal_pa_set(pa,pa_step):
-    n_time  = len(pa)
+def _make_map(pa_time_beam_pairs_unique,pa_time_beam_pairs,pa_pair_map,pa_centers):
     
-    neighbours = np.zeros((n_time,n_time),numba.b1)
-    #neighbours = np.zeros((n_time,n_time+1),bool)
+    n_time = len(pa_time_beam_pairs)
+    n_beam_pairs = pa_time_beam_pairs.shape[1]
     
-    #neighbours_dis = np.zeros((n_time,n_time))
+    cf_time_map = np.zeros((n_time),numba.u4)
     
     for ii in range(n_time):
-        for jj in range(n_time):
+        indx_list = [42]
+        for jj in range(n_beam_pairs):
+            beam_pair_indx = pa_time_beam_pairs[ii,jj]
+            mapping_indx = np.where(pa_time_beam_pairs_unique[:,jj] == beam_pair_indx)
+            
+            for mi in mapping_indx[0]:
+                indx_list.append(mi)
+            
+        indx_list.pop(0)
+        indx_arr = np.array(indx_list)
+        indx_counted = np.bincount(indx_arr)
+        sel_indx = np.bincount(indx_arr).argmax()
+        
+        if indx_counted[sel_indx] < n_beam_pairs:
+            print('ERROR time aligment of PA pairs failed')
+        
+        cf_time_map[ii] = sel_indx
+        
+        
+    n_unique_time = pa_time_beam_pairs_unique.shape[1]
+    n_unique_beam_pairs = pa_time_beam_pairs_unique.shape[0]
+    pa_map = np.zeros((n_unique_time,n_unique_beam_pairs,2),numba.u4)
+    
+    for ii in range(n_unique_time):
+        for jj in range(n_unique_beam_pairs):
+            pa_map[ii,jj,0] = pa_pair_map[pa_time_beam_pairs_unique[ii,jj],0]
+            pa_map[ii,jj,1] = pa_pair_map[pa_time_beam_pairs_unique[ii,jj],1]
+        
+    #print(pa_time_beam_pairs)
+    #print(pa_time_beam_pairs_unique)
+    #print(cf_pa_pair_map)
+    return cf_time_map, pa_map
+   
+@jit(nopython=True,cache=True)
+def _find_optimal_pa_set(pa,pa_step,beam_model_pairs,beam_model_ids):
+    
+    n_time = pa.shape[0]
+    n_beam = pa.shape[1]
+
+    #Remove XXXXXXXXXXX
+    #print('pa is',pa)
+    #pa[1,1] = 4.99039407
+    #pa[:,1] = pa[:,1] + 0.1
+    
+    #print('pa',pa)
+    
+    pa_flat = np.ravel(pa)
+    n_pa = len(pa_flat)
+    neighbours = np.zeros((n_pa,n_pa),numba.b1)
+
+    for ii in range(n_pa):
+        for jj in range(n_pa):
             #https://stackoverflow.com/questions/1878907/the-smallest-difference-between-2-angles
-            ang_dif = pa[ii]-pa[jj]
+            ang_dif = pa_flat[ii]-pa_flat[jj]
             ang_dif = np.abs((ang_dif + np.pi)%(2*np.pi) - np.pi)
             
             #neighbours_dis[ii,jj] = ang_dif
@@ -259,12 +319,7 @@ def _find_optimal_pa_set(pa,pa_step):
 #    plt.imshow(np.abs(neighbours_dis))
 #    plt.show()
     
-    
     neighbours_rank = np.sum(neighbours,axis=1)
-    
-    group = np.zeros((n_time,n_time+1),numba.u4)
-    #group = np.zeros((n_time,n_time+1),int)
-    
     pa_centers = [42.0] #Dummy value to let numba know what dtype of list is
     lonely_neighbour = True
     while lonely_neighbour:
@@ -276,32 +331,142 @@ def _find_optimal_pa_set(pa,pa_step):
             lonely_neighbour = False
         else:
             group_members = np.where(neighbours[highest_ranked_neighbour_indx,:]==1)[0]
-            pa_centers.append(pa[highest_ranked_neighbour_indx]) #XXXXXXXXXXXXXXXXXX Should we average this ?
+            #pa_centers.append(pa_flat[highest_ranked_neighbour_indx]) #XXXXXXXXXXXXXXXXXX Should we average this ?
+            pa_centers.append(np.median(pa_flat[neighbours[highest_ranked_neighbour_indx,:]])) #? median, mean
             
             for group_member in group_members:
-                for ii in range(n_time):
+                for ii in range(n_pa):
                     neighbours[group_member,ii] = 0
                     neighbours[ii,group_member] = 0
                     
     pa_centers.pop(0)
     #pa_centers.sort() #slow
     
-    cf_pa_map = np.zeros((n_time),numba.u4)
-    pa_dif = np.zeros((n_time),numba.f8)
+    #print('****************')
+    #print(pa_centers)
+    
+    pa_centers = np.array(pa_centers)
+    
+    n_pa_centers = len(pa_centers)
+    
+
+    pa_beam_indx = np.zeros((n_time,n_beam),numba.u4)
+    pa_dif = np.zeros((n_time,n_beam),numba.f8)
     
     for ii in range(n_time):
-        min_dif = 42.0
-        group_indx = -1
-        for jj in range(len(pa_centers)):
-            #https://stackoverflow.com/questions/1878907/the-smallest-difference-between-2-angles
-            ang_dif = pa[ii]-pa_centers[jj]
-            ang_dif = np.abs((ang_dif + np.pi)%(2*np.pi) - np.pi)
+        for kk in range(n_beam):
+            min_dif = 42.0
+            group_indx = -1
+            for jj in range(len(pa_centers)):
+                #https://stackoverflow.com/questions/1878907/the-smallest-difference-between-2-angles
+                ang_dif = pa[ii,kk]-pa_centers[jj]
+                ang_dif = np.abs((ang_dif + np.pi)%(2*np.pi) - np.pi)
+                
+                if min_dif > ang_dif:
+                    min_dif = ang_dif
+                    pa_center_indx = jj
             
-            if min_dif > ang_dif:
-                min_dif = ang_dif
-                group_indx = jj
-        
-        cf_pa_map[ii] = group_indx
-        pa_dif[ii] = min_dif
+            pa_beam_indx[ii,kk] = pa_center_indx
+            pa_dif[ii,kk] = min_dif
+            
+#    print('****************')
+#    print(pa_centers)
+#    print(pa_dif)
+#    print(pa_beam_indx)
+#    print(beam_model_pairs)
+#    print(beam_model_ids)
+#    print('****************')
     
-    return pa_centers,cf_pa_map,pa_dif
+    n_pa_center_pairs = int((n_pa_centers**2 + n_pa_centers)/2)
+    #print(n_pa_center_pairs)
+    
+    n_beam_pairs = len(beam_model_pairs)
+    pa_time_beam_pairs = np.zeros((n_time,n_beam_pairs),numba.u4)
+    
+    
+    pa_pair_map = np.zeros((n_pa_center_pairs,2),numba.u4)
+    n = 0
+    for ii in range(n_pa_centers):
+        for jj in range(ii,n_pa_centers):
+            pa_pair_map[n,:] = [ii,jj]
+            n = n+1
+    
+    for ii in range(n_time):
+        m = 0
+        for jj in range(n_beam):
+            for kk in range(jj,n_beam):
+                pa_beam_1_indx = pa_beam_indx[ii,jj]
+                pa_beam_2_indx = pa_beam_indx[ii,kk]
+                
+                if pa_beam_1_indx > pa_beam_2_indx:
+                    temp1 = pa_beam_1_indx
+                    pa_beam_1_indx = pa_beam_2_indx
+                    pa_beam_2_indx = temp1
+                
+                beam_pair_indx = int(pa_beam_1_indx*(2*n_pa_centers-pa_beam_1_indx-1)/2 + pa_beam_2_indx)
+                
+                #if (pa_pair_map[beam_pair_indx,0] != pa_beam_1_indx) or (pa_pair_map[beam_pair_indx,1] != pa_beam_2_indx):
+                #    print('equal',n_pa_centers,beam_pair_indx,pa_pair_map[beam_pair_indx,:],pa_beam_1_indx,pa_beam_2_indx)
+                #print(pa_beam_1_indx,pa_beam_2_indx)
+                
+                pa_time_beam_pairs[ii,m] = beam_pair_indx
+                #print(m,pa_beam_1_indx,pa_beam_2_indx,beam_pair_indx)
+                m=m+1
+                
+                
+    #pa_time_beam_pairs_unique , ind = np.unique(pa_time_beam_pairs,axis=0, return_index=True)
+    #pa_time_beam_pairs_unique = pa_time_beam_pairs_unique[np.argsort(ind)]
+    
+    pa_time_beam_pairs_unique = np.zeros(pa_time_beam_pairs.shape,numba.u4) - 42
+
+    
+    
+    #for ii in range(n_beam_pairs):
+    #    temp2 = np.unique(pa_time_beam_pairs[:,ii])
+    #    pa_time_beam_pairs_unique[:len(temp2),ii] = temp2
+        
+    #print(pa_time_beam_pairs)
+    #print(pa_time_beam_pairs_unique)
+    #print(beam_model_pairs)
+ 
+    '''
+    for mm in range(n_beam_pairs):
+        unique_beam_pa = np.unique(cf_pa[:,mm])
+        print(unique_beam_pa.shape,unique_beam_pa)
+    print(cf_pa)
+    '''
+
+    
+    #print(np.unique(cf_pa,axis=0))
+    
+    '''
+    for ii in range(n_time):
+        for jj in range(n_beam_pairs):
+            flat_indx =
+            cf_pa[ii,jj] =
+    
+    
+    
+    
+    for ii in range(n_time):
+        for jj in range(n_beam_pairs):
+            cf_pa[ii,jj] =
+    
+    
+    
+    for ii in range(n_time):
+        m = 0
+        for jj in range(n_beam):
+            for kk in range(jj,n_beam):
+                beam_1_id = beam_model_ids[jj]
+                beam_2_id = beam_model_ids[kk]
+                
+                beam_model_pairs,beam_model_ids
+                cf_pa[ii,m] =
+                m = m+1
+    '''
+    
+        
+    
+    return pa_time_beam_pairs,pa_pair_map,pa_centers,pa_dif
+    #return pa_centers,cf_pa_map,pa_dif

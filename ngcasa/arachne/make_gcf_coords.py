@@ -139,10 +139,10 @@ def make_gcf_coords(mxds, list_zpc_dataset, gcf_parms, grid_parms, sel_parms, st
             print('#########  Using ', gcf_parms['a_function'], 'function')
             
             #n_unique_ant = len(_gcf_parms['list_dish_diameters'])
-            cf_ant_model_baseline_map,ant_model_pairs = _create_cf_baseline_map(mxds,sel_parms)
+            cf_ant_model_baseline_map,beam_model_pairs = _create_cf_baseline_map(mxds,sel_parms)
             
-            #print(cf_ant_model_baseline_map)
-            #print(ant_model_pairs)
+            #print('cf_ant_model_baseline_map',cf_ant_model_baseline_map)
+            #print('beam_model_pairs',beam_model_pairs)
             
             try:
                 transform_pointing_table(mxds,gcf_parms,sel_parms) #temp function, should be included in convert_ms
@@ -150,7 +150,7 @@ def make_gcf_coords(mxds, list_zpc_dataset, gcf_parms, grid_parms, sel_parms, st
                 print('Conversion of Pointing Table Failed')
             
             #PA should be function of Time and Antenna position (if an antenna is)
-            cf_time_map, pa_centers, pa_dif = _calc_parallactic_angles_for_gcf(mxds,_gcf_parms,_sel_parms)
+            cf_time_map, pa_centers, pa_dif, pa_map = _calc_parallactic_angles_for_gcf(mxds,beam_model_pairs,_gcf_parms,_sel_parms)
             
             #print(cf_time_map.data.compute())
             #print(pa_centers.data.compute())
