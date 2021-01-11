@@ -58,6 +58,7 @@ def convert_ms(infile, outfile=None, ddis=None, ignorecols=None, compressor=None
     import cngi._utils._table_conversion as tblconv
     import cngi._utils._io as xdsio
     import warnings
+    import pkg_resources
     warnings.filterwarnings('ignore', category=FutureWarning)
 
     # parse filename to use
@@ -153,6 +154,7 @@ def convert_ms(infile, outfile=None, ddis=None, ignorecols=None, compressor=None
     
     # convert other subtables to their own partitions, denoted by 'global_' prefix
     skip_tables = ['DATA_DESCRIPTION', 'SORTED_TABLE']
+    skip_tables += ['HISTORY']  # HISTORY table throws random segfaults in CASA table tool as of 6.2.0
     subtables = sorted([tt for tt in os.listdir(infile) if os.path.isdir(os.path.join(infile, tt)) and tt not in skip_tables])
     if 'global' in ddis:
         start_ddi = time.time()
@@ -170,10 +172,14 @@ def convert_ms(infile, outfile=None, ddis=None, ignorecols=None, compressor=None
                     xds_sub_list[-1] = (subtable, xarray.open_zarr(os.path.join(outfile, 'global/'+subtable)))
             
                 xds_list += xds_sub_list
-            else:
-                print('Empty Subtable:',subtable)
+            #else:
+            #    print('Empty Subtable:',subtable)
             
         print('Completed subtables  process time {:0.2f} s'.format(time.time() - start_ddi))
+    
+    # write sw version that did this conversion to zarr directory
+    with open(outfile+'/.version', 'w') as fid:
+        fid.write('cngi-protoype ' + pkg_resources.get_distribution('cngi-prototype').version + '\n')
     
     # build the master xds to return
     mxds = xdsio.vis_xds_packager(xds_list)
