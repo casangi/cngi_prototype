@@ -57,7 +57,7 @@ def convert_table(infile, outfile=None, subtable=None, keys=None, timecols=None,
     """
     import os
     from numcodecs import Blosc
-    import pkg_resources
+    import importlib_metadata
     import cngi._utils._table_conversion as tblconv
 
     # parse filename to use
@@ -101,6 +101,6 @@ def convert_table(infile, outfile=None, subtable=None, keys=None, timecols=None,
 
     # write sw version that did this conversion to zarr directory
     with open(outfile + '/.version', 'w') as fid:
-        fid.write('cngi-protoype ' + pkg_resources.get_distribution('cngi-prototype').version + '\n')
+        fid.write('cngi-protoype ' + importlib_metadata.version('cngi-prototype') + '\n')
     
     return xds

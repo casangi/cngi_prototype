@@ -60,7 +60,7 @@ def convert_ms(infile, outfile=None, ddis=None, ignore=['HISTORY'], compressor=N
     import cngi._utils._table_conversion as tblconv
     import cngi._utils._io as xdsio
     import warnings
-    import pkg_resources
+    import importlib_metadata
     warnings.filterwarnings('ignore', category=FutureWarning)
 
     # parse filename to use
@@ -193,7 +193,7 @@ def convert_ms(infile, outfile=None, ddis=None, ignore=['HISTORY'], compressor=N
     
     # write sw version that did this conversion to zarr directory
     with open(outfile+'/.version', 'w') as fid:
-        fid.write('cngi-protoype ' + pkg_resources.get_distribution('cngi-prototype').version + '\n')
+        fid.write('cngi-protoype ' + importlib_metadata.version('cngi-prototype') + '\n')
     
     # build the master xds to return
     mxds = xdsio.vis_xds_packager(xds_list)
