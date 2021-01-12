@@ -106,7 +106,8 @@ def convert_simple_table(infile, outfile, subtable='', rowdim='d0', timecols=[],
     for start_idx in range(0, tb_tool.nrows(), chunk_shape[0]):
         for col in tb_tool.colnames():
             if (col in ignore) or (col in bad_cols): continue
-            print('reading chunk %s of %s, col %s...%s' % (str(start_idx // chunk_shape[0]), str(tb_tool.nrows() // chunk_shape[0]), col, ' '*20), end='\r')
+            tblname = tb_tool.name().split('/')[-1]
+            print('reading %s chunk %s of %s, col %s...%s' % (tblname, str(start_idx // chunk_shape[0]), str(tb_tool.nrows() // chunk_shape[0]), col, ' '*20), end='\r')
             try:
                 if col in cshape:   # if this column has a varying shape, it needs to be normalized
                     data = tb_tool.getvarcol(col, start_idx, chunk_shape[0])
@@ -197,10 +198,10 @@ def convert_expanded_table(infile, outfile, keys, subtable='', subsel=None, time
     # then compute 1 and 3 for each additional key/dimension and store in midxs dictionary
     ordering = ','.join([np.atleast_1d(key)[ii] for key in keys.keys() for ii in range(len(np.atleast_1d(key)))])
     if subsel is None:
-        sorted_table = tb_tool.taql('select * from %s ORDERBY %s' % (infile+subtable, ordering))
+        sorted_table = tb_tool.taql('select * from %s ORDERBY %s' % (os.path.join(infile,subtable), ordering))
     else:
         tsel = [list(subsel.keys())[0], list(subsel.values())[0]]
-        sorted_table = tb_tool.taql('select * from %s where %s = %s ORDERBY %s' % (infile+subtable, tsel[0], tsel[1], ordering))
+        sorted_table = tb_tool.taql('select * from %s where %s = %s ORDERBY %s' % (os.path.join(infile,subtable), tsel[0], tsel[1], ordering))
 
     # master dataset holders
     mvars, midxs = {}, {}
@@ -270,19 +271,11 @@ def convert_expanded_table(infile, outfile, keys, subtable='', subsel=None, time
             fulldata[didxs] = data
 
             # if this column has additional dimensionality beyond the expanded dims, we need to create/reuse placeholder names
-            for dd in fulldata.shape[len(keys):]:
-                if dd not in mdims.values():
+            dims = [kk for kk in [target_row_key] + target_exp_keys]
+            for ii, dd in enumerate(fullshape[len(keys):]):
+                if (ii+len(keys) >= len(mdims)) or (dd not in list(mdims.values())[ii+len(keys):]):
                     mdims['d%i' % len(mdims.keys())] = dd
-            dims = [kk for kk in [target_row_key]+target_exp_keys] + [ii for yy in fulldata.shape[len(keys):] for ii in mdims.keys() if mdims[ii] == yy]
-            
-            #Temp fix
-            if col == 'UVW':
-                dims[2]  = 'd4'
-            elif col == 'WEIGHT':
-                dims[2] = 'd3'
-            else:
-                dims = ['time', 'baseline', 'd2', 'd3'][:len(fulldata.shape)]
-            ##########
+                dims += [list(mdims.keys())[ii+len(keys):][list(mdims.values())[ii+len(keys):].index(dd)]]
             
             # set chunking based on passed in chunk shape, expanding last dimension if necessary
             chunking = [chunk_shape[di] if di < len(chunk_shape) else chunk_shape[-1] for di, dk in enumerate(dims)]
@@ -303,6 +296,6 @@ def convert_expanded_table(infile, outfile, keys, subtable='', subsel=None, time
     sorted_table.close()
     tb_tool.close()
     if not nofile:
-        xds = xarray.open_zarr(os.path.join(outfile,subtable) + subtable)
+        xds = xarray.open_zarr(os.path.join(outfile,subtable))
 
     return xds

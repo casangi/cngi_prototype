@@ -16,7 +16,7 @@ this module will be included in the api
 """
 
 
-def convert_ms(infile, outfile=None, ddis=None, ignorecols=None, compressor=None, chunk_shape=(100, 400, 32, 1), append=False):
+def convert_ms(infile, outfile=None, ddis=None, ignore=['HISTORY'], compressor=None, chunk_shape=(100, 400, 32, 1), append=False):
     """
     Convert legacy format MS to xarray Visibility Dataset and zarr storage format
 
@@ -34,8 +34,10 @@ def convert_ms(infile, outfile=None, ddis=None, ignorecols=None, compressor=None
         Output zarr filename. If None, will use infile name with .vis.zarr extension
     ddis : list
         List of specific DDIs to convert. DDI's are integer values, or use 'global' string for subtables. Leave as None to convert entire MS
-    ignorecols : list
-        List of columns to ignore. This is useful if a particular column is causing errors, but note that it applies to all tables. Default is None
+    ignore : list
+        List of subtables to ignore (case sensitive and generally all uppercase). This is useful if a particular subtable is causing errors.
+        Default is None. Note: default is now temporarily set to ignore the HISTORY table due a CASA6 issue in the table tool affecting a small
+        set of test cases (set back to None if HISTORY is needed)
     compressor : numcodecs.blosc.Blosc
         The blosc compressor to use when saving the converted data to disk using zarr.
         If None the zstd compression algorithm used with compression level 2.
@@ -73,8 +75,8 @@ def convert_ms(infile, outfile=None, ddis=None, ignorecols=None, compressor=None
         os.system("mkdir " + outfile)
     
     # as part of MSv3 conversion, these columns in the main table are no longer needed
-    if ignorecols is None: ignorecols = []
-    ignorecols = ignorecols + ['FLAG_CATEGORY', 'FLAG_ROW', 'DATA_DESC_ID']
+    ignorecols = ['FLAG_CATEGORY', 'FLAG_ROW', 'DATA_DESC_ID']
+    if ignore is None: ignore = []
     
     # we need the spectral window, polarization, and data description tables for processing the main table
     spw_xds = tblconv.convert_simple_table(infile, outfile='', subtable='SPECTRAL_WINDOW', ignore=ignorecols, nofile=True)
@@ -92,16 +94,24 @@ def convert_ms(infile, outfile=None, ddis=None, ignorecols=None, compressor=None
     # each DDI is written to its own subdirectory under the parent folder
     for ddi in ddis:
         if ddi == 'global': continue  # handled afterwards
+        ddi = int(ddi)
         print('Processing ddi', ddi, end='\r')
         start_ddi = time.time()
 
-        # these columns are different / absent in MSv3
-        msv2 = ['WEIGHT', 'WEIGHT_SPECTRUM', 'SIGMA', 'SIGMA_SPECTRUM']
+        # these columns are different / absent in MSv3 or need to be handled as special cases
+        msv2 = ['WEIGHT', 'WEIGHT_SPECTRUM', 'SIGMA', 'SIGMA_SPECTRUM', 'UVW']
         
         # convert columns that are common to MSv2 and MSv3
         xds = tblconv.convert_expanded_table(infile, os.path.join(outfile,'xds'+str(ddi)), keys={'TIME': 'time', ('ANTENNA1', 'ANTENNA2'): 'baseline'},
-                                             subsel={'DATA_DESC_ID':ddi}, timecols=['time'], dimnames={'d4':'uvw_index', 'd2':'chan', 'd3':'pol'},
+                                             subsel={'DATA_DESC_ID':ddi}, timecols=['time'], dimnames={'d2':'chan', 'd3':'pol'},
                                              ignore=ignorecols + msv2, compressor=compressor, chunk_shape=chunk_shape, nofile=False)
+        
+        # convert and append UVW separately so we can handle its special dimension
+        uvw_xds = tblconv.convert_expanded_table(infile, os.path.join(outfile,'tmp'), keys={'TIME': 'time', ('ANTENNA1', 'ANTENNA2'): 'baseline'},
+                                                 subsel={'DATA_DESC_ID': ddi}, timecols=['time'], dimnames={'d2': 'uvw_index'},
+                                                 ignore=ignorecols + list(xds.data_vars) + msv2[:-1], compressor=compressor, chunk_shape=chunk_shape,
+                                                 nofile=False)
+        uvw_xds.to_zarr(os.path.join(outfile, 'xds'+str(ddi)), mode='a', compute=True, consolidated=True)
         
         # now convert just the WEIGHT and WEIGHT_SPECTRUM (if preset)
         # WEIGHT needs to be expanded to full dimensionality (time, baseline, chan, pol)
@@ -113,7 +123,7 @@ def convert_ms(infile, outfile=None, ddis=None, ignorecols=None, compressor=None
         # if WEIGHT_SPECTRUM is present, append it to the main xds as the new WEIGHT column
         # otherwise expand the dimensionality of WEIGHT and add it to the xds
         if 'WEIGHT_SPECTRUM' in wt_xds.data_vars:
-            wt_xds = wt_xds.drop_vars('WEIGHT').rename({'WEIGHT_SPECTRUM':'WEIGHT', 'd2':'chan', 'd3':'pol'})
+            wt_xds = wt_xds.drop_vars('WEIGHT').rename(dict(zip(wt_xds.WEIGHT_SPECTRUM.dims, ['time','baseline','chan','pol'])))
             wt_xds.to_zarr(os.path.join(outfile, 'xds'+str(ddi)), mode='a', compute=True, consolidated=True)
         else:
             wts = wt_xds.WEIGHT.shape[:2] + (1,) + (wt_xds.WEIGHT.shape[-1],)
@@ -153,15 +163,19 @@ def convert_ms(infile, outfile=None, ddis=None, ignorecols=None, compressor=None
     os.system("rm -fr " + os.path.join(outfile,'tmp'))
     
     # convert other subtables to their own partitions, denoted by 'global_' prefix
-    skip_tables = ['DATA_DESCRIPTION', 'SORTED_TABLE']
-    skip_tables += ['HISTORY']  # HISTORY table throws random segfaults in CASA table tool as of 6.2.0
+    skip_tables = ['DATA_DESCRIPTION', 'SORTED_TABLE'] + ignore
     subtables = sorted([tt for tt in os.listdir(infile) if os.path.isdir(os.path.join(infile, tt)) and tt not in skip_tables])
     if 'global' in ddis:
         start_ddi = time.time()
         for ii, subtable in enumerate(subtables):
             print('processing subtable %i of %i : %s' % (ii, len(subtables), subtable), end='\r')
-            xds_sub_list = [(subtable, tblconv.convert_simple_table(infile, os.path.join(outfile, 'global'), subtable,
-                                                                 timecols=['TIME'], ignore=ignorecols, compressor=compressor, nofile=False))]
+            if subtable == 'POINTING':    # expand the dimensions of the pointing table
+                xds_sub_list = [(subtable, tblconv.convert_expanded_table(infile, os.path.join(outfile, 'global'), subtable=subtable,
+                                                                          keys={'TIME': 'time', 'ANTENNA_ID': 'antenna_id'}, timecols=['time'],
+                                                                          chunk_shape=chunk_shape))]
+            else:
+                xds_sub_list = [(subtable, tblconv.convert_simple_table(infile, os.path.join(outfile, 'global'), subtable,
+                                                                        timecols=['TIME'], ignore=ignorecols, compressor=compressor, nofile=False))]
             
             if len(xds_sub_list[-1][1].dims) != 0:
                 # to conform to MSv3, we need to add explicit ID fields to certain tables
