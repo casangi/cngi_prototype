@@ -15,6 +15,8 @@
 #ducting - code is complex and might fail after some time if parameters is wrong (time waisting). Sensable values are also checked. Gives printout of all wrong parameters. Dirty images alone has x parametrs.
 
 import numpy as np
+import xarray as xr
+import dask.array as da
 
 #@jit(nopython=True,cache=True)
 def _outer_product(B1,B2):
@@ -154,9 +156,9 @@ def _create_chan_map(mxds,gcf_parms,sel_parms):
     freq_chan = vis_dataset.chan.data
     chan_tolerance_factor = gcf_parms['chan_tolerance_factor']
 
-    print(freq_chan)
+    #print(freq_chan)
     n_chan = len(freq_chan)
-    cf_chan_map = np.zeros((n_chan,),dtype=int)
+    chan_map = np.zeros((n_chan,),dtype=int)
     
     orig_width = (np.max(freq_chan) - np.min(freq_chan))/len(freq_chan)
     
@@ -168,20 +170,28 @@ def _create_chan_map(mxds,gcf_parms,sel_parms):
         n_pb_chan = 1
     
     if n_pb_chan >= n_chan:
-        cf_chan_map = np.arange(n_chan)
-        pb_freq = freq_chan
-        return cf_chan_map, pb_freq
+        chan_map = np.arange(n_chan)
+        cf_pb_freq = freq_chan
+        
+        chan_chunks = vis_dataset[sel_parms['data']].chunks[2][0]
+        chan_map = xr.DataArray(da.from_array(chan_map,chunks=(chan_chunks)),{'chan':vis_dataset.chan}, dims=('chan'))
+        cf_pb_freq = xr.DataArray(da.from_array(cf_pb_freq), dims=('cf_freq'))
+        return chan_map, cf_pb_freq
     
     pb_delta_bandwdith = (np.max(freq_chan) - np.min(freq_chan))/n_pb_chan
-    pb_freq = np.arange(n_pb_chan)*pb_delta_bandwdith + np.min(freq_chan) + pb_delta_bandwdith/2
+    cf_pb_freq = np.arange(n_pb_chan)*pb_delta_bandwdith + np.min(freq_chan) + pb_delta_bandwdith/2
 
-    cf_chan_map = np.zeros((n_chan,),dtype=int)
+    chan_map = np.zeros((n_chan,),dtype=int)
     for i in range(n_chan):
-        cf_chan_map[i],_ = _find_nearest(pb_freq, freq_chan[i])
+        chan_map[i],_ = _find_nearest(cf_pb_freq, freq_chan[i])
 
+    chan_chunks = vis_dataset[sel_parms['data']].chunks[2][0]
+    chan_map = xr.DataArray(da.from_array(chan_map,chunks=(chan_chunks)),{'chan':vis_dataset.chan}, dims=('chan'))
+    cf_pb_freq = xr.DataArray(da.from_array(cf_pb_freq), dims=('cf_freq'))
+
+    return chan_map, cf_pb_freq
     
-
-    return cf_chan_map, pb_freq
+                
     
 def _find_nearest(array, value):
     array = np.asarray(array)

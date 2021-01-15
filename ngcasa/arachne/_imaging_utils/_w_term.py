@@ -14,10 +14,20 @@
 
 #ducting - code is complex and might fail after some time if parameters is wrong (time waisting). Sensable values are also checked. Gives printout of all wrong parameters. Dirty images alone has x parametrs.
 
+#Clustering
+#https://stackoverflow.com/questions/11513484/1d-number-array-clustering
+#https://stackoverflow.com/questions/7869609/cluster-one-dimensional-data-optimally
+#https://stackoverflow.com/questions/35094454/how-would-one-use-kernel-density-estimation-as-a-1d-clustering-method-in-scikit/35151947#35151947
+#https://www.astro.rug.nl/~yatawatta/eusipco2.pdf optimal w
+#https://arxiv.org/pdf/1807.09239.pdf
+
+
 import numpy as np
 import scipy.constants
 import math
 import matplotlib.pyplot as plt
+import xarray as xr
+import dask.array as da
 
 def _create_w_map(mxds,gcf_parms,grid_parms,sel_parms):
     vis_dataset = mxds.attrs[sel_parms['xds']]
@@ -29,6 +39,7 @@ def _create_w_map(mxds,gcf_parms,grid_parms,sel_parms):
     #_find_optimal_w_set(vis_dataset.UVW.data.compute()[:,:,2],gcf_parms['w_step'],gcf_parms['w_hist_cutoff'],lambda_min,lambda_max)
     w_list = _calculate_w_list(gcf_parms,grid_parms,w_max)
     
+    w_list = xr.DataArray(da.from_array(w_list), dims=('cf_w'))
     return w_list
 
 

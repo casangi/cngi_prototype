@@ -49,11 +49,10 @@ def _calc_parallactic_angles_for_gcf(mxds,gcf_parms,sel_parms):
     return cf_time_map, pa_centers, pa_dif, pa_map
     '''
     vis_dataset = mxds.attrs[sel_parms['xds']]
-    pa_chunksize = int(np.ceil(len(pa_centers)/gcf_parms['cf_pa_num_chunk']))
     time_chunksize = vis_dataset[sel_parms['data']].chunks[0][0]
     ant_chunksize= mxds.ANTENNA.POSITION.chunks[0][0]
     
-    pa_centers = xr.DataArray(da.from_array(pa_centers,chunks=(pa_chunksize)), dims=('pa'))
+    pa_centers = xr.DataArray(da.from_array(pa_centers), dims=('pa'))
     pa_dif = xr.DataArray(da.from_array(pa_dif,chunks=(time_chunksize,ant_chunksize)), dims=('time','beam'))
     #pa = xr.DataArray(da.from_array(pa,chunks=(time_chunksize,ant_chunksize)), dims=('time','beam'))
     

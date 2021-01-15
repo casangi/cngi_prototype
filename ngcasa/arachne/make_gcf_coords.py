@@ -18,6 +18,8 @@ this module will be included in the api
 import numpy as np
 from scipy.constants import c
 import xarray as xr
+import dask
+import dask.array as da
 
 
 '''
@@ -36,6 +38,8 @@ import xarray as xr
     Only the airy disk and ALMA airy disk model is implemented.
     In the future support will be added for beam squint, pointing corrections, w projection, and including a prolate spheroidal term.
 '''
+
+#NB chack ant axis should have no chunking
 
 def make_gcf_coords(mxds, list_zpc_dataset, gcf_parms, grid_parms, sel_parms, storage_parms):
     """
@@ -130,8 +134,8 @@ def make_gcf_coords(mxds, list_zpc_dataset, gcf_parms, grid_parms, sel_parms, st
     
     if _gcf_parms['a_term'] or _gcf_parms['do_pointing']:
         #Add another check if available
-        pointing_ra_dec = mxds.POINTING.DIRECTION.interp(time=vis_dataset.time,assume_sorted=False,method=gcf_parms['interpolation_method']).data.compute()[:,:,0,:]
-    
+        pointing_ra_dec = mxds.POINTING.DIRECTION.interp(time=vis_dataset.time,assume_sorted=False,method=gcf_parms['interpolation_method'])[:,:,0,:]
+        pointing_ra_dec = pointing_ra_dec.chunk({"time":vis_dataset[sel_parms['data']].chunks[0][0]})
     
     ##################################################### PS_TERM #####################################################################
     if _gcf_parms['ps_term']:
@@ -151,8 +155,8 @@ def make_gcf_coords(mxds, list_zpc_dataset, gcf_parms, grid_parms, sel_parms, st
             #beam_pair_id, number of unique beam pairs x 2
             beam_map,cf_beam_pair_id = _create_beam_map(mxds,sel_parms)
             
-            print('beam_map',beam_map.data.compute())
-            print('beam_pair_id',cf_beam_pair_id.data.compute())
+            #print('beam_map',beam_map.data.compute())
+            #print('beam_pair_id',cf_beam_pair_id.data.compute())
             ##############################################################################################################################
             
             ####################################################### Parallactic Angle ####################################################
@@ -167,15 +171,14 @@ def make_gcf_coords(mxds, list_zpc_dataset, gcf_parms, grid_parms, sel_parms, st
             #pa_diff, time x ant
             pa, cf_pa_centers, pa_diff = _calc_parallactic_angles_for_gcf(mxds,_gcf_parms,_sel_parms)
             
-            print(pa.data.compute())
-            print(cf_pa_centers.data.compute())
+            #print(pa.data.compute())
+            #print(cf_pa_centers.data.compute())
             
-            pa_diff = pa_diff.data.compute()
-            print('Housten we got a problem',pa_diff[np.abs(pa_diff) > _gcf_parms['pa_step']],_gcf_parms['pa_step'])
+            #pa_diff = pa_diff.data.compute()
+            #print('Housten we got a problem',pa_diff[np.abs(pa_diff) > _gcf_parms['pa_step']],_gcf_parms['pa_step'])
             ################################################################################################################################
             
             ####################################################### Channel ####################################################
-            vis_dataset = mxds.attrs[sel_parms['xds']]
             chan_map, cf_pb_freq = _create_chan_map(mxds,_gcf_parms,_sel_parms)
             
             #print(chan_map)
@@ -201,72 +204,98 @@ def make_gcf_coords(mxds, list_zpc_dataset, gcf_parms, grid_parms, sel_parms, st
         print('#########  Creating w_term coordinates')
         cf_w = _create_w_map(mxds,_gcf_parms,_grid_parms,_sel_parms)
         
-        #Clustering
-        #https://stackoverflow.com/questions/11513484/1d-number-array-clustering
-        #https://stackoverflow.com/questions/7869609/cluster-one-dimensional-data-optimally
-        #https://stackoverflow.com/questions/35094454/how-would-one-use-kernel-density-estimation-as-a-1d-clustering-method-in-scikit/35151947#35151947
-        #https://www.astro.rug.nl/~yatawatta/eusipco2.pdf optimal w
-        #https://arxiv.org/pdf/1807.09239.pdf
-        
-    print('&&&&&&&&&&&&&&&&&&&')
-    vis_dataset = mxds.attrs[sel_parms['xds']]
-    #print(vis_dataset)
-    #create_cf_map(mxds,beam_map,cf_beam_pair_id,pa,cf_pa_centers,chan_map, cf_pb_freq,cf_w,sel_parms)
-    
-    
     ###################################################### Phase Gradients ############################################################
     if _gcf_parms['do_pointing']:
-    #    print('#########  Creating pointing coordinates')
-    #    https://en.wikipedia.org/wiki/Great-circle_distance#:~:text=The%20great%2Dcircle%20distance%2C%20orthodromic,line%20through%20the%20sphere's%20interior). Math needed to calculate distance
-        a = 1
-        print(a)
-        
-        _calc_phase_gradient_pointings(mxds,pointing_ra_dec,_gcf_parms,_sel_parms)
+        print('#########  Creating pointing coordinates')
+        cf_pointing = _calc_phase_gradient_pointings(mxds,pointing_ra_dec,_gcf_parms,_sel_parms)
+        print('cf_pointing',cf_pointing)
+        #if no pointing use fields
         
     
     #Dimension on which to do parallelization time, baseline, chan
-    #    print(vis_dataset)
-    #    print('&&&&&&&&&&&&&&&&&&&')
-    #    print(beam_map,'\n ***************')                # baseline*
-    #
-    #    print(pa,'\n ***************')                      # time* x ant
-    #    print(cf_pa_centers,'\n ***************')           # cf_pa (no chunks)
-    #    print(vis_dataset.ANTENNA1,'\n ***************')    # time* x baseline*
-    #    print(vis_dataset.ANTENNA2,'\n ***************')    # time* x baseline*
-    #    print(mxds.antenna_ids,'\n ***************')        # ant
-    #
-    #    print(chan_map,'\n ***************')                # chan*
-    #
-    #
-    #    print(cf_w,'\n ***************')                    # cf_w
-    #    print(vis_dataset.UVW[:,:,2],'\n ***************')  # time* x baseline*
-    #
-    #    #########
-    #    print(cf_beam_pair_id,'\n ***************')         # cf_beam_pair
-    #    print(cf_pb_freq,'\n ***************')              # cf_freq
-    #
-    #    print('&&&&&&&&&&&&&&&&&&&')
-    #
+    print(vis_dataset)
+    print('&&&&&&&&&&&&&&&&&&&')
+    print(beam_map,'\n ***************')                # baseline*
+
+    print(pa,'\n ***************')                      # time* x ant
+    print(cf_pa_centers,'\n ***************')           # cf_pa (no chunks)
+    print(vis_dataset.ANTENNA1,'\n ***************')    # time* x baseline*
+    print(vis_dataset.ANTENNA2,'\n ***************')    # time* x baseline*
+    print(mxds.antenna_ids,'\n ***************')        # ant
+
+    print('chan_map', chan_map,'\n ***************')                # chan*
+
+
+    print('cf_w',cf_w,'\n ***************')                    # cf_w
+    print('W',vis_dataset.UVW[:,:,2],'\n ***************')  # time* x baseline*
+    
+    #######
+    print('pointing_ra_dec',pointing_ra_dec,'\n ***************')  # time* x ant
+    print('cf_pointing', cf_pointing,'\n ***************')         # cf_pointing
+
+    #########
+    print('cf_beam_pair_id',cf_beam_pair_id,'\n ***************')     # cf_beam_pair
+    print('cf_pb_freq',cf_pb_freq,'\n ***************')               # cf_freq
+
+    print('&&&&&&&&&&&&&&&&&&&')
+    
+    create_cf_map(mxds,beam_map,cf_beam_pair_id,pa,cf_pa_centers,chan_map, cf_pb_freq,cf_w,cf_pointing,pointing_ra_dec,sel_parms)
+    
     
     ###################################################################################################################################
 
-def create_cf_map(mxds,beam_map,cf_beam_pair_id,pa,cf_pa_centers,chan_map, cf_pb_freq,cf_w,sel_parms):
-    print(beam_map)
+def create_cf_map(mxds,beam_map,cf_beam_pair_id,pa,cf_pa_centers,chan_map, cf_pb_freq,cf_w,cf_pointing,pointing_ra_dec,sel_parms):
+    import itertools
+
+    vis_dataset = mxds.attrs[sel_parms['xds']]
+    n_chunks_in_each_dim = vis_dataset[sel_parms["data"]].data.numblocks
+    
+    w = vis_dataset.UVW[:,:,2]
+    
+    iter_chunks_indx = itertools.product(np.arange(n_chunks_in_each_dim[0]), np.arange(n_chunks_in_each_dim[1]),
+                                         np.arange(n_chunks_in_each_dim[2]))
+                                         
+    ant_1 = vis_dataset.ANTENNA1
+    ant_2 = vis_dataset.ANTENNA2
+    
+    ant_ids = mxds.ANTENNA.antenna_id
+                                         
+    for c_time, c_baseline, c_chan in iter_chunks_indx:
+        print('c_time,c_baseline,c_chan',c_time,c_baseline,c_chan)
+        sub_map_and_cf_set = dask.delayed(_cf_map_wrap)(
+            beam_map.data.partitions[c_baseline],
+            pa.data.partitions[c_time,0],
+            cf_pa_centers,
+            ant_1.data.partitions[c_time,c_baseline],
+            ant_2.data.partitions[c_time,c_baseline],
+            ant_ids,
+            chan_map.data.partitions[c_chan],
+            w.data.partitions[c_time,c_baseline],
+            cf_w,
+            pointing_ra_dec.data.partitions[c_time,0],
+            cf_pointing)
+            
+    sub_map_and_cf_set.compute()
+    
+    
+def _cf_map_wrap(beam_map,pa,cf_pa_centers,ant_1,ant_2,ant_ids,chan_map,w,cf_w,pointing_ra_dec,cf_pointing):
     print(beam_map.shape)
-    print(cf_beam_pair_id.shape)
     print(pa.shape)
     print(cf_pa_centers.shape)
+    print(ant_1.shape)
+    print(ant_2.shape)
+    print(ant_ids.shape)
     print(chan_map.shape)
-    print(cf_pb_freq.shape)
+    print(w.shape)
     print(cf_w.shape)
-    vis_dataset = mxds.attrs[sel_parms['xds']]
+    print(pointing_ra_dec.shape)
+    print(cf_pointing.shape)
     
-    create_cf_map_jit(vis_dataset[sel_parms['data']].shape,vis_dataset.chan.data,vis_dataset.UVW[:,:,2].data.compute(),beam_map.data.compute(),cf_beam_pair_id.data.compute(),pa.data.compute(),cf_pa_centers.data.compute(),chan_map, cf_pb_freq,cf_w)
     
     
-def create_cf_map_jit(vis_shape,freq_chan,W,beam_map,cf_beam_pair_id,pa,cf_pa_centers,chan_map, cf_pb_freq,cf_w):
-    print(vis_shape)
+    return [0]
     
+    '''
     for i_time in range(vis_shape[0]):
         for i_baseline in range(vis_shape[1]):
             #if uvw nan then skip
@@ -281,7 +310,7 @@ def create_cf_map_jit(vis_shape,freq_chan,W,beam_map,cf_beam_pair_id,pa,cf_pa_ce
             for i_chan in range(vis_shape[2]):
                 a = 0
             
-    
+    '''
     
 
     
