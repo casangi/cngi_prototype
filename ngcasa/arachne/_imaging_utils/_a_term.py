@@ -148,7 +148,13 @@ def _compute_zc_coords(apeture_parms):
     return x_grid, y_grid
 
 
-def _create_cf_chan_map(freq_chan,chan_tolerance_factor):
+def _create_chan_map(mxds,gcf_parms,sel_parms):
+
+    vis_dataset = mxds.attrs[sel_parms['xds']]
+    freq_chan = vis_dataset.chan.data
+    chan_tolerance_factor = gcf_parms['chan_tolerance_factor']
+
+    print(freq_chan)
     n_chan = len(freq_chan)
     cf_chan_map = np.zeros((n_chan,),dtype=int)
     
@@ -166,26 +172,79 @@ def _create_cf_chan_map(freq_chan,chan_tolerance_factor):
         pb_freq = freq_chan
         return cf_chan_map, pb_freq
     
-    
     pb_delta_bandwdith = (np.max(freq_chan) - np.min(freq_chan))/n_pb_chan
     pb_freq = np.arange(n_pb_chan)*pb_delta_bandwdith + np.min(freq_chan) + pb_delta_bandwdith/2
 
     cf_chan_map = np.zeros((n_chan,),dtype=int)
     for i in range(n_chan):
-        cf_chan_map[i],_ = find_nearest(pb_freq, freq_chan[i])
+        cf_chan_map[i],_ = _find_nearest(pb_freq, freq_chan[i])
 
     
 
     return cf_chan_map, pb_freq
+    
+def _find_nearest(array, value):
+    array = np.asarray(array)
+    idx = (np.abs(array - value)).argmin()
+    return idx, array[idx]
 
 
 ##########################
-def _create_cf_baseline_map(mxds,sel_parms):
+def _create_beam_map(mxds,sel_parms):
+    import xarray as xr
+    import dask.array as da
 
-    #cf_baseline_map,pb_ant_pairs = create_cf_baseline_map(mxds)
-    #unique_ant_indx,basline_ant,n_unique_ant
+    beam_ids = mxds.beam_ids.data.compute()
+    n_beam = len(beam_ids)
+    feed_beam_ids = mxds.FEED.beam_id.data.compute()
     
+    #Assuming antenna ids remain constant over time and that feed and antenna ids line up
+    #ant1_id = mxds.attrs[sel_parms['xds']].ANTENNA1[0,:]
+    #ant2_id = mxds.attrs[sel_parms['xds']].ANTENNA2[0,:]
+    ant1_id = mxds.attrs[sel_parms['xds']].ANTENNA1.data.compute()
+    ant2_id = mxds.attrs[sel_parms['xds']].ANTENNA2.data.compute()
+    
+    unified_ant_indx = np.zeros((ant1_id.shape[1],2),dtype=int)
+    for i in range(ant1_id.shape[1]): #for baseline
+        id1 = np.unique(ant1_id[:,i])
+        id1 = id1[id1 >= 0]
+        id2 = np.unique(ant2_id[:,i])
+        id2 = id2[id2 >= 0]
+        #unified_ant_indx
+        assert(len(id1) == 1 and len(id2) == 1), "Antennas not consistant over time."
+        
+        unified_ant_indx[i,:] = [id1[0],id2[0]]
+        
+    baseline_beam_id = np.full((len(unified_ant_indx),2), np.nan, dtype=np.int32)
+    ant_ids = mxds.antenna_ids #same length as feed_beam_ids
+    
+    for indx,id in enumerate(ant_ids.data):
+        baseline_beam_id[unified_ant_indx[:,0]==id,0] = feed_beam_ids[indx]
+        baseline_beam_id[unified_ant_indx[:,1]==id,1] = feed_beam_ids[indx]
+        
+
+    beam_pair_id = find_unique_pairs(baseline_beam_id)
+    #n_beam_pair = #max possible is int((n_beam**2 + n_beam)/2)
+
+    beam_map = np.zeros((len(unified_ant_indx),),dtype=int)
+
+    for k,ij in enumerate(beam_pair_id):
+        #print(k,ij)
+        beam_map[(baseline_beam_id[:,0] == ij[0]) & (baseline_beam_id[:,1] == ij[1])] = k
+        beam_map[(baseline_beam_id[:,1] == ij[0]) & (baseline_beam_id[:,0] == ij[1])] = k
+        
+    vis_dataset = mxds.attrs[sel_parms['xds']]
+    baseline_chunksize = vis_dataset[sel_parms['data']].chunks[1][0]
+    
+    beam_map = xr.DataArray(da.from_array(beam_map,chunks=(baseline_chunksize)), dims=('baseline'))
+    beam_pair_id = xr.DataArray(da.from_array(beam_pair_id,chunks=beam_pair_id.shape), dims=('beam_pair','pair'))
+    return beam_map,beam_pair_id
+
+    
+    
+    '''
     ant_ids = mxds.antenna_ids
+    
     
     
     model_id = mxds.ANTENNA['MODEL'].data.compute()
@@ -226,5 +285,43 @@ def _create_cf_baseline_map(mxds,sel_parms):
         cf_baseline_map[(baseline_model_indx[:,1] == ij[0]) & (baseline_model_indx[:,0] == ij[1])] = k
     
     return cf_baseline_map,pb_ant_pairs
+    '''
 
 
+#Order does not matter
+#https://stackoverflow.com/questions/47531532/find-unique-pairs-of-array-with-python
+def find_unique_pairs(a):
+    s = np.max(a)+1
+    p1 = a[:,1]*s + a[:,0]
+    p2 = a[:,0]*s + a[:,1]
+    p = np.maximum(p1,p2)
+    sidx = p.argsort(kind='mergesort')
+    ps = p[sidx]
+    m = np.concatenate(([True],ps[1:] != ps[:-1]))
+    sm = sidx[m]
+    #print(m)
+    #print(a[sm,:])
+    
+    return a[sm,:]
+    
+    #b = np.array(list(set(tuple(sorted([m, n])) for m, n in zip(a[:,0], a[:,1]))))
+    #print(b)
+
+    '''
+    from collections import Counter
+    ctr = Counter(frozenset(x) for x in a)
+    b = [ctr[frozenset(x)] == 1 for x in a]
+    
+    print(a)
+    print(b)
+    print(a[b,:])
+
+    
+    a = np.array(a)
+    a.sort(axis=1)
+    b = np.ascontiguousarray(a).view(
+            np.dtype((np.void, a.dtype.itemsize * a.shape[1]))
+            )
+    q, inv, ct = np.unique(b, return_inverse=True, return_counts=True)
+    print(q,inv,ct,ct[inv] == 1)
+    '''

@@ -108,9 +108,10 @@ def make_gcf_coords(mxds, list_zpc_dataset, gcf_parms, grid_parms, sel_parms, st
     import dask
     import dask.array.fft as dafft
     from ._imaging_utils._calc_parallactic_angles import _calc_parallactic_angles_for_gcf
-    from ._imaging_utils._a_term import _create_cf_chan_map, _create_cf_baseline_map
-    from ._imaging_utils._w_term import _calculate_w_list, _calc_w_sky
+    from ._imaging_utils._a_term import _create_chan_map, _create_beam_map
+    from ._imaging_utils._w_term import _calculate_w_list, _calc_w_sky, _create_w_map
     from ._imaging_utils._ps_term import _create_prolate_spheroidal_image_2D
+    from ._imaging_utils._phase_gradients import _calc_phase_gradient_pointings
     import matplotlib.pylab as plt
     
     #To do
@@ -122,51 +123,166 @@ def make_gcf_coords(mxds, list_zpc_dataset, gcf_parms, grid_parms, sel_parms, st
     _gcf_parms =  copy.deepcopy(gcf_parms)
     _grid_parms = copy.deepcopy(grid_parms)
     _sel_parms = copy.deepcopy(sel_parms)
-    
-    
+
     gcf_dataset = xr.Dataset()
     
+    vis_dataset = mxds.attrs[sel_parms['xds']]
+    
+    if _gcf_parms['a_term'] or _gcf_parms['do_pointing']:
+        #Add another check if available
+        pointing_ra_dec = mxds.POINTING.DIRECTION.interp(time=vis_dataset.time,assume_sorted=False,method=gcf_parms['interpolation_method']).data.compute()[:,:,0,:]
+    
+    
     ##################################################### PS_TERM #####################################################################
-    if gcf_parms['ps_term']:
+    if _gcf_parms['ps_term']:
         print('#########  Creating ps_term coordinates')
     
     
     ##################################################### A_TERM ######################################################################
-    if gcf_parms['a_term']:
+    if _gcf_parms['a_term']:
         print('#########  Creating a_term coordinates')
         
-        if gcf_parms['a_function'] == 'zp':
-            print('#########  Using ', gcf_parms['a_function'], 'function')
+        if _gcf_parms['a_function'] == 'zp':
+            print('#########  Using ', _gcf_parms['a_function'], 'function')
             
+            ######################################################## Beam Models ########################################################
             #n_unique_ant = len(_gcf_parms['list_dish_diameters'])
-            cf_ant_model_baseline_map,beam_model_pairs = _create_cf_baseline_map(mxds,sel_parms)
+            #beam_map, baseline x 1
+            #beam_pair_id, number of unique beam pairs x 2
+            beam_map,cf_beam_pair_id = _create_beam_map(mxds,sel_parms)
             
-            #print('cf_ant_model_baseline_map',cf_ant_model_baseline_map)
-            #print('beam_model_pairs',beam_model_pairs)
+            print('beam_map',beam_map.data.compute())
+            print('beam_pair_id',cf_beam_pair_id.data.compute())
+            ##############################################################################################################################
             
-            try:
-                transform_pointing_table(mxds,gcf_parms,sel_parms) #temp function, should be included in convert_ms
-            except:
-                print('Conversion of Pointing Table Failed')
+            ####################################################### Parallactic Angle ####################################################
+            #This will eventaully move to convert ms.
+            #try:
+            #    transform_pointing_table(mxds,gcf_parms,sel_parms) #temp function, should be included in convert_ms
+            #except:
+            #    print('Conversion of Pointing Table Failed')
             
-            #PA should be function of Time and Antenna position (if an antenna is)
-            cf_time_map, pa_centers, pa_dif, pa_map = _calc_parallactic_angles_for_gcf(mxds,beam_model_pairs,_gcf_parms,_sel_parms)
+            #pa, time x ant
+            #pa, number of unique pa x 1
+            #pa_diff, time x ant
+            pa, cf_pa_centers, pa_diff = _calc_parallactic_angles_for_gcf(mxds,_gcf_parms,_sel_parms)
+            
+            print(pa.data.compute())
+            print(cf_pa_centers.data.compute())
+            
+            pa_diff = pa_diff.data.compute()
+            print('Housten we got a problem',pa_diff[np.abs(pa_diff) > _gcf_parms['pa_step']],_gcf_parms['pa_step'])
+            ################################################################################################################################
+            
+            ####################################################### Channel ####################################################
+            vis_dataset = mxds.attrs[sel_parms['xds']]
+            chan_map, cf_pb_freq = _create_chan_map(mxds,_gcf_parms,_sel_parms)
+            
+            #print(chan_map)
+            #print(cf_pb_freq)
+            
+            
+            ################################################################################################################################
+            #pa_pair_map, timexbaseline
+            #pa_pairs, unique pa pairs x 2
+            #pa_centers, pa_centers
             
             #print(cf_time_map.data.compute())
             #print(pa_centers.data.compute())
             #print(pa_dif.data.compute())
         
         else:
-            print('#########  Using ', gcf_parms['a_function'], 'function')
+            print('#########  Using ', _gcf_parms['a_function'], 'function')
+    else:
+        pa = None
     
     ###################################################### W_TERM #####################################################################
-    if gcf_parms['w_term']:
+    if _gcf_parms['w_term']:
         print('#########  Creating w_term coordinates')
+        cf_w = _create_w_map(mxds,_gcf_parms,_grid_parms,_sel_parms)
         
+        #Clustering
+        #https://stackoverflow.com/questions/11513484/1d-number-array-clustering
+        #https://stackoverflow.com/questions/7869609/cluster-one-dimensional-data-optimally
+        #https://stackoverflow.com/questions/35094454/how-would-one-use-kernel-density-estimation-as-a-1d-clustering-method-in-scikit/35151947#35151947
+        #https://www.astro.rug.nl/~yatawatta/eusipco2.pdf optimal w
+        #https://arxiv.org/pdf/1807.09239.pdf
+        
+    print('&&&&&&&&&&&&&&&&&&&')
+    vis_dataset = mxds.attrs[sel_parms['xds']]
+    #print(vis_dataset)
+    #create_cf_map(mxds,beam_map,cf_beam_pair_id,pa,cf_pa_centers,chan_map, cf_pb_freq,cf_w,sel_parms)
+    
+    
     ###################################################### Phase Gradients ############################################################
-    #if gcf_parms['do_pointing']:
+    if _gcf_parms['do_pointing']:
     #    print('#########  Creating pointing coordinates')
+    #    https://en.wikipedia.org/wiki/Great-circle_distance#:~:text=The%20great%2Dcircle%20distance%2C%20orthodromic,line%20through%20the%20sphere's%20interior). Math needed to calculate distance
+        a = 1
+        print(a)
+        
+        _calc_phase_gradient_pointings(mxds,pointing_ra_dec,_gcf_parms,_sel_parms)
+        
+    
+    #Dimension on which to do parallelization time, baseline, chan
+    #    print(vis_dataset)
+    #    print('&&&&&&&&&&&&&&&&&&&')
+    #    print(beam_map,'\n ***************')                # baseline*
+    #
+    #    print(pa,'\n ***************')                      # time* x ant
+    #    print(cf_pa_centers,'\n ***************')           # cf_pa (no chunks)
+    #    print(vis_dataset.ANTENNA1,'\n ***************')    # time* x baseline*
+    #    print(vis_dataset.ANTENNA2,'\n ***************')    # time* x baseline*
+    #    print(mxds.antenna_ids,'\n ***************')        # ant
+    #
+    #    print(chan_map,'\n ***************')                # chan*
+    #
+    #
+    #    print(cf_w,'\n ***************')                    # cf_w
+    #    print(vis_dataset.UVW[:,:,2],'\n ***************')  # time* x baseline*
+    #
+    #    #########
+    #    print(cf_beam_pair_id,'\n ***************')         # cf_beam_pair
+    #    print(cf_pb_freq,'\n ***************')              # cf_freq
+    #
+    #    print('&&&&&&&&&&&&&&&&&&&')
+    #
+    
     ###################################################################################################################################
+
+def create_cf_map(mxds,beam_map,cf_beam_pair_id,pa,cf_pa_centers,chan_map, cf_pb_freq,cf_w,sel_parms):
+    print(beam_map)
+    print(beam_map.shape)
+    print(cf_beam_pair_id.shape)
+    print(pa.shape)
+    print(cf_pa_centers.shape)
+    print(chan_map.shape)
+    print(cf_pb_freq.shape)
+    print(cf_w.shape)
+    vis_dataset = mxds.attrs[sel_parms['xds']]
+    
+    create_cf_map_jit(vis_dataset[sel_parms['data']].shape,vis_dataset.chan.data,vis_dataset.UVW[:,:,2].data.compute(),beam_map.data.compute(),cf_beam_pair_id.data.compute(),pa.data.compute(),cf_pa_centers.data.compute(),chan_map, cf_pb_freq,cf_w)
+    
+    
+def create_cf_map_jit(vis_shape,freq_chan,W,beam_map,cf_beam_pair_id,pa,cf_pa_centers,chan_map, cf_pb_freq,cf_w):
+    print(vis_shape)
+    
+    for i_time in range(vis_shape[0]):
+        for i_baseline in range(vis_shape[1]):
+            #if uvw nan then skip
+            A0_indx = 0
+            A1_indx = 0
+            
+            pa_0 = pa[i_time,A0]
+            pa_1 = pa[i_time,A1]
+            
+            cf_pa0_indx = find_pa(cf_pa_centers,)
+            
+            for i_chan in range(vis_shape[2]):
+                a = 0
+            
+    
+    
 
     
 def transform_pointing_table(mxds,gcf_parms,sel_parms):

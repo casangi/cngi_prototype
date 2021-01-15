@@ -24,6 +24,81 @@ import matplotlib.pyplot as plt
 from numba import jit
 import numba
 
+
+def _calc_phase_gradient_pointings(mxds,pointing_ra_dec,gcf_parms,sel_parms):
+    print('Hallo')
+    
+    
+    
+    
+@jit(nopython=True,cache=True)
+def _find_optimal_set_pointing(nd_vals,val_step):
+    vals_flat = np.ravel(nd_vals)
+    n_vals = len(vals_flat)
+    neighbours = np.zeros((n_vals,n_vals),numba.b1)
+
+    for ii in range(n_vals):
+        for jj in range(n_vals):
+            #https://stackoverflow.com/questions/1878907/the-smallest-difference-between-2-angles
+            ang_dif = vals_flat[ii]-vals_flat[jj]
+            ang_dif = np.abs((ang_dif + np.pi)%(2*np.pi) - np.pi)
+            
+            #neighbours_dis[ii,jj] = ang_dif
+            
+            if ang_dif <= val_step:
+             neighbours[ii,jj] = True
+             
+    neighbours_rank = np.sum(neighbours,axis=1)
+    vals_centers = [42.0] #Dummy value to let numba know what dtype of list is
+    lonely_neighbour = True
+    while lonely_neighbour:
+        #if True:
+        neighbours_rank = np.sum(neighbours,axis=1)
+        highest_ranked_neighbour_indx = np.argmax(neighbours_rank)
+        
+        if neighbours_rank[highest_ranked_neighbour_indx]==0:
+            lonely_neighbour = False
+        else:
+            group_members = np.where(neighbours[highest_ranked_neighbour_indx,:]==1)[0]
+            vals_centers.append(vals_flat[highest_ranked_neighbour_indx]) #no outliers
+            #vals_centers.append(np.median(vals_flat[neighbours[highest_ranked_neighbour_indx,:]])) #best stats
+            #vals_centers.append(np.mean(vals_flat[neighbours[highest_ranked_neighbour_indx,:]])) #?
+            
+            for group_member in group_members:
+                for ii in range(n_vals):
+                    neighbours[group_member,ii] = 0
+                    neighbours[ii,group_member] = 0
+                    
+    vals_centers.pop(0)
+    vals_centers = np.array(vals_centers)
+    
+
+    n_time = nd_vals.shape[0]
+    n_beam = nd_vals.shape[1]
+    vals_dif = np.zeros(nd_vals.shape,numba.f8)
+    
+    for ii in range(n_time):
+        for kk in range(n_beam):
+            min_dif = 42.0 #Dummy value to let numba know what dtype of list is
+            group_indx = -1
+            for jj in range(len(vals_centers)):
+                #https://stackoverflow.com/questions/1878907/the-smallest-difference-between-2-angles
+                ang_dif = nd_vals[ii,kk]-vals_centers[jj]
+                ang_dif = np.abs((ang_dif + np.pi)%(2*np.pi) - np.pi)
+                
+                if min_dif > ang_dif:
+                    min_dif = ang_dif
+            
+            vals_dif[ii,kk] = min_dif
+            
+
+    
+    return vals_centers, vals_dif
+    ################################################################################################################
+    
+    
+    
+
 def _calc_parallactic_angles_for_gcf(mxds,gcf_parms,sel_parms):
     #Calculate the
     pa = _calc_parallactic_angles_for_vis_dataset(mxds,gcf_parms,sel_parms)
