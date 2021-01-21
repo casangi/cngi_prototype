@@ -50,6 +50,7 @@ def convert_image(infile, outfile=None, artifacts=None, compressor=None, chunk_s
     from casatools import quanta as qa
     import numpy as np
     from itertools import cycle
+    import importlib_metadata
     from pandas.io.json._normalize import nested_to_record
     import xarray
     from xarray import Dataset as xd
@@ -235,6 +236,8 @@ def convert_image(infile, outfile=None, artifacts=None, compressor=None, chunk_s
     print("processed image size " + str(dsize) + " in " + str(np.float32(time.time() - begin)) + " seconds")
 
     if not nofile:
+        with open(outfile + '/.version', 'w') as fid:   # write sw version that did this conversion to zarr directory
+            fid.write('cngi-protoype ' + importlib_metadata.version('cngi-prototype') + '\n')
         xds = xarray.open_zarr(outfile)
 
     return xds

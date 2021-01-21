@@ -103,8 +103,8 @@ def read_vis(infile, partition=None, chunks=None, consolidated=True, overwrite_e
             overwrite_encoded_chunks = False
 
         if ('global' in partition) and (os.path.isdir(os.path.join(infile,'global'))):
-            globals = sorted(['global/'+tt for tt in os.listdir(os.path.join(infile,'global'))])
-            partition = np.hstack((np.delete(partition, np.where(partition == 'global')), globals))
+            global_dirs = sorted(['global/'+tt for tt in os.listdir(os.path.join(infile,'global'))])
+            partition = np.hstack((np.delete(partition, np.where(partition == 'global')), global_dirs))
   
         if partition.size == 1:
             xds = open_zarr(os.path.join(infile, str(partition[0])), chunks=chunks, consolidated=consolidated,

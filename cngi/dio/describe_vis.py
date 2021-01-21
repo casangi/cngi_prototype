@@ -37,7 +37,7 @@ def describe_vis(infile):
     
     infile = os.path.expanduser(infile)  # does nothing if $HOME is unknown
     summary = pd.DataFrame([])
-    parts = os.listdir(infile)
+    parts = [dd for dd in os.listdir(infile) if os.path.isdir(os.path.join(infile, str(dd)))]
     for ii, part in enumerate(parts):
         if part.startswith('global'): continue
         print('processing partition %i of %i' % (ii+1, len(parts)), end='\r')
