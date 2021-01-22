@@ -14,6 +14,7 @@ infrastructure of CASA with a parallel, scalable, and largely off-the-shelf solu
 
    getting_started
    api
+   data_structures
    visibilities
    images
    calibration
