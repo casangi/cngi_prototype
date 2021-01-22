@@ -41,36 +41,23 @@ def gaussianbeam(xds, source='commonbeam', scale=1.0, name='BEAM'):
     import dask.array as da
     import numpy as np
     import cngi._utils._beams as chb
-    
-    # build beam from specified shape
+
     if not isinstance(source, str):
-        beam = scale * chb.synthesizedbeam(source[0], source[1], source[2], len(xds.d0), len(xds.d1), xds.incr[:2])[0]
-        beam_xda = xarray.DataArray(da.from_array(beam), dims=['d0', 'd1'], name=name)
         beams = np.array(source)
-        
-    # otherwise put it together from attributes section
     else:
         beams = np.array(xds.attrs[source])
-        
-        if beams.ndim == 1:
-            np_beam = scale * chb.synthesizedbeam(beams[0], beams[1], beams[2], len(xds.d0), len(xds.d1), xds.incr[:2])[0]
-            da_beam = da.from_array(np_beam, chunks=[xds.chunks['d0'][0], xds.chunks['d1'][0]])
-            beam_xda = xarray.DataArray(da_beam, dims=['d0','d1'])
-            
-        else:
-            chan_list = []
-            for cc in range(beams.shape[0]):
-                pol_list = []
-                for pp in range(beams.shape[1]):
-                    np_beam = scale*chb.synthesizedbeam(beams[cc][pp][0], beams[cc][pp][1], beams[cc][pp][2],
-                                                    len(xds.d0), len(xds.d1), xds.incr[:2])[0][:,:,None,None]
-                    da_beam = da.from_array(np_beam, chunks=[xds.chunks['d0'][0], xds.chunks['d1'][0],
-                                                             xds.chunks['chan'][0], xds.chunks['pol'][0]])
-                    pol_list += [xarray.DataArray(da_beam, dims=['d0','d1','chan','pol']).assign_coords(
-                                                                                {'chan':[xds.chan[cc]], 'pol':[xds.pol[pp]]})]
-                
-                chan_list += [xarray.concat(pol_list, dim='pol')]
-        
-            beam_xda = xarray.concat(chan_list, dim='chan')
-    
+
+    # build beam from specified shape
+    if beams.ndim == 1:
+        beam = scale * chb.synthesizedbeam(beams[0], beams[1], beams[2], len(xds.l), len(xds.m), xds.incr[:2])[0]
+        beam_xda = xarray.DataArray(da.from_array(beam), dims=['l', 'm'], name=name)
+
+    # perplanebeams are stored chans x pols, each one needs to be processed individually
+    else:
+        beam = [scale*chb.synthesizedbeam(pp[0], pp[1], pp[2], len(xds.l), len(xds.m), xds.incr[:2])[0] for beam in beams for pp in beam]
+        beam_xda = xarray.DataArray(da.from_array(beam).reshape(xds.dims['chan'], xds.dims['pol'], xds.dims['l'], xds.dims['m']),
+                                    dims=['chan','pol','l','m'], name=name).chunk({'l':xds.chunks['l'], 'm':xds.chunks['m'],
+                                                                                   'chan':xds.chunks['chan'], 'pol':xds.chunks['pol']})
+        beam_xda = beam_xda.transpose('l', 'm', 'chan', 'pol')
+
     return xds.assign({name:beam_xda}).assign_attrs({name+'_params':beams.tolist()})

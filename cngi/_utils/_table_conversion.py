@@ -78,10 +78,10 @@ def compute_dimensions(tbobj, ignore=[]):
 # convert a legacy casacore table format to CNGI xarray/zarr
 # infile/outfile can be the main table or specific subtable
 # if infile/outfile are the main table, subtable can also be specified
-# rowdim is used to rename the row axis dimension to the specified value
+# dimnames is a list used to override default dimension names
 # timecols is a list of column names to convert to datetimes
 # ignore is a list of columns to ignore
-def convert_simple_table(infile, outfile, subtable='', rowdim='d0', timecols=[], ignore=[], compressor=None, chunk_shape=(40000, 20, 1), nofile=False):
+def convert_simple_table(infile, outfile, subtable='', dimnames=None, timecols=[], ignore=[], compressor=None, chunk_shape=(40000, 20, 1), nofile=False):
     
     if compressor is None:
         compressor = Blosc(cname='zstd', clevel=2, shuffle=0)
@@ -100,7 +100,7 @@ def convert_simple_table(infile, outfile, subtable='', rowdim='d0', timecols=[],
     
     # master dataset holders
     mvars, mcoords = {}, {}
-    mdims = {rowdim: tb_tool.nrows()}  # keys are dimension names, values are dimension sizes
+    mdims = {'d0': tb_tool.nrows()}  # keys are dimension names, values are dimension sizes
     cshape, bad_cols = compute_dimensions(tb_tool, ignore)
     
     for start_idx in range(0, tb_tool.nrows(), chunk_shape[0]):
@@ -129,12 +129,15 @@ def convert_simple_table(infile, outfile, subtable='', rowdim='d0', timecols=[],
             if col in timecols:
                 data = convert_time(data)
 
-            # if this column has additional dimensionality beyond the expanded dims, we need to create/reuse placeholder names
-            for dd in data.shape[1:]:
-                if dd not in mdims.values():
+            # if this column has additional dimensionality, we need to create/reuse placeholder names
+            # then apply any specified names
+            dims = ['d0']
+            for ii, dd in enumerate(data.shape[1:]):
+                if (ii+1 >= len(mdims)) or (dd not in list(mdims.values())[ii+1:]):
                     mdims['d%i' % len(mdims.keys())] = dd
-            dims = [rowdim] + [ii for yy in data.shape[1:] for ii in mdims.keys() if mdims[ii] == yy]
-
+                dims += [list(mdims.keys())[ii+1:][list(mdims.values())[ii+1:].index(dd)]]
+            if dimnames is not None: dims = (dimnames[:len(dims)] + dims[len(dims)-len(dimnames)-1:])[:len(dims)]
+            
             chunking = [chunk_shape[di] if di < len(chunk_shape) else chunk_shape[-1] for di, dk in enumerate(dims)]
             chunking = [cs if cs > 0 else data.shape[ci] for ci, cs in enumerate(chunking)]
             
@@ -151,7 +154,7 @@ def convert_simple_table(infile, outfile, subtable='', rowdim='d0', timecols=[],
             if len(bad_cols) > 0: xds = xds.assign_attrs({'bad_cols': bad_cols})
             xds.to_zarr(os.path.join(outfile,subtable), mode='w', encoding=encoding, consolidated=True)
         elif not nofile:
-            xds.to_zarr(os.path.join(outfile,subtable), mode='a', append_dim=rowdim, compute=True, consolidated=True)
+            xds.to_zarr(os.path.join(outfile,subtable), mode='a', append_dim='d0', compute=True, consolidated=True)
     
     tb_tool.close()
     if not nofile:
