@@ -269,13 +269,13 @@ def make_gridding_convolution_function(vis_dataset, global_dataset, gcf_parms, g
     
     coords = { 'u': np.arange(_gcf_parms['resize_conv_size'][0]), 'v': np.arange(_gcf_parms['resize_conv_size'][1]), 'xy':np.arange(2), 'field':np.arange(field_phase_dir.shape[0]),'l':np.arange(_grid_parms['image_size'][0]),'m':np.arange(_grid_parms['image_size'][1])}
     
-    dataset_dict['CF_BASELINE_MAP'] = xr.DataArray(cf_baseline_map, dims=['baseline']).chunk(_gcf_parms['vis_data_chunks'][1])
-    dataset_dict['CF_CHAN_MAP'] = xr.DataArray(cf_chan_map, dims=['chan']).chunk(_gcf_parms['vis_data_chunks'][2])
-    dataset_dict['CF_POL_MAP'] = xr.DataArray(cf_pol_map, dims=['pol']).chunk(_gcf_parms['vis_data_chunks'][3])
+    dataset_dict['CF_BASELINE_MAP'] = xr.DataArray(cf_baseline_map, dims=('baseline')).chunk(_gcf_parms['vis_data_chunks'][1])
+    dataset_dict['CF_CHAN_MAP'] = xr.DataArray(cf_chan_map, dims=('chan')).chunk(_gcf_parms['vis_data_chunks'][2])
+    dataset_dict['CF_POL_MAP'] = xr.DataArray(cf_pol_map, dims=('pol')).chunk(_gcf_parms['vis_data_chunks'][3])
     
         
-    dataset_dict['CONV_KERNEL'] = xr.DataArray(conv_kernel, dims=['conv_baseline','conv_chan','conv_pol','u','v'])
-    dataset_dict['PHASE_GRADIENT'] = xr.DataArray(phase_gradient, dims=['field','u','v'])
+    dataset_dict['CONV_KERNEL'] = xr.DataArray(conv_kernel, dims=('conv_baseline','conv_chan','conv_pol','u','v'))
+    dataset_dict['PHASE_GRADIENT'] = xr.DataArray(phase_gradient, dims=('field','u','v'))
     
     gcf_dataset = xr.Dataset(dataset_dict, coords=coords)
     gcf_dataset.attrs['cell_uv'] =1/(_grid_parms['image_size_padded']*_grid_parms['cell_size']*_gcf_parms['oversampling'])
