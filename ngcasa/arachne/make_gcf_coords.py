@@ -60,7 +60,7 @@ import dask.dataframe as dd
 #All the zpc_dataset should have the same pol dims and (frequencies)?
 #Go over what should the min support be?
 
-def make_gcf_coords(mxds, list_zpc_dataset, gcf_parms, grid_parms, sel_parms, storage_parms):
+def make_gcf_coords(mxds, list_zpc_dataset, gcf_parms, grid_parms, sel_parms):
     """
     Under construction.
     
@@ -94,22 +94,6 @@ def make_gcf_coords(mxds, list_zpc_dataset, gcf_parms, grid_parms, sel_parms, st
         The image size (no padding).
     grid_parms['cell_size']  : list of number, length = 2, units = arcseconds
         The image cell size.
-    storage_parms : dictionary
-    storage_parms['to_disk'] : bool, default = False
-        If true the dask graph is executed and saved to disk in the zarr format.
-    storage_parms['append'] : bool, default = False
-        If storage_parms['to_disk'] is True only the dask graph associated with the function is executed and the resulting data variables are saved to an existing zarr file on disk.
-        Note that graphs on unrelated data to this function will not be executed or saved.
-    storage_parms['outfile'] : str
-        The zarr file to create or append to.
-    storage_parms['chunks_on_disk'] : dict of int, default = {}
-        The chunk size to use when writing to disk. This is ignored if storage_parms['append'] is True. The default will use the chunking of the input dataset.
-    storage_parms['chunks_return'] : dict of int, default = {}
-        The chunk size of the dataset that is returned. The default will use the chunking of the input dataset.
-    storage_parms['graph_name'] : str
-        The time to compute and save the data is stored in the attribute section of the dataset and storage_parms['graph_name'] is used in the label.
-    storage_parms['compressor'] : numcodecs.blosc.Blosc,default=Blosc(cname='zstd', clevel=2, shuffle=0)
-        The compression algorithm to use. Available compression algorithms can be found at https://numcodecs.readthedocs.io/en/stable/blosc.html.
     Returns
     -------
     gcf_dataset : xarray.core.dataset.Dataset
@@ -118,7 +102,6 @@ def make_gcf_coords(mxds, list_zpc_dataset, gcf_parms, grid_parms, sel_parms, st
     print('#########################Arachne: Start make_gcf_coords #########################')
     
     from ngcasa._ngcasa_utils._store import _store
-    from ngcasa._ngcasa_utils._check_parms import _check_storage_parms
     #from ._imaging_utils._check_imaging_parms import _check_pb_parms
     #from ._imaging_utils._check_imaging_parms import _check_grid_parms, _check_gcf_parms
     #from ._imaging_utils._gridding_convolutional_kernels import _create_prolate_spheroidal_kernel_2D, _create_prolate_spheroidal_image_2D
@@ -174,7 +157,16 @@ def make_gcf_coords(mxds, list_zpc_dataset, gcf_parms, grid_parms, sel_parms, st
         else:
             print('#########  Using ', _gcf_parms['a_function'], 'function')
     else:
-        pa = None
+            a=0
+#            beam_map = xr.DataArray(da.from_array(beam_map,chunks=(baseline_chunksize)), dims=('baseline'))                 baseline
+#            beam_pair_id = xr.DataArray(da.from_array(beam_pair_id,chunks=beam_pair_id.shape), dims=('beam_pair','pair'))   unqiue_baseline x 2
+
+#            ant_ra_dec = _calc_ant_pointing_ra_dec(mxds,gcf_parms['use_pointing_table_parallactic_angle'],_gcf_parms,_sel_parms)  time x ant
+#            pa,
+#            cf_pa_centers,
+#            pa_diff
+#            chan_map
+#            cf_pb_freq
     
     ###################################################### W_TERM #####################################################################
     if _gcf_parms['w_term']:
@@ -191,6 +183,9 @@ def make_gcf_coords(mxds, list_zpc_dataset, gcf_parms, grid_parms, sel_parms, st
         else:
             field_dataset = mxds.attrs['FIELD']
             cf_pointing = field_dataset.PHASE_DIR[:,0,:].rename({'d0':'cf_pointing','d2':'pair'}).drop_vars(('field_id','source_id'))
+        
+        
+    print('beam',cf_beam_pair_id.shape,'pa',cf_pa_centers.shape,'c',cf_pb_freq.shape,'w',cf_w.shape,'point',cf_pointing.shape)
         
     gcf_dataset= create_cf_map(mxds,gcf_dataset,beam_map,cf_beam_pair_id,pa,cf_pa_centers,chan_map, cf_pb_freq,cf_w,cf_pointing,ant_ra_dec,sel_parms)
     return gcf_dataset
@@ -219,6 +214,8 @@ def create_cf_map(mxds,gcf_dataset,beam_map,cf_beam_pair_id,pa,cf_pa_centers,cha
     
     cf_map_list = _ndim_list((n_chunks_in_each_dim[0],n_chunks_in_each_dim[1],n_chunks_in_each_dim[2]))
     cf_parms_indx_list = _ndim_list((n_chunks,))
+    a_parms_indx_list = _ndim_list((n_chunks,))
+    w_parms_indx_list = _ndim_list((n_chunks,))
     
     #pg does not need chan dim, there will be redundant calculations. Maybe split later
     pg_map_list = _ndim_list((n_chunks_in_each_dim[0],n_chunks_in_each_dim[1]))
@@ -243,31 +240,55 @@ def create_cf_map(mxds,gcf_dataset,beam_map,cf_beam_pair_id,pa,cf_pa_centers,cha
             cf_w.data,
             pointing_ra_dec.data.partitions[c_time,0],
             cf_pointing.data)
+            
+        #w_indx_arr, a_indx_arr,   cf_indx_arr, cf_map, pg_indx_arr, pg_map
+        w_parms_indx_list[i_chunk] = chunk_cf_and_pg[0] #can't do from_delayed since number of elements are unkown
+        a_parms_indx_list[i_chunk] = chunk_cf_and_pg[1] #can't do from_delayed since number of elements are unkown
         
-        cf_parms_indx_list[i_chunk] = chunk_cf_and_pg[0] #can't do from_delayed since number of elements are unkown
-        cf_map_list[c_time][c_baseline][c_chan] = da.from_delayed(chunk_cf_and_pg[1], (chunk_sizes[0][c_time],chunk_sizes[1][c_baseline],chunk_sizes[2][c_chan]),dtype=np.int)
+        cf_parms_indx_list[i_chunk] = chunk_cf_and_pg[2] #can't do from_delayed since number of elements are unkown
+        cf_map_list[c_time][c_baseline][c_chan] = da.from_delayed(chunk_cf_and_pg[3], (chunk_sizes[0][c_time],chunk_sizes[1][c_baseline],chunk_sizes[2][c_chan]),dtype=np.int)
         
-        pg_parms_indx_list[i_chunk] = chunk_cf_and_pg[2] #can't do from_delayed since number of elements are unkown
-        pg_map_list[c_time][c_baseline] = da.from_delayed(chunk_cf_and_pg[3], (chunk_sizes[0][c_time],chunk_sizes[1][c_baseline]),dtype=np.int)
+        pg_parms_indx_list[i_chunk] = chunk_cf_and_pg[4] #can't do from_delayed since number of elements are unkown
+        pg_map_list[c_time][c_baseline] = da.from_delayed(chunk_cf_and_pg[5], (chunk_sizes[0][c_time],chunk_sizes[1][c_baseline]),dtype=np.int)
             
         i_chunk = i_chunk+1
         
     cf_map = da.block(cf_map_list) #Awesome function
     pg_map = da.block(pg_map_list)
-     
-    cf_parms_indx = da.from_delayed(_tree_combine_list(cf_parms_indx_list,_find_unique_subset),shape=(np.nan,7),dtype=int) #(nan,7) first dim length is unkown
-    pg_parms_indx = da.from_delayed(_tree_combine_list(pg_parms_indx_list,_find_unique_subset),shape=(np.nan,3),dtype=int) #(nan,3) first dim length is unkown
-    #cf_parms_indx = da.from_delayed(_tree_combine_list(cf_parms_indx_list,_find_unique_subset),shape=(280,7),dtype=int) #(nan,7) first dim length is unkown
-    #pg_parms_indx = da.from_delayed(_tree_combine_list(pg_parms_indx_list,_find_unique_subset),shape=(23,3),dtype=int) #(nan,3) first dim length is unkown
+    
+    w_parms_indx = _tree_combine_list(w_parms_indx_list,_find_unique_subset)
+    a_parms_indx = _tree_combine_list(a_parms_indx_list,_find_unique_subset)
+    cf_parms_indx = _tree_combine_list(cf_parms_indx_list,_find_unique_subset)
+    pg_parms_indx = _tree_combine_list(pg_parms_indx_list,_find_unique_subset)
+    
+    #list_of_dask_delayed = [cf_map,pg_map,cf_parms_indx,pg_parms_indx,w_parms_indx,a_parms_indx]
+    
+    list_of_arrs= dask.compute([cf_map,pg_map,cf_parms_indx,pg_parms_indx,w_parms_indx,a_parms_indx])
+    cf_map,pg_map,cf_parms_indx,pg_parms_indx,w_parms_indx,a_parms_indx = list_of_arrs[0]
     
     
+    time_chunksize = vis_dataset[sel_parms['data']].chunks[0][0]
+    baseline_chunksize = vis_dataset[sel_parms['data']].chunks[1][0]
+    chan_chunksize = vis_dataset[sel_parms['data']].chunks[2][0]
+    
+    cf_map = da.from_array(cf_map,chunks=(time_chunksize,baseline_chunksize,chan_chunksize))
+    w_parms_indx = da.from_array(w_parms_indx,chunks=(1,1))
+    a_parms_indx = da.from_array(a_parms_indx,chunks=(1,6))
+    cf_parms_indx = da.from_array(cf_parms_indx,chunks=(1,3))
+    
+    pg_parms_indx = da.from_array(pg_parms_indx,chunks=(1,3))
+    pg_map = da.from_array(pg_map,chunks=(time_chunksize,baseline_chunksize))
     
     gcf_dataset = xr.Dataset()
-    coords = {'gcf_indx':['pa1','b1','pa2','b2','w','c','gcf_flat'],'pg_indx':['p1','p2','pg_flat']}
+    coords = {'gcf_indx':['a','w','gcf_flat'],'pg_indx':['p1','p2','pg_flat'],'a_indx':['pa1','b1','pa2','b2','c','a_flat'],'w_indx':['w']}
     gcf_dataset = gcf_dataset.assign_coords(coords)
     
     gcf_dataset['GCF_MAP'] = xr.DataArray(cf_map, dims=('time','baseline','chan'))
     gcf_dataset['GCF_PARMS_INDX'] = xr.DataArray(cf_parms_indx, dims=('gcf','gcf_indx'))
+    gcf_dataset['W_PARMS_INDX'] = xr.DataArray(w_parms_indx, dims=('w','w_indx'))
+    
+    gcf_dataset['A_PARMS_INDX'] = xr.DataArray(a_parms_indx, dims=('a','a_indx'))
+    
     gcf_dataset['GCF_A_PA'] = cf_pa_centers
     gcf_dataset['GCF_A_FREQ'] = cf_pb_freq
     gcf_dataset['GCF_A_BEAM_ID'] = cf_beam_pair_id
@@ -276,7 +297,45 @@ def create_cf_map(mxds,gcf_dataset,beam_map,cf_beam_pair_id,pa,cf_pa_centers,cha
     gcf_dataset['PG_MAP'] =  xr.DataArray(pg_map, dims=('time','baseline'))
     gcf_dataset['PG_PARMS_INDX'] =  xr.DataArray(pg_parms_indx, dims=('pg','pg_indx'))
     gcf_dataset['PG_POINTING'] = cf_pointing
+    
+        
+    '''
+    cf_map = da.block(cf_map_list) #Awesome function
+    pg_map = da.block(pg_map_list)
+    
+    w_parms_indx = da.from_delayed(_tree_combine_list(w_parms_indx_list,_find_unique_subset),shape=(np.nan,1),dtype=int) #(nan,1) first dim length is unkown
+    a_parms_indx = da.from_delayed(_tree_combine_list(a_parms_indx_list,_find_unique_subset),shape=(np.nan,6),dtype=int) #(nan,6) first dim length is unkown
+    cf_parms_indx = da.from_delayed(_tree_combine_list(cf_parms_indx_list,_find_unique_subset),shape=(np.nan,3),dtype=int) #(nan,3) first dim length is unkown
+    pg_parms_indx = da.from_delayed(_tree_combine_list(pg_parms_indx_list,_find_unique_subset),shape=(np.nan,3),dtype=int) #(nan,3) first dim length is unkown
+    
+    #w_parms_indx = da.from_delayed(_tree_combine_list(w_parms_indx_list,_find_unique_subset),shape=(np.nan,1),dtype=int) #(nan,1) first dim length is unkown
+    #a_parms_indx = da.from_delayed(_tree_combine_list(a_parms_indx_list,_find_unique_subset),shape=(np.nan,6),dtype=int) #(nan,6) first dim length is unkown
+    #cf_parms_indx = da.from_delayed(_tree_combine_list(cf_parms_indx_list,_find_unique_subset),shape=(280,7),dtype=int) #(nan,3) first dim length is unkown
+    #pg_parms_indx = da.from_delayed(_tree_combine_list(pg_parms_indx_list,_find_unique_subset),shape=(23,3),dtype=int) #(nan,3) first dim length is unkown
+    
+    
+    
+    gcf_dataset = xr.Dataset()
+    coords = {'gcf_indx':['a','w','gcf_flat'],'pg_indx':['p1','p2','pg_flat'],'a_indx':['pa1','b1','pa2','b2','c','a_flat'],'w_indx':['w']}
+    gcf_dataset = gcf_dataset.assign_coords(coords)
+    
+    gcf_dataset['GCF_MAP'] = xr.DataArray(cf_map, dims=('time','baseline','chan'))
+    gcf_dataset['GCF_PARMS_INDX'] = xr.DataArray(cf_parms_indx, dims=('gcf','gcf_indx'))
+    
+    gcf_dataset['W_PARMS_INDX'] = xr.DataArray(w_parms_indx, dims=('w','w_indx'))
+    gcf_dataset['A_PARMS_INDX'] = xr.DataArray(a_parms_indx, dims=('a','a_indx'))
+    
+    gcf_dataset['GCF_A_PA'] = cf_pa_centers
+    gcf_dataset['GCF_A_FREQ'] = cf_pb_freq
+    gcf_dataset['GCF_A_BEAM_ID'] = cf_beam_pair_id
+    gcf_dataset['GCF_W'] = cf_w
+    
+    gcf_dataset['PG_MAP'] =  xr.DataArray(pg_map, dims=('time','baseline'))
+    gcf_dataset['PG_PARMS_INDX'] =  xr.DataArray(pg_parms_indx, dims=('pg','pg_indx'))
+    gcf_dataset['PG_POINTING'] = cf_pointing
+    '''
 
+    #dask.visualize(gcf_dataset,'make_gcf_coords')
     return gcf_dataset
     
 
@@ -312,7 +371,11 @@ def _cf_map_jit(beam_map,beam_ids,cf_beam_pair_id,pa,cf_pa,ant_1,ant_2,ant_ids,c
     n_cf_point = len(cf_pointing)
     
     #cf_indx_list values ['pa1','b1','pa2','b2','w','c','gcf_flat']
-    cf_indx_list = [np.array([-42,-42,-42,-42,-42,-42,-42])] #Can't have an empty list need to tell Numba what type it is
+    #cf_indx_list = [np.array([-42,-42,-42,-42,-42,-42,-42])] #Can't have an empty list need to tell Numba what type it is
+    cf_indx_list = [np.array([-42,-42,-42])]
+    w_indx_list = [np.array([-42])]
+    a_indx_list = [np.array([-42,-42,-42,-42,-42,-42])]
+     
     cf_map = np.zeros((n_time,n_baseline,n_chan),numba.i8)
     #cf_map = np.zeros((n_time,n_baseline,n_chan),np.int) #if debug in python mode
     
@@ -375,7 +438,7 @@ def _cf_map_jit(beam_map,beam_ids,cf_beam_pair_id,pa,cf_pa,ant_1,ant_2,ant_ids,c
             
                 for i_chan in range(n_chan):
                     ############W calcs############
-                    w_val = w_val*c/freq_chan[i_chan]
+                    w_val = w_val*freq_chan[i_chan]/c
                     #print('cf_w,w_val',cf_w,w_val)
                     cf_w_indx = _find_val_indx(cf_w,w_val)
                     
@@ -384,10 +447,24 @@ def _cf_map_jit(beam_map,beam_ids,cf_beam_pair_id,pa,cf_pa,ant_1,ant_2,ant_ids,c
                     
                     ############Calculate Flat Index for cf (convolution function)############
                     # [PA1,B1,PA2,B1,W,C,CF]
-                    cf_indx_info = np.array([cf_pa1_indx,cf_beam1_indx,cf_pa2_indx,cf_beam2_indx,cf_w_indx,cf_c_indx,-42]) #-42 is a dummy value. If it appears in the final result something has gone wrong
-                    n_cf = calc_cf_flat_indx(cf_indx_info,n_cf_beam,n_cf_pa,n_cf_w,n_cf_c)
+                    #cf_indx_info = np.array([cf_pa1_indx,cf_beam1_indx,cf_pa2_indx,cf_beam2_indx,cf_w_indx,cf_c_indx,-42]) #-42 is a dummy value. If it appears in the final result something has gone wrong
                     
-                    cf_map[i_time,i_baseline,i_chan] = cf_indx_info[-1]
+                    #Calculate flat index for a term
+                    #p1, b1, p2, b2, c, x = cf_indx_info
+                    i1,n1 = _combine_indx_permutation(cf_pa1_indx,cf_beam1_indx,n_cf_pa,n_cf_beam)
+                    i2,n2 = _combine_indx_permutation(cf_pa2_indx,cf_beam2_indx,n_cf_pa,n_cf_beam)
+                    i3,n3 = _combine_indx_combination(i1,i2,n1,n2)
+                    cf_a_indx,n_cf_a = _combine_indx_permutation(i3,cf_c_indx,n3,n_cf_c)
+                    a_indx_info = np.array([cf_pa1_indx,cf_beam1_indx,cf_pa2_indx,cf_beam2_indx,cf_c_indx,cf_a_indx])
+                    
+                    #Add w index
+                    w_indx_info = np.array([cf_w_indx])
+                    
+                    #Combined (a and w) cf flat index
+                    cf_flat_index, n_cf = _combine_indx_permutation(cf_a_indx,cf_w_indx,n_cf_a,n_cf_w)
+                    cf_indx_info = np.array([cf_a_indx,cf_w_indx,cf_flat_index])
+                    
+                    cf_map[i_time,i_baseline,i_chan] = cf_flat_index #used by gridder
                     
                     #Nasty code needed due to working with list in numba. Can't put in a separate function, due to typed list inefficiencies.
                     found = False
@@ -404,6 +481,38 @@ def _cf_map_jit(beam_map,beam_ids,cf_beam_pair_id,pa,cf_pa,ant_1,ant_2,ant_ids,c
               
                     if not(found):
                         cf_indx_list.append(cf_indx_info)
+                        
+                    #Nasty code needed due to working with list in numba. Can't put in a separate function, due to typed list inefficiencies.
+                    found = False
+                    end_of_list = False
+                    i_list = 0
+                    n_list = len(w_indx_list)
+                    while not(found) and not(end_of_list):
+                        #print(i_list,n_list)
+                        if w_indx_list[i_list][-1] == w_indx_info[-1]:
+                            found = True
+                        i_list = i_list+1
+                        if i_list >= n_list:
+                            end_of_list = True
+              
+                    if not(found):
+                        w_indx_list.append(w_indx_info)
+                        
+                    #Nasty code needed due to working with list in numba. Can't put in a separate function, due to typed list inefficiencies.
+                    found = False
+                    end_of_list = False
+                    i_list = 0
+                    n_list = len(a_indx_list)
+                    while not(found) and not(end_of_list):
+                        #print(i_list,n_list)
+                        if a_indx_list[i_list][-1] == a_indx_info[-1]:
+                            found = True
+                        i_list = i_list+1
+                        if i_list >= n_list:
+                            end_of_list = True
+              
+                    if not(found):
+                        a_indx_list.append(a_indx_info)
                     
     ##################
     cf_indx_list.pop(0)
@@ -419,6 +528,32 @@ def _cf_map_jit(beam_map,beam_ids,cf_beam_pair_id,pa,cf_pa,ant_1,ant_2,ant_ids,c
             cf_indx_arr[jj,ii] = cf_indx_list[jj][ii]
             
     ##################
+    w_indx_list.pop(0)
+    #Convert list of arrays to array (numpy functions vstack,stack,asarray don't work in numba for lists). Also avoid tight for loop.
+    w_indx_arr = np.zeros((len(w_indx_list),len(w_indx_list[0])),numba.i8)
+    #w_indx_arr = np.zeros((len(w_indx_list),len(w_indx_list[0])),int)
+    
+    n_w_flat = len(w_indx_list)
+    n_i = len(w_indx_list[0])
+    
+    for jj in range(n_w_flat ):
+        for ii in range(n_i):
+            w_indx_arr[jj,ii] = w_indx_list[jj][ii]
+            
+    ##################
+    a_indx_list.pop(0)
+    #Convert list of arrays to array (numpy functions vstack,stack,asarray don't work in numba for lists). Also avoid tight for loop.
+    a_indx_arr = np.zeros((len(a_indx_list),len(a_indx_list[0])),numba.i8)
+    #a_indx_arr = np.zeros((len(a_indx_list),len(a_indx_list[0])),int)
+    
+    n_a_flat = len(a_indx_list)
+    n_i = len(a_indx_list[0])
+    
+    for jj in range(n_a_flat ):
+        for ii in range(n_i):
+            a_indx_arr[jj,ii] = a_indx_list[jj][ii]
+            
+    ##################
     pg_indx_list.pop(0)
     #Convert list of arrays to array (numpy functions vstack,stack,asarray don't work in numba for lists). Also avoid tight for loop.
     pg_indx_arr = np.zeros((len(pg_indx_list),len(pg_indx_list[0])),numba.i8)
@@ -432,7 +567,7 @@ def _cf_map_jit(beam_map,beam_ids,cf_beam_pair_id,pa,cf_pa,ant_1,ant_2,ant_ids,c
             pg_indx_arr[jj,ii] = pg_indx_list[jj][ii]
     
     
-    return cf_indx_arr, cf_map, pg_indx_arr, pg_map
+    return w_indx_arr, a_indx_arr, cf_indx_arr, cf_map, pg_indx_arr, pg_map
     
 
 

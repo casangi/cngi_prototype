@@ -10,5 +10,5 @@ Functionality in development:
 7. Heterogeneous Beam Squint Correction
 """
 from .make_gcf_coords import make_gcf_coords
-
+from .make_gcf import make_gcf
 

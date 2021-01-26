@@ -39,7 +39,7 @@ def _create_w_map(mxds,gcf_parms,grid_parms,sel_parms):
     #_find_optimal_w_set(vis_dataset.UVW.data.compute()[:,:,2],gcf_parms['w_step'],gcf_parms['w_hist_cutoff'],lambda_min,lambda_max)
     w_list = _calculate_w_list(gcf_parms,grid_parms,w_max)
     
-    w_list = xr.DataArray(da.from_array(w_list), dims=('cf_w'))
+    w_list = xr.DataArray(da.from_array(w_list,chunks=(1)), dims=('cf_w'))
     return w_list
 
 
@@ -109,6 +109,7 @@ def _calculate_w_list(gcf_parms,grid_parms,w_max):
     return w_values
     
 def _calc_w_sky(w_values,gcf_parms,grid_parms):
+    print(w_values)
     w_sky_image_size = gcf_parms['conv_size']
     w_sky_image_center = w_sky_image_size//2
     #Calculate the cell size for w Term
@@ -119,7 +120,9 @@ def _calc_w_sky(w_values,gcf_parms,grid_parms):
 
     x_grid, y_grid = np.meshgrid(x,y,indexing='ij')
     
-    w_sky = np.exp((2*np.pi*1j*(np.sqrt(1 - x_grid**2 - y_grid**2) - 1))[:,:,None]*w_values[None,None,:])
+    #w_sky = np.exp((2*np.pi*1j*(np.sqrt(1 - x_grid**2 - y_grid**2) - 1))[:,:,None]*w_values[None,None,:])
+    w_sky = np.moveaxis(np.exp((2*np.pi*1j*(np.sqrt(1 - x_grid**2 - y_grid**2) - 1))[:,:,None]*w_values[None,None,:]),-1,0)
+    print('w_sky.shape',w_sky.shape)
     return w_sky
     
 def _calc_w_sky_approx(w_values,gcf_parms,grid_parms):
