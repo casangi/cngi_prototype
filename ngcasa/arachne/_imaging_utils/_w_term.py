@@ -101,6 +101,7 @@ def _find_optimal_w_set(vals_2d,val_step,val_hist_cutoff,lambda_min,lambda_max):
    
 def _calculate_w_list(gcf_parms,grid_parms,w_max):
     maxUVW = 1/np.abs(np.min(np.abs(grid_parms['cell_size']))*gcf_parms['w_fudge'])
+    print(maxUVW)
     if w_max < maxUVW:
         maxUVW = w_max
     
@@ -108,8 +109,10 @@ def _calculate_w_list(gcf_parms,grid_parms,w_max):
     w_values[0] = 0
     return w_values
     
-def _calc_w_sky(w_values,gcf_parms,grid_parms):
-    print(w_values)
+def _calc_w_sky(w_indx,w_values,gcf_parms,grid_parms):
+    w_values = w_values[w_indx[:,0]]
+    
+    print('In _calc_w_sky')
     w_sky_image_size = gcf_parms['conv_size']
     w_sky_image_center = w_sky_image_size//2
     #Calculate the cell size for w Term
@@ -117,10 +120,14 @@ def _calc_w_sky(w_values,gcf_parms,grid_parms):
     
     x = np.arange(-w_sky_image_center[0], w_sky_image_size[0]-w_sky_image_center[0])*w_sky_cell_size[0]
     y = np.arange(-w_sky_image_center[1], w_sky_image_size[1]-w_sky_image_center[1])*w_sky_cell_size[1]
+    
+    #print('x.shape',x.shape)
+    #print('w_values',w_values)
 
     x_grid, y_grid = np.meshgrid(x,y,indexing='ij')
     
     #w_sky = np.exp((2*np.pi*1j*(np.sqrt(1 - x_grid**2 - y_grid**2) - 1))[:,:,None]*w_values[None,None,:])
+    #print('w_sky.shape',w_sky.shape)
     w_sky = np.moveaxis(np.exp((2*np.pi*1j*(np.sqrt(1 - x_grid**2 - y_grid**2) - 1))[:,:,None]*w_values[None,None,:]),-1,0)
     print('w_sky.shape',w_sky.shape)
     return w_sky
