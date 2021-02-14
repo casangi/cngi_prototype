@@ -133,6 +133,8 @@ def convert_ms(infile, outfile=None, ddis=None, ignore=['HISTORY'], compressor=N
             
         # add in relevant spw and polarization attributes
         attrs = {}
+        attrs['vis_description'] = [['DATA','FLAG','WEIGHT']]
+
         for dv in spw_xds.data_vars:
             attrs[dv.lower()] = spw_xds[dv].values[ddi_xds['spectral_window_id'].values[ddi]]
             attrs[dv.lower()] = int(attrs[dv.lower()]) if type(attrs[dv.lower()]) is np.bool_ else attrs[dv.lower()]  # convert bools
