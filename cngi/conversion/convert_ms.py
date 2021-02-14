@@ -23,7 +23,7 @@ def convert_ms(infile, outfile=None, ddis=None, ignore=['HISTORY'], compressor=N
     This function requires CASA6 casatools module. The CASA MSv2 format is converted to the MSv3 schema per the
     specified definition here: https://drive.google.com/file/d/10TZ4dsFw9CconBc-GFxSeb2caT6wkmza/view?usp=sharing
     
-    The MS is partitioned by DDI, which guarentees a fixed data shape per partition. This results in different subdirectories
+    The MS is partitioned by DDI, which guarantees a fixed data shape per partition. This results in different subdirectories
     under the main vis.zarr folder.  There is no DDI in MSv3, so this simply serves as a partition id in the zarr directory.
 
     Parameters
