@@ -16,7 +16,7 @@ this module will be included in the api
 """
 
 
-def convert_ms(infile, outfile=None, ddis=None, ignore=['HISTORY'], compressor=None, chunk_shape=(100, 400, 32, 1), append=False):
+def convert_ms(infile, outfile=None, ddis=None, ignore=['HISTORY'], compressor=None, chunks=(100, 400, 32, 1), append=False):
     """
     Convert legacy format MS to xarray Visibility Dataset and zarr storage format
 
@@ -41,7 +41,7 @@ def convert_ms(infile, outfile=None, ddis=None, ignore=['HISTORY'], compressor=N
     compressor : numcodecs.blosc.Blosc
         The blosc compressor to use when saving the converted data to disk using zarr.
         If None the zstd compression algorithm used with compression level 2.
-    chunk_shape: 4-D tuple of ints
+    chunks: 4-D tuple of ints
         Shape of desired chunking in the form of (time, baseline, channel, polarization), use -1 for entire axis in one chunk. Default is (100, 400, 20, 1)
         Note: chunk size is the product of the four numbers, and data is batch processed by time axis, so that will drive memory needed for conversion.
     append : bool
@@ -104,12 +104,12 @@ def convert_ms(infile, outfile=None, ddis=None, ignore=['HISTORY'], compressor=N
         # convert columns that are common to MSv2 and MSv3
         xds = tblconv.convert_expanded_table(infile, os.path.join(outfile,'xds'+str(ddi)), keys={'TIME': 'time', ('ANTENNA1', 'ANTENNA2'): 'baseline'},
                                              subsel={'DATA_DESC_ID':ddi}, timecols=['time'], dimnames={'d2':'chan', 'd3':'pol'},
-                                             ignore=ignorecols + msv2, compressor=compressor, chunk_shape=chunk_shape, nofile=False)
+                                             ignore=ignorecols + msv2, compressor=compressor, chunks=chunks, nofile=False)
         
         # convert and append UVW separately so we can handle its special dimension
         uvw_xds = tblconv.convert_expanded_table(infile, os.path.join(outfile,'tmp'), keys={'TIME': 'time', ('ANTENNA1', 'ANTENNA2'): 'baseline'},
                                                  subsel={'DATA_DESC_ID': ddi}, timecols=['time'], dimnames={'d2': 'uvw_index'},
-                                                 ignore=ignorecols + list(xds.data_vars) + msv2[:-1], compressor=compressor, chunk_shape=chunk_shape,
+                                                 ignore=ignorecols + list(xds.data_vars) + msv2[:-1], compressor=compressor, chunks=chunks,
                                                  nofile=False)
         uvw_xds.to_zarr(os.path.join(outfile, 'xds'+str(ddi)), mode='a', compute=True, consolidated=True)
         
@@ -117,7 +117,7 @@ def convert_ms(infile, outfile=None, ddis=None, ignore=['HISTORY'], compressor=N
         # WEIGHT needs to be expanded to full dimensionality (time, baseline, chan, pol)
         wt_xds = tblconv.convert_expanded_table(infile, os.path.join(outfile,'tmp'), keys={'TIME': 'time', ('ANTENNA1', 'ANTENNA2'): 'baseline'},
                                                 subsel={'DATA_DESC_ID':ddi}, timecols=['time'], dimnames={},
-                                                ignore=ignorecols + list(xds.data_vars) + msv2[2:], compressor=compressor, chunk_shape=chunk_shape,
+                                                ignore=ignorecols + list(xds.data_vars) + msv2[2:], compressor=compressor, chunks=chunks,
                                                 nofile=False)
         
         # if WEIGHT_SPECTRUM is present, append it to the main xds as the new WEIGHT column
@@ -127,7 +127,7 @@ def convert_ms(infile, outfile=None, ddis=None, ignore=['HISTORY'], compressor=N
             wt_xds.to_zarr(os.path.join(outfile, 'xds'+str(ddi)), mode='a', compute=True, consolidated=True)
         else:
             wts = wt_xds.WEIGHT.shape[:2] + (1,) + (wt_xds.WEIGHT.shape[-1],)
-            wt_da = da.tile(da.reshape(wt_xds.WEIGHT.data, wts), (1,1,len(xds.chan),1)).rechunk(chunk_shape)
+            wt_da = da.tile(da.reshape(wt_xds.WEIGHT.data, wts), (1,1,len(xds.chan),1)).rechunk(chunks)
             wt_xds = wt_xds.drop_vars('WEIGHT').assign({'WEIGHT':xarray.DataArray(wt_da, dims=['time','baseline','chan','pol'])})
             wt_xds.to_zarr(os.path.join(outfile, 'xds' + str(ddi)), mode='a', compute=True, consolidated=True)
             
@@ -147,9 +147,9 @@ def convert_ms(infile, outfile=None, ddis=None, ignore=['HISTORY'], compressor=N
         pol = attrs.pop('corr_type')[:len(xds.pol)]
         
         # truncate per-chan values to the actual number of channels and move to coordinates
-        chan_width = xarray.DataArray(attrs.pop('chan_width')[:len(xds.chan)], dims=['chan'])
-        effective_bw = xarray.DataArray(attrs.pop('effective_bw')[:len(xds.chan)], dims=['chan'])
-        resolution = xarray.DataArray(attrs.pop('resolution')[:len(xds.chan)], dims=['chan'])
+        chan_width = xarray.DataArray(da.from_array(attrs.pop('chan_width')[:len(xds.chan)],chunks=chunks[2]), dims=['chan'])
+        effective_bw = xarray.DataArray(da.from_array(attrs.pop('effective_bw')[:len(xds.chan)],chunks=chunks[2]), dims=['chan'])
+        resolution = xarray.DataArray(da.from_array(attrs.pop('resolution')[:len(xds.chan)],chunks=chunks[2]), dims=['chan'])
         
         coords = {'chan':chan, 'pol':pol, 'spw_id':[ddi_xds['spectral_window_id'].values[ddi]], 'pol_id':[ddi_xds['polarization_id'].values[ddi]],
                   'chan_width':chan_width, 'effective_bw':effective_bw, 'resolution':resolution}
@@ -174,7 +174,7 @@ def convert_ms(infile, outfile=None, ddis=None, ignore=['HISTORY'], compressor=N
             if subtable == 'POINTING':    # expand the dimensions of the pointing table
                 xds_sub_list = [(subtable, tblconv.convert_expanded_table(infile, os.path.join(outfile, 'global'), subtable=subtable,
                                                                           keys={'TIME': 'time', 'ANTENNA_ID': 'antenna_id'}, timecols=['time'],
-                                                                          chunk_shape=chunk_shape))]
+                                                                          chunks=chunks))]
             else:
                 xds_sub_list = [(subtable, tblconv.convert_simple_table(infile, os.path.join(outfile, 'global'), subtable,
                                                                         timecols=['TIME'], ignore=ignorecols, compressor=compressor, nofile=False))]
