@@ -62,7 +62,6 @@ def _check_parms(parm_dict, string_key, acceptable_data_types, acceptable_data =
                             return False
         elif (dict in acceptable_data_types):
             parms_passed = True
-            parm_dict
 
             if default is None:
                 print('######### ERROR:Dictionary parameters must have a default. Please report bug.')
@@ -70,7 +69,7 @@ def _check_parms(parm_dict, string_key, acceptable_data_types, acceptable_data =
             
             for default_element in default:
                 if default_element in parm_dict:
-                    if not(_check_parms(parm_dict[default_element], default_element, [type(default[default_element])], default=default[default_element])): parms_passed = False
+                    if not(_check_parms(parm_dict[string_key], default_element, [type(default[default_element])], default=default[default_element])): parms_passed = False
                 else:
                     parm_dict[default_element] = default
         else:
@@ -93,6 +92,7 @@ def _check_parms(parm_dict, string_key, acceptable_data_types, acceptable_data =
                     return False
     else:
         if default is not None:
+            #print(parm_dict, string_key,  default)
             parm_dict[string_key] =  default
             print ('Setting default', string_key, ' to ', parm_dict[string_key])
         else:
@@ -112,6 +112,7 @@ def _check_dataset(vis_dataset,data_variable_name):
 def _check_sel_parms(sel_parms,select_defaults):
     parms_passed = True
     for sel in select_defaults:
+        #print('*****',sel_parms,sel,[type(select_defaults[sel])])
         if not(_check_parms(sel_parms, sel, [type(select_defaults[sel])], default=select_defaults[sel])): parms_passed = False
     return parms_passed
 
