@@ -146,7 +146,7 @@ def _check_pb_parms(img_dataset, pb_parms):
     parms_passed = True
     arc_sec_to_rad = np.pi / (3600 * 180)
     
-    if not(_check_parms(pb_parms, 'pb_name', [str], default='PB')): parms_passed = False
+    #if not(_check_parms(pb_parms, 'pb_name', [str], default='PB')): parms_passed = False
     
     if not(_check_parms(pb_parms, 'function', [str], default='alma_airy')): parms_passed = False
     
