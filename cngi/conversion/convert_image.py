@@ -17,7 +17,7 @@ this module will be included in the api
 
 
 ##########################################
-def convert_image(infile, outfile=None, artifacts=[], compressor=None, chunk_shape=(-1, -1, 1, 1)):
+def convert_image(infile, outfile=None, artifacts=[], compressor=None, chunks=(-1, -1, 1, 1)):
     """
     Convert legacy CASA or FITS format Image to xarray Image Dataset and zarr storage format
 
@@ -36,7 +36,7 @@ def convert_image(infile, outfile=None, artifacts=[], compressor=None, chunk_sha
     compressor : numcodecs.blosc.Blosc
         The blosc compressor to use when saving the converted data to disk using zarr.
         If None the zstd compression algorithm used with compression level 2.
-    chunk_shape: 4-D tuple of ints
+    chunks: 4-D tuple of ints
         Shape of desired chunking in the form of (l, m, channels, polarization), use -1 for entire axis in one chunk. Default is (-1, -1, 1, 1)
         Note: chunk size is the product of the four numbers (up to the actual size of the dimension)
 
@@ -166,7 +166,7 @@ def convert_image(infile, outfile=None, artifacts=[], compressor=None, chunk_sha
 
     # if taylor terms are present, the chan axis must be expanded to the length of the terms
     if ttcount > len(mxds.chan): mxds = mxds.pad({'chan': (0, ttcount-len(mxds.chan))}, mode='edge')
-    chunk_dict = dict(zip(['l','m','time','chan','pol'], chunk_shape[:2]+(1,)+chunk_shape[2:]))
+    chunk_dict = dict(zip(['l','m','time','chan','pol'], chunks[:2]+(1,)+chunks[2:]))
     mxds = mxds.chunk(chunk_dict)
 
     # for each artifact, convert the legacy format and add to the new image set
@@ -179,13 +179,13 @@ def convert_image(infile, outfile=None, artifacts=[], compressor=None, chunk_sha
 
             dimorder = ['time'] + list(reversed(artifact_dims[imtype]))
             chunkorder = [chunk_dict[vv] for vv in dimorder]
-            ixds = convert_simple_table(imagelist[0]+ext, outfile+'.temp', dimnames=dimorder, compressor=compressor, chunk_shape=chunkorder)
+            ixds = convert_simple_table(imagelist[0]+ext, outfile+'.temp', dimnames=dimorder, compressor=compressor, chunks=chunkorder)
 
             # if the image set has taylor terms, loop through any for this artifact and concat together
             # pad the chan dim as necessary to fill remaining elements if not enough taylor terms in this artifact
             for ii in range(1, ttcount):
                 if ii < len(imagelist):
-                    txds = convert_simple_table(imagelist[ii]+ext, outfile + '.temp', dimnames=dimorder, chunk_shape=chunkorder, nofile=True)
+                    txds = convert_simple_table(imagelist[ii]+ext, outfile + '.temp', dimnames=dimorder, chunks=chunkorder, nofile=True)
                     ixds = xarray.concat([ixds, txds], dim='chan')
                 else:
                     ixds = ixds.pad({'chan': (0, 1)}, constant_values=np.nan)

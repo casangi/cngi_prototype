@@ -49,8 +49,8 @@ def _calc_parallactic_angles_for_gcf(mxds,ant_ra_dec,gcf_parms,sel_parms):
     return cf_time_map, pa_centers, pa_dif, pa_map
     '''
     vis_dataset = mxds.attrs[sel_parms['xds']]
-    time_chunksize = vis_dataset[sel_parms['data']].chunks[0][0]
-    ant_chunksize= mxds.ANTENNA.POSITION.chunks[0][0]
+    time_chunksize = vis_dataset[sel_parms['data']].chunks[0]
+    ant_chunksize= pa_dif.shape[1]
     
     pa_centers = xr.DataArray(da.from_array(pa_centers), dims=('pa'))
     pa_dif = xr.DataArray(da.from_array(pa_dif,chunks=(time_chunksize,ant_chunksize)), dims=('time','beam'))
@@ -126,8 +126,8 @@ def _average_parallactic_to_match_map(mxds,pa):
     for i,id in enumerate(beam_ids):
         pa_mean[:,i] = np.mean(pa[:,feed_beam_ids==id],axis=1)
         
-    time_chunksize = pa.chunks[0][0]
-    beam_chunksize = mxds.beam_ids.chunks[0][0]
+    time_chunksize = pa.chunks[0]
+    beam_chunksize = mxds.beam_ids.chunks[0]
 
     pa_mean = xr.DataArray(da.from_array(pa_mean,chunks=(time_chunksize,beam_chunksize)),{'time':pa.time,'beam':beam_ids}, dims=('time','beam'))
     return pa_mean
@@ -208,8 +208,8 @@ def _calc_parallactic_angles_for_vis_dataset(mxds,ra_dec,gcf_parms,sel_parms):
 #    plt.plot(pa[0,:].T)
 #    plt.show()
     
-    time_chunksize = vis_dataset[sel_parms['data']].chunks[0][0]
-    ant_chunksize= mxds.ANTENNA.POSITION.chunks[0][0]
+    time_chunksize = vis_dataset[sel_parms['data']].chunks[0]
+    ant_chunksize= mxds.ANTENNA.POSITION.chunks[0]
     
     #print(da.from_array(pa,chunks=(time_chunksize,ant_chunksize)))
     
@@ -328,7 +328,7 @@ def _make_cf_time_map(mxds,pa,beam_pair_id,gcf_parms,sel_parms):
     
     '''
     pa_chunksize = int(np.ceil(len(pa_centers)/gcf_parms['cf_pa_num_chunk']))
-    time_chunksize = mxds.attrs[sel_parms['xds']][sel_parms['data']].chunks[0][0]
+    time_chunksize = mxds.attrs[sel_parms['xds']][sel_parms['data']].chunks[0]
     
     n_beam = pa_dif.shape[1]
     n_beam_pair = pa_map.shape[1]

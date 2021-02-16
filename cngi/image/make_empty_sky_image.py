@@ -13,14 +13,11 @@
 #   limitations under the License.
 
 
-def make_empty_sky_image(img_dataset,phase_center,image_size,cell_size,chan_coords,chan_width,pol_coords,time_coords,direction_reference='FK5',projection='SIN', spectral_reference='lsrk',velocity_type='radio',
-num_taylor_terms=0):
+def make_empty_sky_image(img_dataset,phase_center,image_size,cell_size,chan_coords,chan_width,pol_coords,time_coords,direction_reference='FK5',projection='SIN', spectral_reference='lsrk',velocity_type='radio',unit='Jy/beam'):
     """
     Create an img_dataset with only coordinates (no datavariables).
     The image dimensionality is either:
         l, m, time, chan, pol
-    or
-        l, m, time, taylor, pol (if num_taylor_terms > 0)
 
     Parameters
     ----------
@@ -32,19 +29,18 @@ num_taylor_terms=0):
         Number of x and y axis pixels in image.
     cell_size : array of number, length = 2, units = rad
         Cell size of x and y axis pixels in image.
-    chan_coords : xarray.DataArray
+    chan_coords : dask.Array
         The center frequency of each image channel.
-    chan_width : xarray.DataArray
+    chan_width : dask.Array
         The frequency width of each image channel.
-    pol_coords : xarray.DataArray
+    pol_coords : dask.Array
         The polarization code for each image polarization.
-    time_coords : xarray.DataArray
+    time_coords : dask.Array
         The time for each image time step.
     direction_reference : str, default = 'FK5'
     projection : str, default = 'SIN'
     spectral_reference : str, default = 'lsrk'
     velocity_type : str, default = 'radio'
-    num_taylor_terms : int, default =0
     Returns
     -------
     xarray.Dataset
@@ -70,17 +66,14 @@ num_taylor_terms=0):
     l = np.arange(-image_center[0], image_size[0]-image_center[0])*cell_size[0]
     m = np.arange(-image_center[1], image_size[1]-image_center[1])*cell_size[1]
     
-    if num_taylor_terms == 0:
-        coords = {'time':time_coords.data,'chan': chan_coords.data, 'pol': pol_coords.data, 'chan_width' : ('chan',chan_width.data),'l':l,'m':m,'right_ascension' : (('l','m'),ra/rad_to_deg),'declination' : (('l','m'),dec/rad_to_deg)}
-        img_dataset.attrs['axis_units'] =  ['rad', 'rad', 'time', 'Hz', 'pol']
-    else:
-        coords = {'time':time_coords.data,'taylor': np.arange(num_taylor_terms), 'pol': pol_coords.data,'l':np.arange(image_size[0]),'m':np.arange(image_size[1]),'right_ascension' : (('l','m'),ra/rad_to_deg),'declination' : (('l','m'),dec/rad_to_deg)}
-        img_dataset.attrs['axis_units'] =  ['rad', 'rad', 'time', 'taylor', 'pol']
-    
+    coords = {'time':time_coords,'chan': chan_coords, 'pol': pol_coords, 'chan_width' : ('chan',chan_width),'l':l,'m':m,'right_ascension' : (('l','m'),ra/rad_to_deg),'declination' : (('l','m'),dec/rad_to_deg)}
+    img_dataset.attrs['axis_units'] =  ['rad', 'rad', 'time', 'Hz', 'pol']
+
     img_dataset = img_dataset.assign_coords(coords)
         
     img_dataset.attrs['direction_reference'] = direction_reference
     img_dataset.attrs['spectral_reference'] = spectral_reference
     img_dataset.attrs['velocity_type'] = velocity_type
+    img_dataset.attrs['unit'] = unit
     
     return img_dataset

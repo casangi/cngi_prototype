@@ -81,7 +81,7 @@ def compute_dimensions(tbobj, ignore=[]):
 # dimnames is a list used to override default dimension names
 # timecols is a list of column names to convert to datetimes
 # ignore is a list of columns to ignore
-def convert_simple_table(infile, outfile, subtable='', dimnames=None, timecols=[], ignore=[], compressor=None, chunk_shape=(40000, 20, 1), nofile=False):
+def convert_simple_table(infile, outfile, subtable='', dimnames=None, timecols=[], ignore=[], compressor=None, chunks=(40000, 20, 1), nofile=False):
     
     if compressor is None:
         compressor = Blosc(cname='zstd', clevel=2, shuffle=0)
@@ -95,29 +95,29 @@ def convert_simple_table(infile, outfile, subtable='', dimnames=None, timecols=[
         return xarray.Dataset()
     
     # handle no chunking of first axis
-    if chunk_shape[0] == -1:
-        chunk_shape[0] = tb_tool.nrows()
+    if chunks[0] == -1:
+        chunks[0] = tb_tool.nrows()
     
     # master dataset holders
     mvars, mcoords = {}, {}
     mdims = {'d0': tb_tool.nrows()}  # keys are dimension names, values are dimension sizes
     cshape, bad_cols = compute_dimensions(tb_tool, ignore)
     
-    for start_idx in range(0, tb_tool.nrows(), chunk_shape[0]):
+    for start_idx in range(0, tb_tool.nrows(), chunks[0]):
         for col in tb_tool.colnames():
             if (col in ignore) or (col in bad_cols): continue
             tblname = tb_tool.name().split('/')[-1]
-            print('reading %s chunk %s of %s, col %s...%s' % (tblname, str(start_idx // chunk_shape[0]), str(tb_tool.nrows() // chunk_shape[0]), col, ' '*20), end='\r')
+            print('reading %s chunk %s of %s, col %s...%s' % (tblname, str(start_idx // chunks[0]), str(tb_tool.nrows() // chunks[0]), col, ' '*20), end='\r')
             try:
                 if col in cshape:   # if this column has a varying shape, it needs to be normalized
-                    data = tb_tool.getvarcol(col, start_idx, chunk_shape[0])
+                    data = tb_tool.getvarcol(col, start_idx, chunks[0])
                     tshape = cshape[col]  # grab the max dimensionality of this col
                     # expand the variable shaped column to the maximum size of each dimension
                     # blame the person who devised the tb.getvarcol return structure
                     data = np.array([np.pad(data['r' + str(kk)][..., 0], np.stack((tshape * 0, tshape - data['r' + str(kk)].shape[:-1]), -1)).transpose()
                                      for kk in np.arange(start_idx + 1, start_idx + len(data) + 1)])
                 else:
-                    data = tb_tool.getcol(col, start_idx, chunk_shape[0]).transpose()
+                    data = tb_tool.getcol(col, start_idx, chunks[0]).transpose()
             except Exception:
                 bad_cols += [col]
                 continue
@@ -138,7 +138,7 @@ def convert_simple_table(infile, outfile, subtable='', dimnames=None, timecols=[
                 dims += [list(mdims.keys())[ii+1:][list(mdims.values())[ii+1:].index(dd)]]
             if dimnames is not None: dims = (dimnames[:len(dims)] + dims[len(dims)-len(dimnames)-1:])[:len(dims)]
             
-            chunking = [chunk_shape[di] if di < len(chunk_shape) else chunk_shape[-1] for di, dk in enumerate(dims)]
+            chunking = [chunks[di] if di < len(chunks) else chunks[-1] for di, dk in enumerate(dims)]
             chunking = [cs if cs > 0 else data.shape[ci] for ci, cs in enumerate(chunking)]
             
             # store ID columns as a list of coordinates, otherwise store as a list of data variables
@@ -175,7 +175,7 @@ def convert_simple_table(infile, outfile, subtable='', dimnames=None, timecols=[
 # timecols is a list of column names to convert to datetimes
 # dimnames is a dictionary mapping old to new dimension names for remaining dims (not in keys)
 # ignore is a list of column names to ignore
-def convert_expanded_table(infile, outfile, keys, subtable='', subsel=None, timecols=[], dimnames={}, ignore=[], compressor=None, chunk_shape=(100, 20, 1), nofile=False):
+def convert_expanded_table(infile, outfile, keys, subtable='', subsel=None, timecols=[], dimnames={}, ignore=[], compressor=None, chunks=(100, 20, 1), nofile=False):
     
     if compressor is None:
         compressor = Blosc(cname='zstd', clevel=2, shuffle=0)
@@ -189,8 +189,8 @@ def convert_expanded_table(infile, outfile, keys, subtable='', subsel=None, time
         return xarray.Dataset()
         
     # handle no chunking of first axis
-    if chunk_shape[0] == -1:
-        chunk_shape[0] = tb_tool.nrows()
+    if chunks[0] == -1:
+        chunks[0] = tb_tool.nrows()
     
     # sort table by value of dimensions to be expanded
     # load and store the column to be used as the key for the first dimension (aka the row key)
@@ -234,18 +234,18 @@ def convert_expanded_table(infile, outfile, keys, subtable='', subsel=None, time
     
     # we want to parse the table in batches equal to the specified number of unique row keys, not number of rows
     # so we need to compute the proper number of rows to get the correct number of unique row keys
-    for cc, start_idx in enumerate(range(0, len(unique_row_keys), chunk_shape[0])):
-        chunk = np.arange(min(chunk_shape[0], len(unique_row_keys) - start_idx)) + start_idx
+    for cc, start_idx in enumerate(range(0, len(unique_row_keys), chunks[0])):
+        chunk = np.arange(min(chunks[0], len(unique_row_keys) - start_idx)) + start_idx
         end_idx = row_changes[chunk[-1] + 1] if chunk[-1] + 1 < len(row_changes) else len(row_idxs)
         idx_range = np.arange(row_changes[chunk[0]], end_idx)  # indices of table to be read, they are contiguous because table is sorted
         mcoords.update({row_key.lower(): xarray.DataArray(unique_row_keys[chunk], dims=target_row_key)})
-        batch = len(unique_row_keys) // chunk_shape[0]
+        batch = len(unique_row_keys) // chunks[0]
         rtestimate = (' remaining time est %s s'+' '*10) % str(int(((time.time() - start) / cc) * (batch - cc))) if cc > 0 else ''
 
         for col in sorted_table.colnames():
             if (col in ignore) or (col in bad_cols): continue
             if col in keys.keys(): continue  # skip dim columns (unless they are tuples)
-            print('reading chunk %s of %s, col %s...%s' % (str(start_idx // chunk_shape[0]), str(batch), col, rtestimate), end='\r')
+            print('reading chunk %s of %s, col %s...%s' % (str(start_idx // chunks[0]), str(batch), col, rtestimate), end='\r')
 
             try:
                 if col in cshape:   # if this column has a varying shape, it needs to be normalized
@@ -281,7 +281,7 @@ def convert_expanded_table(infile, outfile, keys, subtable='', subsel=None, time
                 dims += [list(mdims.keys())[ii+len(keys):][list(mdims.values())[ii+len(keys):].index(dd)]]
             
             # set chunking based on passed in chunk shape, expanding last dimension if necessary
-            chunking = [chunk_shape[di] if di < len(chunk_shape) else chunk_shape[-1] for di, dk in enumerate(dims)]
+            chunking = [chunks[di] if di < len(chunks) else chunks[-1] for di, dk in enumerate(dims)]
             chunking = [cs if cs > 0 else fulldata.shape[ci] for ci, cs in enumerate(chunking)]
 
             # store in list of data variables

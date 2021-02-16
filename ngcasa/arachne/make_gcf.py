@@ -25,6 +25,10 @@ import numba
 import time
 import dask.dataframe as dd
 import matplotlib.pyplot as plt
+import time
+
+#Important
+#a_pair = a1_plane[map_mueler_to_pol[mm,0],:,:]*(a2_plane[map_mueler_to_pol[mm,1],:,:].conj().T)  ? .conj().T
 
 
 def make_gcf(gcf_dataset, list_zpc_dataset, gcf_parms, grid_parms, sel_parms):
@@ -126,6 +130,7 @@ def make_gcf(gcf_dataset, list_zpc_dataset, gcf_parms, grid_parms, sel_parms):
     ##################################################### A_TERM ######################################################################
     if _gcf_parms['a_term']:
         print('#########  Creating a_term')
+        cf_a_planes = _create_a_term_graph(gcf_dataset, list_zpc_dataset, _gcf_parms, _grid_parms, _sel_parms)
         
         
         
@@ -135,7 +140,10 @@ def make_gcf(gcf_dataset, list_zpc_dataset, gcf_parms, grid_parms, sel_parms):
     ###################################################### W_TERM #####################################################################
     if _gcf_parms['w_term']:
         print('#########  Creating w_term ')
-        cf_w_planes = _create_w_term(gcf_dataset, _gcf_parms, _grid_parms, _sel_parms)
+        cf_w_planes = _create_w_term_graph(gcf_dataset,_gcf_parms, _grid_parms, _sel_parms)
+        #print('cf_w_planes',cf_w_planes)
+        #print('cf_w_planes.compute().shape',cf_w_planes.compute().shape)
+        
         
       
         
@@ -143,36 +151,339 @@ def make_gcf(gcf_dataset, list_zpc_dataset, gcf_parms, grid_parms, sel_parms):
     if _gcf_parms['phase_gradient_term']:
         print('#########  Creating pg_term ')
         
+    #print(cf_a_planes)
+    #print(cf_w_planes)
     
-        
-        
+    #print(cf_a_planes.compute().shape)
+    #print(cf_w_planes.compute().shape)
     
+    #https://github.com/pydata/xarray/issues/3476
+    del gcf_dataset.a_indx.encoding["filters"]
+    del gcf_dataset.gcf_indx.encoding["filters"]
+    del gcf_dataset.pg_indx.encoding["filters"]
+    del gcf_dataset.w_indx.encoding["filters"]
+    del gcf_dataset.a_pair_indx.encoding["filters"]
+    del gcf_dataset.GCF_PARMS_INDX.encoding["filters"]
     
     '''
-    n_chunks_gcf = gcf_dataset.GCF_PARMS_INDX.data.numblocks[0]
-    gcf = []
-    for c_gcf in range(n_chunks_gcf):
-        #print(c_gcf)
-        temp = dask.delayed(_gcf_creation)(
-            gcf_dataset.GCF_PARMS_INDX.data.partitions[c_gcf,:],
-            gcf_dataset. gcf_indx,
-            gcf_dataset.GCF_A_FREQ,
-            gcf_dataset.GCF_A_PA,
-            gcf_dataset.GCF_W,
-            gcf_dataset.GCF_A_BEAM_ID,
-            list_zpc_dataset
-            )
-        gcf.append(temp)
+    coords = {'a_id':gcf_dataset.A_PARMS_INDX.data[:,3].compute(),'w_id':gcf_dataset.W_PARMS_INDX.data[:,0].compute()}
+    gcf_dataset = gcf_dataset.assign_coords(coords)
+    
+    gcf_dataset1 = xr.Dataset()
+    gcf_dataset['GCF_A_PLANES'] = xr.DataArray(cf_a_planes, dims=('a_id','pol','conv_x','conv_y'))
+    gcf_dataset['GCF_W_PLANES'] = xr.DataArray(cf_w_planes, dims=('w_id','conv_x','conv_y'))
+    
+    gcf_dataset.to_zarr('alma_vla.gcf.zarr',mode='w')
+    
+    print(gcf_dataset)
+    '''
+    
+    gcf_dataset2 = xr.open_zarr('alma_vla.gcf.zarr')
+    
+    _create_gcf_graph(gcf_dataset2, gcf_parms, grid_parms, sel_parms)
+    
+    #print(gcf_dataset)
+    #gcf_dataset.to_zarr('alma_vla.gcf.zarr',mode="w")
+    
+    '''
+    gcf_dataset1 = xr.Dataset()
+    gcf_dataset1['GCF_A_PLANES'] = xr.DataArray(da.from_array(cf_a_planes.compute(),(1,1,2048,2048)), dims=('a2','pol','conv_x','conv_y'))
+    gcf_dataset1['GCF_W_PLANES'] = xr.DataArray(da.from_array(cf_w_planes.compute(),(1,2048,2048)), dims=('w2','conv_x','conv_y'))
+    
+    print(gcf_dataset1)
+    gcf_dataset1.to_zarr('alma_vla.gcf.zarr',mode="w")
+    '''
+    
 
+def _create_gcf_graph(gcf_dataset, gcf_parms, grid_parms, sel_parms):
+
+    import itertools
+    n_chunks_in_each_dim = gcf_dataset.GCF_PARMS_INDX.data.numblocks
+    chunk_sizes = gcf_dataset.GCF_PARMS_INDX.data.chunks
+    
+    #iter_chunks_indx = itertools.product(np.arange(n_chunks_in_each_dim[0]), np.arange(n_chunks_in_each_dim[1]),
+     #                                    np.arange(n_chunks_in_each_dim[2]))
+
+    gcf =[]
+    
+    
+    print(gcf_dataset)
+    for c_gcf in range(1):#range(n_chunks_in_each_dim[0]):
+        print('c_gcf',c_gcf)
+
+        a_selection = np.unique(np.ravel(gcf_dataset.GCF_PARMS_INDX.data.partitions[c_gcf,:][:,0:2])).compute()
+        w_selection = np.unique(np.ravel(gcf_dataset.GCF_PARMS_INDX.data.partitions[c_gcf,:][:,2])).compute()
+        
+#        print(a_selection)
+#        print(gcf_dataset.a_id)
+#        print('*****************')
+#        print(w_selection)
+#        print(gcf_dataset.w_id)
+        
+        gcf_chunk = _create_gcf(gcf_dataset.GCF_PARMS_INDX.data.partitions[c_gcf,:].compute(),
+            gcf_dataset.GCF_A_PLANES.sel(a_id=a_selection).compute(),
+            gcf_dataset.GCF_W_PLANES.sel(w_id=w_selection).compute(),
+            gcf_parms['mueller_selection'],
+            gcf_parms['conv_size'],
+            gcf_parms['relative_threshold'],
+            gcf_parms['oversampling'])
+        
+        gcf.append(gcf_chunk)
+        
+        '''
+        gcf_chunk = dask.delayed(_create_gcf)(
+            gcf_dataset.GCF_PARMS_INDX.data.partitions[c_gcf,:],
+            gcf_dataset.GCF_A_PLANES.sel(a_id=a_selection),
+            gcf_dataset.GCF_W_PLANES.sel(w_id=w_selection),
+            dask.delayed(gcf_parms['mueller_selection']),
+            dask.delayed(gcf_parms['conv_size']))
+            
+        gcf.append(gcf_chunk)
+        '''
+        
+    print('************')
+    print(gcf)
     dask.compute(gcf)
+    #dask.visualize(gcf,'dask_debug.png')
+ 
+from ._imaging_utils._general import _ndim_list
+
+def _create_gcf(gcf_parms_indx,gcf_a_planes,gcf_w_planes,mueller_selection,conv_size,relative_threshold,oversampling):
+    #print(gcf_a_planes)
+    
+    map_mueler_to_pol = np.array([[0,0],[0,1],[1,0],[1,1],[0,2],[0,3],[1,2],[1,3],[2,0],[2,1],[3,0],[3,1],[2,2],[2,3],[3,2],[3,3]])
+    #gcf_planes = np.zeros((len(gcf_parms_indx),len(mueller_selection),conv_size[0],conv_size[1]),np.complex128)
+    gcf_planes = _ndim_list((len(gcf_parms_indx),len(mueller_selection)))
+    
+    
+    #print(gcf_planes.shape)
+    
+    for ii,parm_indx in enumerate(gcf_parms_indx[0:1,:]):
+        print(parm_indx)
+        w_plane = gcf_w_planes.sel(w_id=parm_indx[2]).data
+        a1_plane = gcf_a_planes.sel(a_id=parm_indx[0]).data
+        a2_plane = gcf_a_planes.sel(a_id=parm_indx[1]).data
+        
+        for jj,mm in enumerate(mueller_selection):
+            print('map_mueler_to_pol[mm]',map_mueler_to_pol[mm])
+            #print(w_plane.shape,a2_plane[map_mueler_to_pol[mm,1],:,:].shape)
+            a_pair = a1_plane[map_mueler_to_pol[mm,0],:,:]*(a2_plane[map_mueler_to_pol[mm,1],:,:].conj())
+            temp_plane = np.fft.fftshift(np.fft.fft2(np.fft.ifftshift(w_plane*a_pair)))
+            #temp_sqrd_plane = np.fft.fftshift(np.fft.fft2(np.fft.ifftshift(w_plane*a_pair*(a_pair.conj()))))
+            temp_sqrd_plane = np.fft.fftshift(np.fft.fft2(np.fft.ifftshift(w_plane*a_pair*((w_plane*a_pair).conj()))))
+            temp_plane = temp_plane
+            #temp_plane = w_plane#*a1_plane[map_mueler_to_pol[mm,0],:,:]*a2_plane[map_mueler_to_pol[mm,1],:,:]
+            
+            print('temp_plane.shape',temp_plane.shape)
+            if jj == 0:
+                start_indx,end_indx,support = resize_and_calc_support(temp_sqrd_plane,oversampling,relative_threshold)
+           
+            temp_sqrd_plane = temp_sqrd_plane[start_indx[0]:end_indx[0]+1,start_indx[1]:end_indx[1]+1]
+            temp_plane = temp_plane[start_indx[0]:end_indx[0]+1,start_indx[1]:end_indx[1]+1]
+                
+            temp_plane = reshape_image(oversampling,support,temp_plane)
+            temp_sqrd_plane = reshape_image(oversampling,support,temp_sqrd_plane)
+      
+            print('temp_plane.shape',temp_plane.shape)
+            
+            #print(temp_plane.shape)
+            #gcf_planes[ii][jj]
+            
+            plt.figure()
+            plt.imshow(np.abs(temp_plane[1,1,:,:]))
+            
+            #plt.figure()
+            #plt.imshow(np.abs(temp_sqrd_plane)/np.max(np.abs(temp_sqrd_plane)))
+            
+            #plt.figure()
+            #plt.imshow(np.real(w_plane))
+            
+        
+            plt.show()
+            
+        #https://stackoverflow.com/questions/31400769/bounding-box-of-numpy-array bounding box
+        #https://github.com/pydata/xarray/issues/1482 multi index
+        # VLACalcIlluminationConvFunc::fillPB only conj used for pbSquared
+        # VLACalcIlluminationConvFunc::skyMuller only conj for Mueller pairs
+ 
+    
+    
+    return gcf_parms_indx
+    
+    
+def reshape_image(v,s,img):
+    #v oversampling
+    #s support
+    print(v,s,img.shape)
+    img_reshaped = np.zeros((v[0]+1,v[1]+1,s[0],s[1]),img.dtype)
+    
+    v_c = v//2 # oversampling center
+    s_c = s//2      # support center
+    c_c = np.array(img.shape)//2    #image center
+    
+    for v_x in range(v[0]+1):
+        for v_y in range(v[1]+1):
+            x_center_ind = (v_x - v_c[0]) + c_c[0]
+            y_center_ind = (v_y - v_c[1]) + c_c[1]
+            for x in range(s[0]):
+                for y in range(s[1]):
+                    x_ind = v[0]*(x-s_c[0]) + x_center_ind
+                    y_ind = v[1]*(y-s_c[1]) + y_center_ind
+                    #print(v_x,v_y,x,y,x_ind,y_ind)
+                    img_reshaped[v_x,v_y,x,y] = img[x_ind,y_ind]
+    
+    print('img_reshaped',img_reshaped.shape)
+    return img_reshaped
+    
+    
+#https://stackoverflow.com/questions/31400769/bounding-box-of-numpy-array
+def resize_and_calc_support(img,oversampling,relative_threshold):
+    threshold = np.max(np.abs(img))*relative_threshold
+    
+    print(threshold)
+
+    rows = np.any(img > threshold, axis=1)
+    cols = np.any(img > threshold, axis=0)
+    
+    xmin, xmax = np.where(rows)[0][[0, -1]]
+    ymin, ymax = np.where(cols)[0][[0, -1]]
+    
+    img_shape = np.array(img.shape)
+    
+    print('1.',xmin, xmax, ymin, ymax, img_shape)
+    xmin, xmax = recenter(xmin,xmax,img_shape[0])
+    ymin, ymax = recenter(ymin,ymax,img_shape[1])
+    print('2.',xmin, xmax, ymin, ymax, img_shape)
+    
+    img_new_shape=np.array([xmax-xmin+1,ymax-ymin+1])
+    
+    support = (np.ceil((img_new_shape-1)/oversampling)).astype(int)
+    print('support',support)
+    
+    img_new_shape = (oversampling*support + 1)
+    
+    print(img_shape,img_new_shape)
+    start_indx = (img_shape//2 - img_new_shape//2).astype(int)
+    end_indx = (img_shape//2 + (img_new_shape - img_new_shape//2 - 1)).astype(int)
+    print(start_indx,end_indx)
+    
+
+    
+    #print('new_img shape', new_img.shape,img_new_shape,new_img[new_img.shape[0]//2,new_img.shape[1]//2], img[img.shape[0]//2,img.shape[1]//2])
+
+    return start_indx, end_indx, support
+    
+def recenter(min_indx,max_indx,axis_len):
+    axis_center = axis_len//2
+
+    if (axis_center-min_indx) > (max_indx-axis_center):
+        max_indx = 2*axis_center - min_indx
+        if max_indx > axis_len-1:
+            max_indx = axis_len-1
+    else:
+        min_indx = 2*axis_center - max_indx
+        if min_indx < 0:
+            min_indx = 0
+            
+    return min_indx, max_indx
+    
+'''
+def resize_and_calc_support(conv_kernel,conv_weight_kernel,gcf_parms,grid_parms):
+    import itertools
+    conv_shape = conv_kernel.shape[0:3]
+    conv_support = np.zeros(conv_shape+(2,),dtype=int) #2 is to enable x,y support
+
+    resized_conv_size = tuple(gcf_parms['resize_conv_size'])
+    start_indx = grid_parms['image_size_padded']//2 - gcf_parms['resize_conv_size']//2
+    end_indx = start_indx + gcf_parms['resize_conv_size']
+    
+    resized_conv_kernel = np.zeros(conv_shape + resized_conv_size,dtype=np.double)
+    resized_conv_weight_kernel = np.zeros(conv_shape + resized_conv_size,dtype=np.double)
+    
+    for idx in itertools.product(*[range(s) for s in conv_shape]):
+        conv_support[idx] = calc_conv_size(conv_weight_kernel[idx],grid_parms['image_size_padded'],gcf_parms['support_cut_level'],gcf_parms['oversampling'],gcf_parms['max_support'])
+        
+        
+        embed_conv_size = (conv_support[idx]  + 1)*gcf_parms['oversampling']
+        embed_start_indx = gcf_parms['resize_conv_size']//2 - embed_conv_size//2
+        embed_end_indx = embed_start_indx + embed_conv_size
+        
+        resized_conv_kernel[idx] = conv_kernel[idx[0],idx[1],idx[2],start_indx[0]:end_indx[0],start_indx[1]:end_indx[1]]
+        normalize_factor = np.real(np.sum(resized_conv_kernel[idx[0],idx[1],idx[2],embed_start_indx[0]:embed_end_indx[0],embed_start_indx[1]:embed_end_indx[1]])/(gcf_parms['oversampling'][0]*gcf_parms['oversampling'][1]))
+        resized_conv_kernel[idx] = resized_conv_kernel[idx]/normalize_factor
+        
+        
+        resized_conv_weight_kernel[idx] = conv_weight_kernel[idx[0],idx[1],idx[2], start_indx[0]:end_indx[0],start_indx[1]:end_indx[1]]
+        normalize_factor = np.real(np.sum(resized_conv_weight_kernel[idx[0],idx[1],idx[2],embed_start_indx[0]:embed_end_indx[0],embed_start_indx[1]:embed_end_indx[1]])/(gcf_parms['oversampling'][0]*gcf_parms['oversampling'][1]))
+        resized_conv_weight_kernel[idx] = resized_conv_weight_kernel[idx]/normalize_factor
+        
+    
+    return resized_conv_kernel , resized_conv_weight_kernel , conv_support
+'''
+    
+    
+def _create_a_term_graph(gcf_dataset, list_zpc_dataset, gcf_parms, grid_parms, sel_parms):
+    from ._imaging_utils._a_term import _calc_a_sky
+    
+    
+    
+    '''Check this
+    print(a_parm_indx.shape[1])
+    if a_parm_indx.shape[1] != 6:
+        print("no chunking over a_indx allowed")
     '''
     
-def _create_w_term(gcf_dataset, gcf_parms, grid_parms, sel_parms):
+    beam_id = dask.delayed(gcf_dataset.beam_id.values)
+    a_beam_id = dask.delayed(gcf_dataset.A_BEAM_ID.data.compute())
+    a_freq = dask.delayed(gcf_dataset.A_FREQ.data.compute())
+    a_pa = dask.delayed(gcf_dataset.A_PA.data.compute())
+    
+    print(gcf_dataset.A_PARMS_INDX[:,:])
+    
+    map_mueler_to_pol = np.array([[0,0],[0,1],[1,0],[1,1],[0,2],[0,3],[1,2],[1,3],[2,0],[2,1],[3,0],[3,1],[2,2],[2,3],[3,2],[3,3]]) #place somewhere special
+    #print('1')
+    gcf_parms['needed_pol'] = np.unique(np.ravel(map_mueler_to_pol[gcf_parms['mueller_selection']]))
+    #print('2')
+    #print('needed_pol',gcf_parms['needed_pol'])
+    
+    chunks = (gcf_dataset.A_PARMS_INDX.chunks[0],len(gcf_parms['needed_pol']),gcf_parms['conv_size'][0],gcf_parms['conv_size'][1])
+    
+    cf_a_sky_planes = da.map_blocks(_calc_a_sky,gcf_dataset.A_PARMS_INDX.data,list_zpc_dataset,a_freq,a_pa,gcf_parms,grid_parms,dtype=np.complex128,chunks=chunks,drop_axis=1,new_axis=(1,2,3))
+    
+    '''
+    start = time.time()
+    cf_a_sky_planes = dask.compute(cf_a_sky_planes)[0]
+    print('a time',time.time()-start)
+    
+    print(cf_a_sky_planes.shape)
+    
+    plt.figure()
+    plt.imshow(np.real(cf_a_sky_planes[0,0,:,:]))
+    
+    plt.figure()
+    plt.imshow(np.real(cf_a_sky_planes[15,1,:,:]))
+    plt.show()
+    '''
+
+    return cf_a_sky_planes
+    
+
+
+def _create_w_term_graph(gcf_dataset, gcf_parms, grid_parms, sel_parms):
     from ._imaging_utils._w_term import _calc_w_sky
 
-
-    chunks = (gcf_dataset.GCF_W.chunks[0][0],gcf_parms['conv_size'][0],gcf_parms['conv_size'][1])
-    cf_w_planes = da.map_blocks(_calc_w_sky,gcf_dataset.GCF_W.data,gcf_parms,grid_parms,dtype=np.complex128,chunks=chunks,new_axis=(1,2))
+    #print('1')
+    chunks = (gcf_dataset.W_PARMS_INDX.chunks[0],gcf_parms['conv_size'][0],gcf_parms['conv_size'][1])
+    w_val = gcf_dataset.W.data.compute()
+    
+    #print(gcf_dataset.W_PARMS_INDX.data)
+#    print(w_val)
+#    print(gcf_dataset.W.data.compute())
+#    print(gcf_dataset.W.chunks[0][0])
+#
+#    print('gcf_dataset.W.chunks',gcf_dataset.W.chunks)
+#    print('w chunks',chunks)
+    cf_w_sky_planes = da.map_blocks(_calc_w_sky,gcf_dataset.W_PARMS_INDX.data,w_val,gcf_parms,grid_parms,dtype=np.complex128,chunks=chunks,drop_axis=1,new_axis=(1,2))
 
     '''
     cf_w_planes = cf_w_planes.compute()
@@ -185,31 +496,13 @@ def _create_w_term(gcf_dataset, gcf_parms, grid_parms, sel_parms):
     plt.imshow(np.imag(cf_w_planes[4,:,:]))
     plt.show()
     '''
-    return cf_w_planes
+    return cf_w_sky_planes
+    
+    
+    
+    
     
 
-    
-    
-    
-    
-    
-def _gcf_creation(gcf_parms_indx, gcf_indx_labels, gcf_a_freq, gcf_a_pa, gcf_w, gcf_a_beam_id,list_zpc_dataset):
-    #print(gcf_a_freq)
-    print(gcf_parms_indx)
-    #print(gcf_w)
-    
-    w_indx_indx = np.where(gcf_indx_labels == 'w')[0][0]
-    print(w_indx_indx)
-    
-    for indx_set in gcf_parms_indx:
-        a =1
-        #print(parms)
-        
-        
-        
-        #Create w kernel
-        #w_val = gcf_w[indx_set[w_indx_indx]]
-        #print(w_val)
 
         
 

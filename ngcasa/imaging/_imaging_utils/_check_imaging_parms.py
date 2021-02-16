@@ -15,7 +15,7 @@
 #ducting - code is complex and might fail after some time if parameters is wrong. Sensable values are also checked. Gives printout of all wrong parameters. Dirty images alone has 14 parameters.
 
 import numpy as np
-from ngcasa._ngcasa_utils._check_parms import _check_parms, _check_dataset, _check_storage_parms
+from  cngi._utils._check_parms import _check_parms, _check_dataset
 
 
 def _check_grid_parms(grid_parms):
@@ -146,7 +146,7 @@ def _check_pb_parms(img_dataset, pb_parms):
     parms_passed = True
     arc_sec_to_rad = np.pi / (3600 * 180)
     
-    if not(_check_parms(pb_parms, 'pb_name', [str], default='PB')): parms_passed = False
+    #if not(_check_parms(pb_parms, 'pb_name', [str], default='PB')): parms_passed = False
     
     if not(_check_parms(pb_parms, 'function', [str], default='alma_airy')): parms_passed = False
     

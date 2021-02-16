@@ -145,7 +145,7 @@ def phase_rotate(vis_dataset, global_dataset, rotation_parms, sel_parms, storage
     uvw = da.map_blocks(apply_rotation_matrix,vis_dataset[_sel_parms['uvw_in']].data, vis_dataset.field_id.data[:,None,None],uvw_rotmat,dtype=np.double)
 
         
-    chan_chunk_size = vis_dataset[_sel_parms['data_in']].chunks[2][0]
+    chan_chunk_size = vis_dataset[_sel_parms['data_in']].chunks[2]
     freq_chan = da.from_array(vis_dataset.coords['chan'].values, chunks=(chan_chunk_size))
     
     vis_rot = da.map_blocks(apply_phasor,vis_dataset[_sel_parms['data_in']].data,uvw[:,:,:,None], vis_dataset.field_id.data[:,None,None,None],freq_chan[None,None,:,None],phase_rotation,_rotation_parms['common_tangent_reprojection'],_rotation_parms['single_precision'],dtype=np.complex)
