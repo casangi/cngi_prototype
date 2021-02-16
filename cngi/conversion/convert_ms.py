@@ -107,9 +107,10 @@ def convert_ms(infile, outfile=None, ddis=None, ignore=['HISTORY'], compressor=N
                                              ignore=ignorecols + msv2, compressor=compressor, chunks=chunks, nofile=False)
         
         # convert and append UVW separately so we can handle its special dimension
+        uvw_chunks = (chunks[0],chunks[1],3) #No chunking over uvw_index
         uvw_xds = tblconv.convert_expanded_table(infile, os.path.join(outfile,'tmp'), keys={'TIME': 'time', ('ANTENNA1', 'ANTENNA2'): 'baseline'},
                                                  subsel={'DATA_DESC_ID': ddi}, timecols=['time'], dimnames={'d2': 'uvw_index'},
-                                                 ignore=ignorecols + list(xds.data_vars) + msv2[:-1], compressor=compressor, chunks=chunks,
+                                                 ignore=ignorecols + list(xds.data_vars) + msv2[:-1], compressor=compressor, chunks=uvw_chunks,
                                                  nofile=False)
         uvw_xds.to_zarr(os.path.join(outfile, 'xds'+str(ddi)), mode='a', compute=True, consolidated=True)
         
