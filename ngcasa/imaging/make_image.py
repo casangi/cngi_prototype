@@ -22,7 +22,7 @@ this module will be included in the api
 #    The full support used for convolutional gridding kernel. This will be removed in a later release and incorporated in the function that creates gridding convolutional kernels.
 #
 
-def make_image(vis_dataset, img_dataset, grid_parms, sel_parms, storage_parms):
+def make_image(vis_dataset, img_dataset, grid_parms, sel_parms):
     """
     Creates a cube or continuum dirty image from the user specified visibility, uvw and imaging weight data. Only the prolate spheroidal convolutional gridding function is supported. See make_image_with_gcf function for creating an image with A-projection.
     
@@ -50,23 +50,6 @@ def make_image(vis_dataset, img_dataset, grid_parms, sel_parms, storage_parms):
         The created image name.
     sel_parms['sum_weight'] : str, default ='SUM_WEIGHT'
         The created sum of weights name.
-    storage_parms : dictionary
-    storage_parms['to_disk'] : bool, default = False
-        If true the dask graph is executed and saved to disk in the zarr format.
-    storage_parms['append'] : bool, default = False
-        If storage_parms['to_disk'] is True only the dask graph associated with the function is executed and the resulting data variables are saved to an existing zarr file on disk.
-        Note that graphs on unrelated data to this function will not be executed or saved.
-    storage_parms['outfile'] : str
-        The zarr file to create or append to.
-    storage_parms['chunks_on_disk'] : dict of int, default = {}
-        The chunk size to use when writing to disk. This is ignored if storage_parms['append'] is True. The default will use the chunking of the input dataset.
-    storage_parms['chunks_return'] : dict of int, default = {}
-        The chunk size of the dataset that is returned. The default will use the chunking of the input dataset.
-    storage_parms['graph_name'] : str
-        The time to compute and save the data is stored in the attribute section of the dataset and storage_parms['graph_name'] is used in the label.
-    storage_parms['compressor'] : numcodecs.blosc.Blosc,default=Blosc(cname='zstd', clevel=2, shuffle=0)
-        The compression algorithm to use. Available compression algorithms can be found at https://numcodecs.readthedocs.io/en/stable/blosc.html.
-    
     Returns
     -------
     image_dataset : xarray.core.dataset.Dataset
@@ -86,22 +69,36 @@ def make_image(vis_dataset, img_dataset, grid_parms, sel_parms, storage_parms):
     from numcodecs import Blosc
     from itertools import cycle
     
-    from ngcasa._ngcasa_utils._store import _store
-    from ngcasa._ngcasa_utils._check_parms import _check_storage_parms, _check_sel_parms, _check_existence_sel_parms
+    from cngi._utils._check_parms import _check_sel_parms, _check_existence_sel_parms
     from ._imaging_utils._check_imaging_parms import _check_grid_parms
     from ._imaging_utils._gridding_convolutional_kernels import _create_prolate_spheroidal_kernel, _create_prolate_spheroidal_kernel_1D
     from ._imaging_utils._standard_grid import _graph_standard_grid
     from ._imaging_utils._remove_padding import _remove_padding
     from ._imaging_utils._aperture_grid import _graph_aperture_grid
+    from cngi.image import make_empty_sky_image
     
+    #print('****',sel_parms,'****')
+    
+    _vis_dataset = vis_dataset.copy(deep=True)
+    _img_dataset = img_dataset.copy(deep=True)
     _grid_parms = copy.deepcopy(grid_parms)
-    _storage_parms = copy.deepcopy(storage_parms)
     _sel_parms = copy.deepcopy(sel_parms)
     
-    assert(_check_sel_parms(_sel_parms,{'uvw':'UVW','data':'DATA','imaging_weight':'IMAGING_WEIGHT','sum_weight':'SUM_WEIGHT','image':'IMAGE','pb':'PB','weight_pb':'WEIGHT_PB'})), "######### ERROR: sel_parms checking failed"
-    assert(_check_existence_sel_parms(vis_dataset,{'uvw':_sel_parms['uvw'],'data':_sel_parms['data'],'imaging_weight':_sel_parms['imaging_weight']})), "######### ERROR: sel_parms checking failed"
+
     assert(_check_grid_parms(_grid_parms)), "######### ERROR: grid_parms checking failed"
-    assert(_check_storage_parms(_storage_parms,'dirty_image.img.zarr','make_image')), "######### ERROR: storage_parms checking failed"
+    
+    if 'vis_description_in_indx' in _sel_parms:
+        _sel_parms['vis_description_in'] = _vis_dataset.vis_description[sel_parms['vis_description_in_indx']]
+    #img_description_out = {'sum_weight':'SUM_WEIGHT','image':'IMAGE','pb':'PB','weight_pb':'WEIGHT_PB'} Full
+    img_description_out_default = {'sum_weight':'SUM_WEIGHT','image':'IMAGE'}
+    sel_defaults = {'vis_description_in':_vis_dataset.vis_description[0],'img_description_out':img_description_out_default}
+    assert(_check_sel_parms(_sel_parms,sel_defaults)), "######### ERROR: sel_parms checking failed"
+    sel_check = {'vis_description_in':_sel_parms['vis_description_in']}
+    assert(_check_existence_sel_parms(_vis_dataset,sel_check)), "######### ERROR: sel_parms checking failed"
+    
+    #print('****',_sel_parms,'****')
+    
+    
     
     # Creating gridding kernel
     _grid_parms['oversampling'] = 100
@@ -112,7 +109,7 @@ def make_image(vis_dataset, img_dataset, grid_parms, sel_parms, storage_parms):
     
     _grid_parms['complex_grid'] = True
     _grid_parms['do_psf'] = False
-    grids_and_sum_weights = _graph_standard_grid(vis_dataset, cgk_1D, _grid_parms, _sel_parms)
+    grids_and_sum_weights = _graph_standard_grid(_vis_dataset, cgk_1D, _grid_parms, _sel_parms['vis_description_in'])
     uncorrected_dirty_image = dafft.fftshift(dafft.ifft2(dafft.ifftshift(grids_and_sum_weights[0], axes=(0, 1)), axes=(0, 1)), axes=(0, 1))
     
     #Remove Padding
@@ -131,38 +128,43 @@ def make_image(vis_dataset, img_dataset, grid_parms, sel_parms, storage_parms):
     ####################################################
 
     if _grid_parms['chan_mode'] == 'continuum':
-        freq_coords = [da.mean(vis_dataset.coords['chan'].values)]
-        chan_width = da.from_array([da.mean(vis_dataset['chan_width'].data)],chunks=(1,))
+        freq_coords = [da.mean(_vis_dataset.coords['chan'].values)]
+        chan_width = da.from_array([da.mean(_vis_dataset['chan_width'].data)],chunks=(1,))
         imag_chan_chunk_size = 1
     elif _grid_parms['chan_mode'] == 'cube':
-        freq_coords = vis_dataset.coords['chan'].values
-        chan_width = vis_dataset['chan_width'].data
-        imag_chan_chunk_size = vis_dataset.DATA.chunks[2][0]
+        freq_coords = _vis_dataset.coords['chan'].values
+        chan_width = _vis_dataset['chan_width'].data
+        imag_chan_chunk_size = _vis_dataset.DATA.chunks[2][0]
     
-    ###Create Image Dataset
-    chunks = vis_dataset.DATA.chunks
-    n_imag_pol = chunks[3][0]
+    phase_center = _grid_parms['phase_center']
+    image_size = _grid_parms['image_size']
+    cell_size = _grid_parms['cell_size']
+    phase_center = _grid_parms['phase_center']
+
+    pol_coords = vis_dataset.pol.data
+    time_coords = [vis_dataset.time.mean().data]
     
-    coords = {'d0': np.arange(_grid_parms['image_size'][0]), 'd1': np.arange(_grid_parms['image_size'][1]),
-              'chan': freq_coords, 'pol': np.arange(n_imag_pol), 'chan_width' : ('chan',chan_width)}
-    img_dataset = img_dataset.assign_coords(coords)
-    img_dataset[_sel_parms['sum_weight']] = xr.DataArray(grids_and_sum_weights[1], dims=['chan','pol'])
-    img_dataset[_sel_parms['image']] = xr.DataArray(corrected_dirty_image, dims=['d0', 'd1', 'chan', 'pol'])
+    _img_dataset = make_empty_sky_image(_img_dataset,phase_center,image_size,cell_size,freq_coords,chan_width,pol_coords,time_coords)
+    
+    _img_dataset[_sel_parms['img_description_out']['sum_weight']] = xr.DataArray(grids_and_sum_weights[1][None,:,:], dims=['time','chan','pol'])
+    _img_dataset[_sel_parms['img_description_out']['image']] = xr.DataArray(corrected_dirty_image[:,:,None,:,:], dims=['l', 'm','time', 'chan', 'pol'])
+    _img_dataset.attrs['img_description'] = [_sel_parms['img_description_out']]
     
     
-    list_xarray_data_variables = [img_dataset[_sel_parms['image']],img_dataset[_sel_parms['sum_weight']]]
-    return _store(img_dataset,list_xarray_data_variables,_storage_parms)
+    print('######################### Created graph for make_image #########################')
+    return _img_dataset
     
-    '''
-    image_dict = {}
-    coords = {'d0': np.arange(_grid_parms['imsize'][0]), 'd1': np.arange(_grid_parms['imsize'][1]),
-              'chan': freq_coords, 'pol': np.arange(n_imag_pol), 'chan_width' : ('chan',chan_width)}
-              
-              
-    image_dict[_sel_parms['sum_weight']] = xr.DataArray(grids_and_sum_weights[1], dims=['chan','pol'])
-    image_dict[_sel_parms['image']] = xr.DataArray(corrected_dirty_image, dims=['d0', 'd1', 'chan', 'pol'])
-    image_dataset = xr.Dataset(image_dict, coords=coords)
     
-    list_xarray_data_variables = [image_dataset[_sel_parms['image']],image_dataset[_sel_parms['sum_weight']]]
-    return _store(image_dataset,list_xarray_data_variables,_storage_parms)
-    '''
+    
+#    image_dict = {}
+#    coords = {'d0': np.arange(_grid_parms['imsize'][0]), 'd1': np.arange(_grid_parms['imsize'][1]),
+#              'chan': freq_coords, 'pol': np.arange(n_imag_pol), 'chan_width' : ('chan',chan_width)}
+#
+#
+#    image_dict[_sel_parms['sum_weight']] = xr.DataArray(grids_and_sum_weights[1], dims=['chan','pol'])
+#    image_dict[_sel_parms['image']] = xr.DataArray(corrected_dirty_image, dims=['d0', 'd1', 'chan', 'pol'])
+#    image_dataset = xr.Dataset(image_dict, coords=coords)
+#
+#    list_xarray_data_variables = [image_dataset[_sel_parms['image']],image_dataset[_sel_parms['sum_weight']]]
+#    return _store(image_dataset,list_xarray_data_variables,_storage_parms)
+    

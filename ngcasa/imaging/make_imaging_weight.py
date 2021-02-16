@@ -70,7 +70,6 @@ def make_imaging_weight(vis_dataset, imaging_weights_parms, grid_parms, sel_parm
     
     from cngi._utils._check_parms import _check_sel_parms, _check_existence_sel_parms
     from ._imaging_utils._check_imaging_parms import _check_imaging_weights_parms, _check_grid_parms
-    from cngi.dio import write_zarr, append_zarr
     
     _vis_dataset = vis_dataset.copy(deep=True)
     
