@@ -50,7 +50,7 @@ def direction_rotate(mxds, rotation_parms, sel_parms):
     """
     #Based on CASACORE measures/Measures/UVWMachine.cc and CASA code/synthesis/TransformMachines2/FTMachine.cc::girarUVW
     
-    print('######################### Start phase_rotate #########################')
+    print('######################### Start direction_rotate #########################')
     
     import copy
     import dask.array as da
@@ -58,8 +58,6 @@ def direction_rotate(mxds, rotation_parms, sel_parms):
     from cngi._utils._check_parms import _check_sel_parms, _check_existence_sel_parms
     from ._imaging_utils._check_imaging_parms import _check_rotation_parms
     import time
-    import numba
-    from numba import double
     import dask
     
     #Deep copy so that inputs are not modified
