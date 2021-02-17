@@ -17,22 +17,27 @@ def _cast_int(summary):
     Returns:
     -------
     res: dict
-        Dictionary copied from input 'summary' where all xrDataArray are casted to
-        int
+        A copy of the input 'summary' dictionary where all xrDataArray have been
+        casted to int
      """
     res = copy.deepcopy(summary)
-    if isinstance(res, dict):
-        for key, val in res.items():
-            if isinstance(val, xr.DataArray):
-                res[key] = int(val)
-            else:
-                _cast_int(val)
-    return res
+
+    def _cast_recursion(stats):
+        if isinstance(stats, dict):
+            for key, val in stats.items():
+                if isinstance(val, xr.DataArray):
+                    stats[key] = int(val)
+                else:
+                    _cast_recursion(val)
+        return stats
+
+    return _cast_recursion(res)
+
 
 def _pol_id_to_corr_type_name(idx):
     """
-    Produces a human readable name for stokes parameters, correlation products, etc. 
-    from the integer IDs stored in the MS correlation type.
+    Produces a human readable name for stokes parameters, correlation products,
+    etc. from the integer IDs stored in the MS correlation type.
 
     Parameters
     ----------
@@ -42,16 +47,16 @@ def _pol_id_to_corr_type_name(idx):
     Returns:
     -------
     name: str
-        String with stokes parameter or correlation product name (I, RR, YY, etc.)
+        String with stokes parameter or correlation product (I, RR, YY, etc.)
 
     """
-    # reproduce sequence in casacore/measures/Measures/Stokes.h, enum StokesTypes
-    # (from which a subset is converted from enum idx to string in
-    #  casa::FlagDataHandler::generatePolarizationsMap()
-    # enum StokesTypes { 
+    # reproduce sequence in casacore/measures/Measures/Stokes.h,
+    # enum StokesTypes, from which a subset is converted from enum idx to
+    # string in casa::FlagDataHandler::generatePolarizationsMap()
+    # enum StokesTypes {
     # // undefined value = 0
-    # Undefined=0, 
-    # // standard stokes parameters 
+    # Undefined=0,
+    # // standard stokes parameters
     # I, Q, U, V,
     # // circular correlation products
     # RR, RL, LR, LL,
@@ -86,4 +91,3 @@ def _pol_id_to_corr_type_name(idx):
                          format(idx, min_idx, max_idx))
 
     return corr_type_name[idx]
-
