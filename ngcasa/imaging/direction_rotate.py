@@ -193,7 +193,7 @@ def apply_rotation_matrix(uvw, field_id, uvw_rotmat, rot_field_id):
     return uvw
    
 
-#Apply rotation to vis data
+#Phase shift vis data
 def apply_phasor(vis_data,uvw, field_id,freq_chan,phase_rotation,rot_field_id,common_tangent_reprojection,single_precision):
 
     if common_tangent_reprojection:
