@@ -188,7 +188,7 @@ def apply_rotation_matrix(uvw, field_id, uvw_rotmat, rot_field_id):
     for i_time in range(uvw.shape[0]):
         #uvw[i_time,:,0:2] = -uvw[i_time,:,0:2] this gives the same result as casa (in the ftmachines uvw(negateUV(vb)) is used). In ngcasa we don't do this since the uvw definition in the gridder and vis.zarr are the same.
         field_id_t = field_id[i_time,:,:]
-        rot_field_indx = np.where(rot_field_id == np.unique(field_id_t[~np.isnan(field_id_t)])[0]) #should be len 1
+        rot_field_indx = np.where(rot_field_id == np.unique(field_id_t[~np.isnan(field_id_t)])[0])[0][0] #should be len 1
         uvw[i_time,:,:] = uvw[i_time,:,:] @ uvw_rotmat[rot_field_indx,:,:] #uvw time x baseline x uvw_indx, uvw_rotmat n_field x 3 x 3.  1 x 3 @  3 x 3
     return uvw
    
@@ -205,8 +205,9 @@ def apply_phasor(vis_data,uvw, field_id,freq_chan,phase_rotation,rot_field_id,co
     
     for i_time in range(uvw.shape[0]):
         field_id_t = field_id[i_time,:,:,:]
-        rot_field_indx = np.where(rot_field_id == np.unique(field_id_t[~np.isnan(field_id_t)])[0]) #should be len 1
+        rot_field_indx = np.where(rot_field_id == np.unique(field_id_t[~np.isnan(field_id_t)])[0])[0][0]
         phase_direction[i_time,:] = uvw[i_time,:,0:end_slice,0] @ phase_rotation[rot_field_indx,0:end_slice]
+        
     
     n_chan = vis_data.shape[2]
     n_pol = vis_data.shape[3]
