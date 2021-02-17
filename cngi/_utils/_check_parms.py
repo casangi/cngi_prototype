@@ -74,7 +74,8 @@ def _check_parms(parm_dict, string_key, acceptable_data_types, acceptable_data =
                     if not(_check_parms(parm_dict[string_key], default_element, [type(default[default_element])], default=default[default_element])): parms_passed = False
                     #print('2.*******')
                 else:
-                    parm_dict[default_element] = default[default_element]
+                    #print('parm_dict',default_element,string_key)
+                    parm_dict[string_key][default_element] = default[default_element]
                     print('Setting default', string_key, '[\'',default_element,'\']', ' to ', default[default_element])
         else:
             type_check = False
