@@ -45,7 +45,7 @@ def _summary_groupby(mxds, xds, flag_varname):
     # an implementation of summary based mostly on xarray groupby
     result = {}
 
-    # Assumes: xds['presence_baseline'] = xds.DATA.notnull().sum(['chan'])
+    # Assumes: xds['presence_baseline'] = xds.DATA.notnull().any(['chan', 'pol'])
     # To use presence_baseline.sum() as count of 'total'
     flag_var = xds[flag_varname].sum(['chan']).where(xds.presence_baseline > 0,
                                                      other=0)
@@ -60,6 +60,7 @@ def _summary_groupby(mxds, xds, flag_varname):
     count_xds = xr.Dataset({'flag_var': flag_var, 'presence_baseline': pres_var})
 
     _count_pol_and_totals(result, xds, count_xds)
+    count_xds['flag_var'] = count_xds.flag_var.sum(['pol'])
 
     _count_array_scan_obs(result, xds, count_xds)
 
@@ -76,19 +77,21 @@ def _count_pol_and_totals(result, xds, count_xds):
     grand_total = 0
     grand_flagged = 0
     result['correlation'] = {}
-
     flagged_corr = count_xds.flag_var.sum(['time', 'baseline'])
-    total_corr = count_xds.presence_baseline.sum(['time', 'baseline'])
-    for pol, flagged, total in zip(flagged_corr.coords['pol'].values,
-                                   flagged_corr.values,
-                                   total_corr.values):
+    # total_corr = count_xds.presence_baseline.sum(['time', 'baseline'])
+    # sum_presence = count_xds.presence_baseline.sum(['time', 'baseline'])
+    total_corr = xds.num_chan * count_xds.presence_baseline.sum()
+    for pol, flagged in zip(flagged_corr.coords['pol'].values,
+                            flagged_corr.values):
         corr_str = _pol_id_to_corr_type_name(pol)
         result['correlation']['{}'.format(corr_str)] = {'flagged': flagged,
-                                                        'total': total}
+                                                        'total': total_corr}
         grand_flagged += flagged
-        grand_total += total
+        grand_total += total_corr
+
     result['total'] = grand_total
     result['flagged'] = grand_flagged
+    result['flagged'].visualize()
 
 
 def _count_array_scan_obs(result, xds, count_xds):
@@ -99,6 +102,7 @@ def _count_array_scan_obs(result, xds, count_xds):
     grouping_names_vars = [('array', xds.ARRAY_ID),
                            ('scan', xds.SCAN_NUMBER),
                            ('observation', xds.OBSERVATION_ID)]
+    nchan, ncorr = xds.num_chan, xds.num_corr
     for name, data_var in grouping_names_vars:
         result[name] = {}
         groups = count_xds.groupby(data_var)
@@ -108,7 +112,7 @@ def _count_array_scan_obs(result, xds, count_xds):
             flagged = grp_ds.flag_var.sum()
             # ? total = nchan * grp_ds.count() <- that would be total non-nan
             #     only 'after last appplyflags'
-            total = grp_ds.presence_baseline.sum()
+            total = grp_ds.presence_baseline.sum() * nchan * ncorr
             group_str = '{}'.format(grp_lbl)
             result[name][group_str] = {'flagged': flagged, 'total': total}
 
@@ -120,13 +124,14 @@ def _count_field(result, xds, count_xds, field_names):
     (object, target)
     """
     result['field'] = {}
+    nchan, ncorr = xds.num_chan, xds.num_corr
     groups = count_xds.groupby(xds.FIELD_ID)
     for grp_idx, grp_ds in groups:
         if grp_idx < 0:
             continue
         flagged = grp_ds.flag_var.sum()
         # ? total = nchan * grp_ds.count() <- total non-nan 'after last apply'
-        total = grp_ds.presence_baseline.sum()
+        total = grp_ds.presence_baseline.sum() * nchan * ncorr
         field_str = '{}'.format(field_names[grp_idx])
         if field_str in result['field']:
             result['field'][field_str]['flagged'] += flagged
@@ -141,6 +146,7 @@ def _count_antenna(result, xds, count_xds, ant_names):
     or ANTENNA2
     """
     result['antenna'] = {}
+    nchan, ncorr = xds.num_chan, xds.num_corr
     groups_ant1 = count_xds.groupby(xds.ANTENNA1)
     groups_ant2 = count_xds.groupby(xds.ANTENNA2)
     for groups in [groups_ant1, groups_ant2]:
@@ -150,7 +156,7 @@ def _count_antenna(result, xds, count_xds, ant_names):
             flagged = grp_ds.flag_var.sum()
             # ? total = nchan * grp_ds.flag_var.count()
             #       <- total non-nan 'after last applyflags'
-            total = grp_ds.presence_baseline.sum()
+            total = grp_ds.presence_baseline.sum() * nchan * ncorr
             ant_str = '{}'.format(ant_names[grp_idx])
             if ant_str in result['antenna']:
                 result['antenna'][ant_str]['flagged'] += flagged
