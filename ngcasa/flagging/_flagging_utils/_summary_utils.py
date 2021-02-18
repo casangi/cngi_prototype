@@ -16,11 +16,11 @@ def _cast_int(summary):
 
     Returns:
     -------
-    res: dict
-        A copy of the input 'summary' dictionary where all xrDataArray have been
-        casted to int
+    dict
+        A copy of the input 'summary' dictionary where all xrDataArray have
+        been casted to int
      """
-    res = copy.deepcopy(summary)
+    casted_summary = copy.deepcopy(summary)
 
     def _cast_recursion(stats):
         if isinstance(stats, dict):
@@ -31,7 +31,7 @@ def _cast_int(summary):
                     _cast_recursion(val)
         return stats
 
-    return _cast_recursion(res)
+    return _cast_recursion(casted_summary)
 
 
 def _pol_id_to_corr_type_name(idx):
@@ -46,7 +46,7 @@ def _pol_id_to_corr_type_name(idx):
 
     Returns:
     -------
-    name: str
+    str
         String with stokes parameter or correlation product (I, RR, YY, etc.)
 
     """
