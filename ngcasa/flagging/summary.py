@@ -6,14 +6,15 @@ from ._flagging_utils._summary_utils import _pol_id_to_corr_type_name, _cast_int
 
 def summary(mxds, xds_idx, flag_varname='FLAG'):
     """
-    Produces a summary with counts of flags from a flag variable of an xarray dataset.
-    The summary is returned as a dictionary with the same structure as the dictionary
-    returned by CASA6/flagdata in summary mode. It includes total counts and partial
-    counts broken down by array, observation, correlation, field, scan, and antenna.
+    Produces a summary with counts of flags from a flag variable of an xarray
+    dataset.The summary is returned as a dictionary with the same structure as
+    the dictionary returned by CASA6/flagdata in summary mode. It includes
+    total counts and partial counts broken down by array, observation,
+    correlation, field, scan, and antenna.
 
-    Note: per-SPW counts are not included in this prototype version. Handling of
-    multi-SPWs operations is subject to changes depending on interface design at (or
-    around) the ngCASA layer.
+    Note: per-SPW counts are not included in this prototype version. Handling
+    of multi-SPWs operations is subject to changes depending on interface
+    design at (or around) the ngCASA layer.
 
     Parameters
     ----------
@@ -29,9 +30,9 @@ def summary(mxds, xds_idx, flag_varname='FLAG'):
     Returns:
     -------
     dict
-        Dictionary with counts of flags set and total flags, for the whole dataset
-        also broken down (grouped by) by multiple criteria (scan, field, antenna,
-        correlation, etc.)
+        Dictionary with counts of flags set and total flags, for the whole
+        dataset also broken down (grouped by) by multiple criteria (scan,
+        field, antenna, correlation, etc.)
     """
     # mxds is required to grab meta-information (names of fields, antennas and
     # correlations). For now, working only on 1 SPW (given by index)
@@ -46,15 +47,16 @@ def _summary_groupby(mxds, xds, flag_varname):
 
     # Assumes: xds['presence_baseline'] = xds.DATA.notnull().sum(['chan'])
     # To use presence_baseline.sum() as count of 'total'
-    flag_var = xds[flag_varname].sum(['chan']).where(xds.presence_baseline > 0, other=0)
+    flag_var = xds[flag_varname].sum(['chan']).where(xds.presence_baseline > 0,
+                                                     other=0)
 
     # Sum up chan dimension, which is not relevant for any of the following:
     # FIELD, OBS, ANT, etc.
     pres_var = xds['presence_baseline']  # assume it's been .sum(['chan'])
 
     # For joint grouping of FLAG data var and presence_baseline
-    # From FLAG vars we'll get the 'flagged' counters. From presence_baseline we get
-    # the 'total' counters.
+    # From FLAG vars we'll get the 'flagged' counters. From presence_baseline we
+    # get the 'total' counters.
     count_xds = xr.Dataset({'flag_var': flag_var, 'presence_baseline': pres_var})
 
     _count_pol_and_totals(result, xds, count_xds)
@@ -74,27 +76,26 @@ def _count_pol_and_totals(result, xds, count_xds):
     grand_total = 0
     grand_flagged = 0
     result['correlation'] = {}
-    groups = count_xds.groupby(xds.pol)
 
-    # groups = count_xds.flag_var.groupby(xds.pol)
-    for grp_idx, grp_ds in groups:
-        # total = nchan * grp_ds.count()  # would include the non-present time-baselines
-        flagged = grp_ds.flag_var.sum()
-        # flagged = grp_ds.sum()
-        total = grp_ds.presence_baseline.sum()
-        # total = xds.chan.count() * grp_ds.shape[0] * grp_ds.shape[1]
-        corr_str = _pol_id_to_corr_type_name(grp_idx)
-        result['correlation']['{}'.format(corr_str)] = {'flagged': flagged, 'total': total}
-        grand_total += total
+    flagged_corr = count_xds.flag_var.sum(['time', 'baseline'])
+    total_corr = count_xds.presence_baseline.sum(['time', 'baseline'])
+    for pol, flagged, total in zip(flagged_corr.coords['pol'].values,
+                                   flagged_corr.values,
+                                   total_corr.values):
+        corr_str = _pol_id_to_corr_type_name(pol)
+        result['correlation']['{}'.format(corr_str)] = {'flagged': flagged,
+                                                        'total': total}
         grand_flagged += flagged
-
+        grand_total += total
     result['total'] = grand_total
     result['flagged'] = grand_flagged
 
 
 def _count_array_scan_obs(result, xds, count_xds):
-    # Straightforward grouping for counts by data variables (ARRAY_ID, SCAN_NUMBER,
-    # OBSERVATION_ID)
+    """
+    Adds into result counts by data variables that can be done with the same
+    straightforward grouping (ARRAY_ID, SCAN_NUMBER, OBSERVATION_ID)
+    """
     grouping_names_vars = [('array', xds.ARRAY_ID),
                            ('scan', xds.SCAN_NUMBER),
                            ('observation', xds.OBSERVATION_ID)]
@@ -105,22 +106,26 @@ def _count_array_scan_obs(result, xds, count_xds):
             if grp_lbl < 0:
                 continue
             flagged = grp_ds.flag_var.sum()
-            # ? total = nchan * grp_ds.count() <- total non-nan 'after last appplyflags'
+            # ? total = nchan * grp_ds.count() <- that would be total non-nan
+            #     only 'after last appplyflags'
             total = grp_ds.presence_baseline.sum()
             group_str = '{}'.format(grp_lbl)
             result[name][group_str] = {'flagged': flagged, 'total': total}
 
 
 def _count_field(result, xds, count_xds, field_names):
-    # Counting by field name, but grouping by FIELD_ID. Multiple field IDs can
-    # map to a same name (object, target)
+    """
+    Adds into result counts by field. It needs to count by field name, but
+    grouping s done by FIELD_ID. Multiple field IDs can map to a same name
+    (object, target)
+    """
     result['field'] = {}
     groups = count_xds.groupby(xds.FIELD_ID)
     for grp_idx, grp_ds in groups:
         if grp_idx < 0:
             continue
         flagged = grp_ds.flag_var.sum()
-        # ? total = nchan * grp_ds.count() <- total non-nan 'after last applyflags'
+        # ? total = nchan * grp_ds.count() <- total non-nan 'after last apply'
         total = grp_ds.presence_baseline.sum()
         field_str = '{}'.format(field_names[grp_idx])
         if field_str in result['field']:
@@ -131,7 +136,10 @@ def _count_field(result, xds, count_xds, field_names):
 
 
 def _count_antenna(result, xds, count_xds, ant_names):
-    # Counting by antenna (can be ANTENNA1 or ANTENNA2)
+    """
+    Adds into result counts by antenna. An antenna name/index can be ANTENNA1
+    or ANTENNA2
+    """
     result['antenna'] = {}
     groups_ant1 = count_xds.groupby(xds.ANTENNA1)
     groups_ant2 = count_xds.groupby(xds.ANTENNA2)
