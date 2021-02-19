@@ -134,7 +134,15 @@ def convert_ms(infile, outfile=None, ddis=None, ignore=['HISTORY'], compressor=N
             
         # add in relevant spw and polarization attributes
         attrs = {}
-        attrs['vis_description'] = [{'data':'DATA','uvw':'UVW','flag':'FLAG','weight':'WEIGHT','field_id':'FIELD_ID'}]
+        
+        if ('DATA' in xds.data_vars) and ('CORRECTED_DATA' in xds.data_vars):
+            attrs['data_groups'] = [{'1':{'id':'1','data':'DATA','uvw':'UVW','flag':'FLAG','weight':'WEIGHT'}, '2':{'id':'2','data':'CORRECTED_DATA','uvw':'UVW','flag':'FLAG','weight':'WEIGHT'}}]
+        elif 'DATA' in xds.data_vars:
+            attrs['data_groups'] = [{'1':{'id':'1','data':'DATA','uvw':'UVW','flag':'FLAG','weight':'WEIGHT'}}]
+        elif 'CORRECTED_DATA' in xds.data_vars:
+            attrs['data_groups'] = [{'1':{'id':'1','data':'CORRECTED_DATA','uvw':'UVW','flag':'FLAG','weight':'WEIGHT'}}]
+        else:
+            print('The data_groups can not be created because no visibility data was found.')
 
         for dv in spw_xds.data_vars:
             attrs[dv.lower()] = spw_xds[dv].values[ddi_xds['spectral_window_id'].values[ddi]]
