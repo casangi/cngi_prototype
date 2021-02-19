@@ -11,6 +11,7 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
+import numpy as np
 
 def _check_parms(parm_dict, string_key, acceptable_data_types, acceptable_data = None, acceptable_range = None, list_acceptable_data_types=None, list_len=None, default=None):
     """
@@ -114,7 +115,73 @@ def _check_dataset(vis_dataset,data_variable_name):
         return False
     return True
     
-def _check_sel_parms(sel_parms,select_defaults):
+    
+
+def _check_sel_parms(xds,sel_parms,function_type,modified_data_variables={},drop_description_out_keys=[]):
+    """
+    
+    Parameters
+    ----------
+    xds : xarray.core.dataset.Dataset
+        Input vis.zarr multi dataset.
+    sel_parms : dictionary
+    function_type : string
+        description_in and description_out
+        add_to_xds
+        new_xds
+        new_xds_type
+    Returns
+    -------
+    psf_dataset : xarray.core.dataset.Dataset
+    """
+    
+    data_group_ids = np.array(list(xds.data_groups[0])).astype(int)
+    new_data_group_id = np.max(data_group_ids) + 1 #Needs to be a string to write to disk.b
+    
+    if 'data_group_in' in sel_parms:
+        if 'id' in sel_parms['data_group_in']:
+            assert (int(sel_parms['data_group_in']['id']) in data_group_ids), "######### ERROR: data_group_in id does not exist in " + sel_parms['xds']
+            sel_parms['data_group_in'] = xds.data_groups[0][str(sel_parms['data_group_in']['id'])]
+            print("Setting data_group_in  to ",sel_parms['data_group_in'])
+            data_group_in_default = sel_parms['data_group_in']
+        else:
+            data_group_in_default = list(xds.data_groups[0])[0]
+            data_group_in_default['id'] = -1 #Custom
+    else:
+        data_group_in_default = list(xds.data_groups[0].values())[0] #Choose id 1
+    
+    data_group_out_defaults = {**{'id':str(new_data_group_id)} , **modified_data_variables}
+    #This is for type add_to_xds
+    print(data_group_in_default,data_group_out_defaults)
+    data_group_out_defaults = {**data_group_in_default,**data_group_out_defaults} #{**x, **y} merges dicts with y taking precedence for repeated entries.
+    
+    sel_defaults = {'data_group_in':data_group_in_default,'data_group_out':data_group_out_defaults}
+    assert(_check_sub_sel_parms(sel_parms,sel_defaults)), "######### ERROR: sel_parms checking failed"
+    
+    sel_check = {'data_group_in':sel_parms['data_group_in']}
+    assert(_check_existence_sel_parms(xds,sel_check)), "######### ERROR: sel_parms checking failed"
+    
+    #data_group_id = sel_parms['data_group_out']['id']
+    
+    print(sel_parms['data_group_in'], data_group_in_default)
+    
+    modified_data_variable = 'data' #Nb do this for all modified datavariables
+    
+    
+    for mdv in modified_data_variables:
+        for d_id in xds.data_groups[0]:
+            #print(xds.data_groups[0][d_id][modified_data_variable])
+            assert (sel_parms['data_group_out']['id'] == d_id) or (xds.data_groups[0][d_id][mdv] != sel_parms['data_group_out'][mdv]), "Data variables, that are modified by the function, can not be replaced if they are referenced in another data_group"
+            #if (sel_parms['data_group_out']['id'] != d_id) and (xds.data_groups[0][d_id][modified_data_variable] == sel_parms['data_group_out'][modified_data_variable]):
+            #    print(sel_parms['data_group_out']['id'], d_id)
+        
+    
+    
+    
+
+    
+    
+def _check_sub_sel_parms(sel_parms,select_defaults):
     parms_passed = True
     for sel in select_defaults:
         #print('314*****',sel_parms,sel,[type(select_defaults[sel])],'****')
@@ -145,7 +212,9 @@ def _check_existence_sel_parms(dataset, sel_parms):
     parms_passed = True
     for sel in sel_parms:
         if isinstance(sel_parms[sel], dict):
-            _check_existence_sel_parms(dataset, sel_parms[sel])
+            if sel != 'properties':
+                _check_existence_sel_parms(dataset, sel_parms[sel])
         else:
-            if not(_check_dataset(dataset,sel_parms[sel])): parms_passed = False
+            if (sel != 'id') and (sel != 'properties'):
+                if not(_check_dataset(dataset,sel_parms[sel])): parms_passed = False
     return parms_passed
