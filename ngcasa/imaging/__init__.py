@@ -2,7 +2,7 @@
 Imaging subpackage modules
 """
 from .calc_image_cell_size import calc_image_cell_size
-from .phase_rotate import phase_rotate
+from .direction_rotate import direction_rotate
 from .phase_rotate_numba import phase_rotate_numba
 from .phase_rotate_sgraph import phase_rotate_sgraph
 from .phase_rotate_numba_sgraph import phase_rotate_numba_sgraph

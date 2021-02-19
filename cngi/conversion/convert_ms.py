@@ -107,9 +107,10 @@ def convert_ms(infile, outfile=None, ddis=None, ignore=['HISTORY'], compressor=N
                                              ignore=ignorecols + msv2, compressor=compressor, chunks=chunks, nofile=False)
         
         # convert and append UVW separately so we can handle its special dimension
+        uvw_chunks = (chunks[0],chunks[1],3) #No chunking over uvw_index
         uvw_xds = tblconv.convert_expanded_table(infile, os.path.join(outfile,'tmp'), keys={'TIME': 'time', ('ANTENNA1', 'ANTENNA2'): 'baseline'},
                                                  subsel={'DATA_DESC_ID': ddi}, timecols=['time'], dimnames={'d2': 'uvw_index'},
-                                                 ignore=ignorecols + list(xds.data_vars) + msv2[:-1], compressor=compressor, chunks=chunks,
+                                                 ignore=ignorecols + list(xds.data_vars) + msv2[:-1], compressor=compressor, chunks=uvw_chunks,
                                                  nofile=False)
         uvw_xds.to_zarr(os.path.join(outfile, 'xds'+str(ddi)), mode='a', compute=True, consolidated=True)
         
@@ -133,7 +134,15 @@ def convert_ms(infile, outfile=None, ddis=None, ignore=['HISTORY'], compressor=N
             
         # add in relevant spw and polarization attributes
         attrs = {}
-        attrs['vis_description'] = [{'data':'DATA','uvw':'UVW','flag':'FLAG','weight':'WEIGHT','field_id':'FIELD_ID'}]
+        
+        if ('DATA' in xds.data_vars) and ('CORRECTED_DATA' in xds.data_vars):
+            attrs['data_groups'] = [{'1':{'id':'1','data':'DATA','uvw':'UVW','flag':'FLAG','weight':'WEIGHT'}, '2':{'id':'2','data':'CORRECTED_DATA','uvw':'UVW','flag':'FLAG','weight':'WEIGHT'}}]
+        elif 'DATA' in xds.data_vars:
+            attrs['data_groups'] = [{'1':{'id':'1','data':'DATA','uvw':'UVW','flag':'FLAG','weight':'WEIGHT'}}]
+        elif 'CORRECTED_DATA' in xds.data_vars:
+            attrs['data_groups'] = [{'1':{'id':'1','data':'CORRECTED_DATA','uvw':'UVW','flag':'FLAG','weight':'WEIGHT'}}]
+        else:
+            print('The data_groups can not be created because no visibility data was found.')
 
         for dv in spw_xds.data_vars:
             attrs[dv.lower()] = spw_xds[dv].values[ddi_xds['spectral_window_id'].values[ddi]]
