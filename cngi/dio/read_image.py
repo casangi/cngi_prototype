@@ -83,7 +83,7 @@ def read_image(
         ds_path = "/".join([bucket, name])
 
         INPUT = s3fs.S3Map(root="/" + ds_path, s3=s3, check=False)
-        xds = xarray.open_zarr(
+        xds = open_zarr(
             INPUT,
             chunks=chunks,
             consolidated=consolidated,
