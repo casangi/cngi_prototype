@@ -24,9 +24,9 @@ import matplotlib.pyplot as plt
 from numba import jit
 import numba
 
-def _calc_parallactic_angles_for_gcf(mxds,gcf_parms,sel_parms):
+def _calc_parallactic_angles_for_gcf(mxds,ant_ra_dec,gcf_parms,sel_parms):
     #Calculate the
-    pa = _calc_parallactic_angles_for_vis_dataset(mxds,gcf_parms,sel_parms)
+    pa = _calc_parallactic_angles_for_vis_dataset(mxds,ant_ra_dec,gcf_parms,sel_parms)
     
     if gcf_parms['average_pa']:
         pa_subset = _average_parallactic_to_match_map(mxds,pa)
@@ -49,8 +49,8 @@ def _calc_parallactic_angles_for_gcf(mxds,gcf_parms,sel_parms):
     return cf_time_map, pa_centers, pa_dif, pa_map
     '''
     vis_dataset = mxds.attrs[sel_parms['xds']]
-    time_chunksize = vis_dataset[sel_parms['data']].chunks[0][0]
-    ant_chunksize= mxds.ANTENNA.POSITION.chunks[0][0]
+    time_chunksize = vis_dataset[sel_parms['data']].chunks[0]
+    ant_chunksize= pa_dif.shape[1]
     
     pa_centers = xr.DataArray(da.from_array(pa_centers), dims=('pa'))
     pa_dif = xr.DataArray(da.from_array(pa_dif,chunks=(time_chunksize,ant_chunksize)), dims=('time','beam'))
@@ -126,13 +126,13 @@ def _average_parallactic_to_match_map(mxds,pa):
     for i,id in enumerate(beam_ids):
         pa_mean[:,i] = np.mean(pa[:,feed_beam_ids==id],axis=1)
         
-    time_chunksize = pa.chunks[0][0]
-    beam_chunksize = mxds.beam_ids.chunks[0][0]
+    time_chunksize = pa.chunks[0]
+    beam_chunksize = mxds.beam_ids.chunks[0]
 
     pa_mean = xr.DataArray(da.from_array(pa_mean,chunks=(time_chunksize,beam_chunksize)),{'time':pa.time,'beam':beam_ids}, dims=('time','beam'))
     return pa_mean
 
-def _calc_parallactic_angles_for_vis_dataset(mxds,gcf_parms,sel_parms):
+def _calc_parallactic_angles_for_vis_dataset(mxds,ra_dec,gcf_parms,sel_parms):
     from astropy.coordinates import (EarthLocation, SkyCoord,
                                      AltAz, CIRS)
     import astropy.units as u
@@ -144,32 +144,32 @@ def _calc_parallactic_angles_for_vis_dataset(mxds,gcf_parms,sel_parms):
     n_ant = len(antenna_ids)
     n_time = vis_dataset.dims['time']
     
-    try:
-        #if False:
-        ### Using pointing table
-        print('Using Pointing dataset to calculate parallactic angles.')
-        #print(mxds.POINTING.DIRECTION)
-        ra_dec = mxds.POINTING.DIRECTION.interp(time=vis_dataset.time,assume_sorted=False,method=gcf_parms['interpolation_method']).data.compute()[:,:,0,:]
-        #else:
-    except:
-        #### Using field table
-        print('Using Field dataset to calculate parallactic angles.')
-        field_dataset = mxds.attrs['FIELD']
-        
-        field_id = np.max(vis_dataset.FIELD_ID,axis=1).compute()
-        n_field = field_dataset.dims['d0']
-        n_time = vis_dataset.dims['time']
-        
-        ra_dec = field_dataset.PHASE_DIR.isel(d0=field_id).data.compute()
-        
-        #print(ra_dec.shape)
-        if n_field != 1:
-            ra_dec = ra_dec[:,0,:]
-            
-        ra_dec = np.tile(ra_dec[:,None,:],(1,n_ant,1))
+#    if gcf_parms['use_pointing_table_parallactic_angle']:
+#        #if False:
+#        ### Using pointing table
+#        print('Using Pointing dataset to calculate parallactic angles.')
+#        #print(mxds.POINTING.DIRECTION)
+#        ra_dec = mxds.POINTING.DIRECTION.interp(time=vis_dataset.time,assume_sorted=False,method=gcf_parms['interpolation_method']).data.compute()[:,:,0,:]
+#        #else:
+#    else:
+#        #### Using field table
+#        print('Using Field dataset to calculate parallactic angles.')
+#        field_dataset = mxds.attrs['FIELD']
+#
+#        field_id = np.max(vis_dataset.FIELD_ID,axis=1).compute() #np.max ignores int nan values (nan values are large negative numbers for int).
+#        n_field = field_dataset.dims['d0']
+#        n_time = vis_dataset.dims['time']
+#
+#        ra_dec = field_dataset.PHASE_DIR.isel(d0=field_id).data.compute()
+#
+#        #print(ra_dec.shape)
+#        if n_field != 1:
+#            ra_dec = ra_dec[:,0,:]
+#
+#        ra_dec = np.tile(ra_dec[:,None,:],(1,n_ant,1))
     
-    ra = ra_dec[:,:,0]
-    dec = ra_dec[:,:,1]
+    ra = ra_dec[:,:,0].data.compute()
+    dec = ra_dec[:,:,1].data.compute()
     #print(ra.shape)
     phase_center = SkyCoord(ra=ra*u.rad, dec=dec*u.rad, frame='fk5') #XXXXXXXXXXXXXXXXXX fk5 epoch is J2000, when to switch over to ICRS?
 
@@ -208,8 +208,8 @@ def _calc_parallactic_angles_for_vis_dataset(mxds,gcf_parms,sel_parms):
 #    plt.plot(pa[0,:].T)
 #    plt.show()
     
-    time_chunksize = vis_dataset[sel_parms['data']].chunks[0][0]
-    ant_chunksize= mxds.ANTENNA.POSITION.chunks[0][0]
+    time_chunksize = vis_dataset[sel_parms['data']].chunks[0]
+    ant_chunksize= mxds.ANTENNA.POSITION.chunks[0]
     
     #print(da.from_array(pa,chunks=(time_chunksize,ant_chunksize)))
     
@@ -328,7 +328,7 @@ def _make_cf_time_map(mxds,pa,beam_pair_id,gcf_parms,sel_parms):
     
     '''
     pa_chunksize = int(np.ceil(len(pa_centers)/gcf_parms['cf_pa_num_chunk']))
-    time_chunksize = mxds.attrs[sel_parms['xds']][sel_parms['data']].chunks[0][0]
+    time_chunksize = mxds.attrs[sel_parms['xds']][sel_parms['data']].chunks[0]
     
     n_beam = pa_dif.shape[1]
     n_beam_pair = pa_map.shape[1]

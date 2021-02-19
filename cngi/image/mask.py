@@ -66,10 +66,10 @@ def mask(xds, name='MASK1', ra=None, dec=None, pixels=None, pol=-1, channels=-1)
                                                        (xds.declination < np.max(dec)), True)
 
     # AND pixel values with ra/dec values
-    mask = mask & xr.zeros_like(xds.IMAGE, dtype=bool).where((xds.d0 > np.min(pixels[:, 0])) &
-                                                                (xds.d0 < np.max(pixels[:, 0])) &
-                                                                (xds.d1 > np.min(pixels[:, 1])) &
-                                                                (xds.d1 < np.max(pixels[:, 1])), True)
+    mask = mask & xr.zeros_like(xds.IMAGE, dtype=bool).where((xds.l > np.min(pixels[:, 0])) &
+                                                                (xds.l < np.max(pixels[:, 0])) &
+                                                                (xds.m > np.min(pixels[:, 1])) &
+                                                                (xds.m < np.max(pixels[:, 1])), True)
 
     # apply polarization and channels selections
     if pol[0] >= 0:

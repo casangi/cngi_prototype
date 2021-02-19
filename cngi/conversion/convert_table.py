@@ -81,7 +81,7 @@ def convert_table(infile, outfile=None, subtable=None, keys=None, timecols=None,
     if (keys is None) or (type(keys) is str):
         xds = tblconv.convert_simple_table(infile, outfile,
                                            subtable=subtable,
-                                           rowdim='d0' if keys is None else keys,
+                                           #rowdim='d0' if keys is None else keys,
                                            timecols=[] if timecols is None else timecols,
                                            ignore= [] if ignorecols is None else ignorecols,
                                            compressor=compressor,

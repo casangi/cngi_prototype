@@ -79,10 +79,10 @@ def region(xds, name='REGION1', ra=None, dec=None, pixels=None, pol=-1, channels
     # OR pixel values with ra/dec values
     #region = region | xr.ones_like(xds.IMAGE,dtype=bool).where(xds.d0.isin(pixels[:,0]) &
     #                                                           xds.d1.isin(pixels[:,1]), False)
-    region = region | xr.ones_like(xds.IMAGE,dtype=bool).where((xds.d0 > np.min(pixels[:,0])) &
-                                                               (xds.d0 < np.max(pixels[:,0])) &
-                                                               (xds.d1 > np.min(pixels[:,1])) &
-                                                               (xds.d1 < np.max(pixels[:,1])), False)
+    region = region | xr.ones_like(xds.IMAGE,dtype=bool).where((xds.l > np.min(pixels[:,0])) &
+                                                               (xds.l < np.max(pixels[:,0])) &
+                                                               (xds.m > np.min(pixels[:,1])) &
+                                                               (xds.m < np.max(pixels[:,1])), False)
     
     # apply polarization and channels selections
     region = region.where(xds.pol.isin(xds.pol[pol]), False)

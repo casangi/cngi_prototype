@@ -60,6 +60,23 @@ def _check_parms(parm_dict, string_key, acceptable_data_types, acceptable_data =
                         if (parm_dict[string_key][i] < acceptable_range[0]) or (parm_dict[string_key][i] > acceptable_range[1]):
                             print('######### ERROR: Invalid', string_key,'. Must be within the range ',acceptable_range,'.')
                             return False
+        elif (dict in acceptable_data_types):
+            parms_passed = True
+
+            if default is None:
+                print('######### ERROR:Dictionary parameters must have a default. Please report bug.')
+                return False
+            #print('is a dict',default)
+            for default_element in default:
+                if default_element in parm_dict[string_key]:
+                    #print('1.*******')
+                    #print(parm_dict[string_key], default_element, [type(default[default_element])], default[default_element])
+                    if not(_check_parms(parm_dict[string_key], default_element, [type(default[default_element])], default=default[default_element])): parms_passed = False
+                    #print('2.*******')
+                else:
+                    #print('parm_dict',default_element,string_key)
+                    parm_dict[string_key][default_element] = default[default_element]
+                    print('Setting default', string_key, '[\'',default_element,'\']', ' to ', default[default_element])
         else:
             type_check = False
             for adt in acceptable_data_types:
@@ -80,6 +97,7 @@ def _check_parms(parm_dict, string_key, acceptable_data_types, acceptable_data =
                     return False
     else:
         if default is not None:
+            #print(parm_dict, string_key,  default)
             parm_dict[string_key] =  default
             print ('Setting default', string_key, ' to ', parm_dict[string_key])
         else:
@@ -96,34 +114,38 @@ def _check_dataset(vis_dataset,data_variable_name):
         return False
     return True
     
-    
-def _check_storage_parms(storage_parms,default_outfile,graph_name):
-    from numcodecs import Blosc
-    parms_passed = True
-    
-    if not(_check_parms(storage_parms, 'to_disk', [bool], default=False)): parms_passed = False
-    if not(_check_parms(storage_parms, 'graph_name', [str],default=graph_name)): parms_passed = False
-    
-    if storage_parms['to_disk'] == True:
-        if not(_check_parms(storage_parms, 'outfile', [str],default=default_outfile)): parms_passed = False
-        if not(_check_parms(storage_parms, 'append', [bool],default=False)): parms_passed = False
-        if not(_check_parms(storage_parms, 'compressor', [Blosc],default=Blosc(cname='zstd', clevel=2, shuffle=0))): parms_passed = False
-        if not(_check_parms(storage_parms, 'chunks_on_disk', [dict],default={})): parms_passed = False
-        if not(_check_parms(storage_parms, 'chunks_return', [dict],default={})): parms_passed = False
-        
-    return parms_passed
-
-
-
 def _check_sel_parms(sel_parms,select_defaults):
     parms_passed = True
     for sel in select_defaults:
-        if not(_check_parms(sel_parms, sel, [str], default=select_defaults[sel])): parms_passed = False
+        #print('314*****',sel_parms,sel,[type(select_defaults[sel])],'****')
+        #print('1.########################')
+        if not(_check_parms(sel_parms, sel, [type(select_defaults[sel])], default=select_defaults[sel])): parms_passed = False
+        #print('2.########################\n')
     return parms_passed
 
+'''
+def _check_sel_parms(sel_parms,select_defaults):
+    parms_passed = True
+    for sel_def in select_defaults:
+        if isinstance(select_defaults[sel_def], dict):
+            if sel_def in sel_parms:
+                for sub_sel_def in select_defaults[sel_def]:
+                        #print(sub_sel_def,select_defaults[sel_def])
+                        #print(sel_parms[sel_def], sub_sel_def, select_defaults[sel_def][sub_sel_def])
+                        if not(_check_parms(sel_parms[sel_def], sub_sel_def, [str], default=select_defaults[sel_def][sub_sel_def])): parms_passed = False
+            else:
+                sel_parms[sel_def] = select_defaults[sel_def]
+                print ('Setting default', string_key, ' to ', parm_dict[string_key])
+        else:
+            if not(_check_parms(sel_parms, sel_def, [str], default=select_defaults[sel_def])): parms_passed = False
+    return parms_passed
+'''
 
 def _check_existence_sel_parms(dataset, sel_parms):
     parms_passed = True
     for sel in sel_parms:
-        if not(_check_dataset(dataset,sel_parms[sel])): parms_passed = False
+        if isinstance(sel_parms[sel], dict):
+            _check_existence_sel_parms(dataset, sel_parms[sel])
+        else:
+            if not(_check_dataset(dataset,sel_parms[sel])): parms_passed = False
     return parms_passed

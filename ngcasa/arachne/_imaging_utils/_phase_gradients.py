@@ -122,3 +122,29 @@ def make_phase_gradient(phase_dir,gcf_parms,grid_parms):
     phase_gradient = np.moveaxis(np.exp(1j*(x_grid[:,:,None]*pix[:,0] + y_grid[:,:,None]*pix[:,1])),2,0)
     
     return phase_gradient
+
+
+def _calc_ant_pointing_ra_dec(mxds,use_pointing_table,gcf_parms,sel_parms):
+
+    vis_dataset = mxds.attrs[sel_parms['xds']]
+    
+
+    if use_pointing_table:
+        ant_ra_dec = mxds.POINTING.DIRECTION.interp(time=vis_dataset.time,assume_sorted=False,method=gcf_parms['interpolation_method'])[:,:,0,:]
+        ant_ra_dec = ant_ra_dec.chunk({"time":vis_dataset[sel_parms['data']].chunks[0][0]})
+    else:
+        antenna_ids = mxds.antenna_ids.data
+        field_dataset = mxds.attrs['FIELD']
+        field_id = np.max(vis_dataset.FIELD_ID,axis=1).compute() #np.max ignores int nan values (nan values are large negative numbers for int).
+        n_field = field_dataset.dims['d0']
+        ant_ra_dec = field_dataset.PHASE_DIR.isel(d0=field_id)
+        if n_field != 1:
+            ant_ra_dec = ant_ra_dec[:,0,:]
+        ant_ra_dec = ant_ra_dec.expand_dims('ant',1)
+        n_ant = len(antenna_ids)
+        ant_ra_dec = da.tile(ant_ra_dec.data,(1,n_ant,1))
+        
+        time_chunksize = mxds.attrs[sel_parms['xds']][sel_parms['data']].chunks[0][0]
+        ant_ra_dec =  xr.DataArray(ant_ra_dec,{'time':vis_dataset.time,'ant':antenna_ids}, dims=('time','ant','pair')).chunk({'time':time_chunksize,'ant':n_ant,'pair':2})
+
+    return ant_ra_dec
