@@ -16,7 +16,7 @@ this module will be included in the api
 """
 
 #############################################
-def read_vis(infile, partition=None, chunks=None, consolidated=True, overwrite_encoded_chunks=True):
+def read_vis(infile, partition=None, chunks=None, consolidated=True, overwrite_encoded_chunks=True, **kwargs):
     """
     Read zarr format Visibility data from disk to xarray Dataset
 
@@ -36,6 +36,12 @@ def read_vis(infile, partition=None, chunks=None, consolidated=True, overwrite_e
     overwrite_encoded_chunks : bool
         drop the zarr chunks encoded for each variable when a dataset is loaded with specified chunk sizes.  Default True, only applies when chunks
         is not None.
+    s3_key : string, optional
+        optional support for explicit authentication if infile is provided as S3 URL. 
+        If S3 url is passed as input but this argument is not specified then only publicly-available, read-only buckets are accessible (so output dataset will be read-only).
+    s3_secret : string, optional
+        optional support for explicit authentication if infile is provided as S3 URL. 
+        If S3 url is passed as input but this argument is not specified then only publicly-available, read-only buckets are accessible (so output dataset will be read-only).
 
     Returns
     -------
@@ -47,18 +53,24 @@ def read_vis(infile, partition=None, chunks=None, consolidated=True, overwrite_e
     import cngi._utils._io as xdsio
     from xarray import open_zarr
 
-    if infile.startswith('s3'):
+    if infile.lower().startswith('s3'):
+
+        # for treating AWS object storage as a "file system"
         import s3fs
-        # NOTE: the function currently reads non-writable datasets from s3 unless bucket is public
-        # plaintext authentication such as: 
-        #
-        # s3 = s3fs.S3FileSystem(anon=False, requester_pays=False, key='mykey', secret='mysecret')
-        # 
-        # is a security hazard so we should not accept it. We can update to depend on boto with
-        # additional configuration requirements for future support of non-public bucket reads.
-        s3 = s3fs.S3FileSystem(anon=True, requester_pays=False)
-        # expect a path style URL to file link, e.g.,
-        # 's3://cngi-prototype-test-data/combined_spw_uid___A002_Xcb8a93_Xc096.vis.zarr/0/'
+
+        if 's3_key' and 's3_secret' in kwargs:
+            # plaintext authentication is a security hazard that must be patched ASAP
+            # boto3 can be used instead, see https://s3fs.readthedocs.io/en/latest/#credentials
+            # if we instead choose to extend the current solution, might want to santiize inputs
+            s3 = s3fs.S3FileSystem(anon=False, requester_pays=False, key=kwargs['s3_key'], secret=kwargs['myvalues'])
+
+        else:
+            # only publicly-available, read-only buckets will work. Should probably catch the exception here...
+            s3 = s3fs.S3FileSystem(anon=True, requester_pays=False)
+
+        # expect a path style URI to file link, e.g.,
+        # 's3://cngi-prototype-test-data/2017.1.00271.S/member.uid___A001_X1273_X2e3_split_cal_concat_target_regrid.vis.zarr/xds0/'
+        # decompose this for manipulation
         s3_url = infile.split(sep='//', maxsplit=1)[1]
         bucket = s3_url.split('/')[0]
         name = s3_url.split('/')[1]
