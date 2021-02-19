@@ -25,7 +25,9 @@ def summary(mxds, xds_idx, flag_varname='FLAG'):
         attributes of mxds)
     flag_varname: str
         Name of the flag variable to summarize
-    TBD - tolerance
+    TBD - additional counts like 'spwchan', 'spwcorr', etc.
+    TBD - params to filter percentages in report (minrel, minabs, etc.)
+    TBD - params related to other counts or scores (possibly other functions)
 
     Returns:
     -------
@@ -43,22 +45,21 @@ def summary(mxds, xds_idx, flag_varname='FLAG'):
 
 def _summary_groupby(mxds, xds, flag_varname):
     # an implementation of summary based mostly on xarray groupby
-    result = {}
-
     # Assumes: xds['presence_baseline'] = xds.DATA.notnull().any(['chan', 'pol'])
     # To use presence_baseline.sum() as count of 'total'
-    flag_var = xds[flag_varname].sum(['chan']).where(xds.presence_baseline > 0,
-                                                     other=0)
 
     # Sum up chan dimension, which is not relevant for any of the following:
     # FIELD, OBS, ANT, etc.
-    pres_var = xds['presence_baseline']  # assume it's been .sum(['chan'])
+    flag_var = xds[flag_varname].sum(['chan']).where(xds.presence_baseline > 0,
+                                                     other=0)
+    pres_var = xds['presence_baseline']
 
     # For joint grouping of FLAG data var and presence_baseline
     # From FLAG vars we'll get the 'flagged' counters. From presence_baseline we
     # get the 'total' counters.
     count_xds = xr.Dataset({'flag_var': flag_var, 'presence_baseline': pres_var})
 
+    result = {}
     _count_pol_and_totals(result, xds, count_xds)
     count_xds['flag_var'] = count_xds.flag_var.sum(['pol'])
 
@@ -91,7 +92,6 @@ def _count_pol_and_totals(result, xds, count_xds):
 
     result['total'] = grand_total
     result['flagged'] = grand_flagged
-    result['flagged'].visualize()
 
 
 def _count_array_scan_obs(result, xds, count_xds):
