@@ -15,7 +15,7 @@
 this module will be included in the api
 """
 
-def implot(xda, axis=['l', 'm'], chans=None, pols=None, overplot=False, drawplot=True, tsize=250):
+def implot(xda, axis=['l','m'], chans=None, pols=None, overplot=False, drawplot=True, tsize=250):
     """
     Plot a preview of Image xarray DataArray contents
     

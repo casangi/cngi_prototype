@@ -16,9 +16,9 @@ this module will be included in the api
 """
 
 ########################
-def ddijoin(xds1, xds2):
+def join_vis(mxds, vis1, vis2):
     """
-    Concatenate together two Visibility Datasets of compatible shape
+    Concatenate together two Visibility xds's of compatible shape from the same mxds
 
 
     Extended Summary
@@ -37,16 +37,18 @@ def ddijoin(xds1, xds2):
 
     Parameters
     ----------
-    xds1 : xarray.core.dataset.Dataset
-        first Visibility Dataset to join
-    xds2 : xarray.core.dataset.Dataset
-        second Visibility Dataset to join
+    mxds : xarray.core.dataset.Dataset
+        input multi-xarray Dataset with global data
+    vis1 : str
+        first visibility partition in the mxds to join
+    vis2: str
+        second visibility partition in the mxds to join
 
 
     Returns
     -------
     xarray.core.dataset.Dataset
-        New Visibility Dataset with combined contents
+        New output multi-xarray Dataset with global data
 
 
     Warnings
@@ -118,10 +120,13 @@ def ddijoin(xds1, xds2):
 
     import xarray as xr
     import xarray.core.merge
-    import cngi._helper._specials as specials
+    import cngi._utils._specials as specials
+    from cngi._utils._io import mxds_copier
 
     # get some values
-    func_name = ddijoin.__name__
+    func_name = join_vis.__name__
+    xds1 = mxds.attrs[vis1]
+    xds2 = mxds.attrs[vis2]
 
     # verify that the non-dimension coordinates are the same in both datasets
     # Example for why we do this check: joining two vis datasets with mismatched "antenna" coordinates is probably invalid.
@@ -157,4 +162,6 @@ def ddijoin(xds1, xds2):
         else:
             raise RuntimeError(f"Programmer error: did not anticipate the special attribute {attr_name}! Don't know how to join this attribute!")
 
-    return xds_merged
+    new_mxds = mxds_copier(mxds, vis1, xds_merged)
+    new_mxds.attrs.pop(vis2)
+    return new_mxds

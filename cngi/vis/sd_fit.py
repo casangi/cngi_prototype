@@ -16,21 +16,23 @@ this module will be included in the api
 """
 
 ########################
-def sdfixscan(xds):
+def sd_fit(mxds, vis):
     """
     .. todo::
         This function is not yet implemented
 
-    Remove the striping pattern generated along the scan direction in raster scan data
+    Compute a fit to single dish spectral line data
 
     Parameters
     ----------
-    xds : xarray.core.dataset.Dataset
-        input Image
+    mxds : xarray.core.dataset.Dataset
+        input multi-xarray Dataset with global data
+    vis : str
+        visibility partition in the mxds to use
 
     Returns
     -------
     xarray.core.dataset.Dataset
-        output Image
+        New output multi-xarray Dataset with global data
     """
     return True

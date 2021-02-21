@@ -51,10 +51,9 @@ def convert_image(infile, outfile=None, artifacts=[], compressor=None, chunks=(-
     import numpy as np
     from itertools import cycle
     import importlib_metadata
-    from pandas.io.json._normalize import nested_to_record, json_normalize
     import xarray
     from numcodecs import Blosc
-    import time, os, warnings
+    import time, os, warnings, re
     warnings.simplefilter("ignore", category=FutureWarning)  # suppress noisy warnings about bool types
 
     # TODO - find and save projection type
@@ -89,13 +88,16 @@ def convert_image(infile, outfile=None, artifacts=[], compressor=None, chunks=(-
     # extract the metadata from each
     # if taylor terms are present for the artifact, process metadata for first one only
     print("converting Image...")
+    dirlist = sorted([srcdir+ff for ff in os.listdir(srcdir) if (srcdir+ff).startswith(prefix)])
     for imtype in artifacts:
-        imagelist = sorted([srcdir+ff for ff in os.listdir(srcdir) if (srcdir+ff).startswith('%s.%s'%(prefix,imtype))])
-        imagelist = [ff for ff in imagelist if ff.endswith(imtype) or ff[ff.rindex('.') + 1:].startswith('tt')]
+        imagelist = [ff for ff in dirlist if len(re.findall('%s\.%s$'%(prefix, imtype), ff))>0]
+        if len(imagelist)==0: imagelist = [ff for ff in dirlist if len(re.findall('%s\.%s\.tt\d+$'%(prefix, imtype), ff))>0]
+        if (len(imagelist)==0) and (len(imtype.split('.'))>1):
+            imagelist = [ff for ff in dirlist if len(re.findall('%s\.%s\.tt\d\.%s$'%(prefix, imtype.split('.')[0], imtype.split('.')[1]), ff))>0]
         if len(imagelist) == 0: continue
 
         # find number of taylor terms for this artifact and update count for total set if necessary
-        ttcount = len([ff for ff in imagelist if ff[ff.rindex('.') + 1:].startswith('tt')]) if ttcount == 0 else ttcount
+        ttcount = len(imagelist) if ttcount == 0 else ttcount
 
         rc = IA.open(imagelist[0])
         csys = IA.coordsys()
@@ -173,8 +175,10 @@ def convert_image(infile, outfile=None, artifacts=[], compressor=None, chunks=(-
     # masks may be stored within each image, so they will need to be handled like subtables
     for ac, imtype in enumerate(list(artifact_dims.keys())):
         for ec, ext in enumerate([''] + ['/'+ff for ff in list(artifact_masks[imtype])]):
-            imagelist = sorted([srcdir + ff for ff in os.listdir(srcdir) if (srcdir + ff).startswith('%s.%s' % (prefix, imtype))])
-            imagelist = [ff for ff in imagelist if ff.endswith(imtype) or ff[ff.rindex('.') + 1:].startswith('tt')]
+            imagelist = [ff for ff in dirlist if len(re.findall('%s\.%s$' % (prefix, imtype), ff)) > 0]
+            if len(imagelist) == 0: imagelist = [ff for ff in dirlist if len(re.findall('%s\.%s\.tt\d+$' % (prefix, imtype), ff)) > 0]
+            if (len(imagelist) == 0) and (len(imtype.split('.')) > 1):
+                imagelist = [ff for ff in dirlist if len(re.findall('%s\.%s\.tt\d\.%s$' % (prefix, imtype.split('.')[0], imtype.split('.')[1]), ff)) > 0]
             if len(imagelist) == 0: continue
 
             dimorder = ['time'] + list(reversed(artifact_dims[imtype]))
@@ -190,7 +194,7 @@ def convert_image(infile, outfile=None, artifacts=[], compressor=None, chunks=(-
                 else:
                     ixds = ixds.pad({'chan': (0, 1)}, constant_values=np.nan)
 
-            ixds = ixds.rename({list(ixds.data_vars)[0]:(imtype+ext.replace('/','_')).upper()}).transpose('l','m','time','chan','pol')
+            ixds = ixds.rename({list(ixds.data_vars)[0]:(imtype.replace('.','_')+ext.replace('/','_')).upper()}).transpose('l','m','time','chan','pol')
             if imtype == 'sumwt': ixds = ixds.squeeze(['l','m'], drop=True)
             if imtype == 'mask': ixds = ixds.rename({'MASK':'AUTOMASK'})  # rename mask
 

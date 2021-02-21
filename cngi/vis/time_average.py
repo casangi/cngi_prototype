@@ -16,14 +16,16 @@ this module will be included in the api
 """
 
 ################################################
-def timeaverage(xds, bin=1, width=None, span='state', maxuvwdistance=None):
+def time_average(mxds, vis, bin=1, width=None, span='state', maxuvwdistance=None):
     """
     Average data across the time axis
 
     Parameters
     ----------
-    xds : xarray.core.dataset.Dataset
-        input Visibility Dataset
+    mxds : xarray.core.dataset.Dataset
+        input multi-xarray Dataset with global data
+    vis : str
+        visibility partition in the mxds to use
     bin : int
         number of adjacent times to average, used when width is None. Default=1 (no change)
     width : str
@@ -37,11 +39,12 @@ def timeaverage(xds, bin=1, width=None, span='state', maxuvwdistance=None):
     Returns
     -------
     xarray.core.dataset.Dataset
-        New Visibility Dataset
+        New output multi-xarray Dataset with global data
     """
-    import xarray
     import numpy as np
+    from cngi._utils._io import mxds_copier
 
+    xds = mxds.attrs[vis]
     intnan = np.full((1), np.nan, dtype=np.int32)[0]
 
     #######
@@ -107,4 +110,4 @@ def timeaverage(xds, bin=1, width=None, span='state', maxuvwdistance=None):
     #cxds = cxds1.DATA - cxds2.DATA
     #cxds[51].values
 
-    return txds
+    return mxds_copier(mxds, vis, txds)

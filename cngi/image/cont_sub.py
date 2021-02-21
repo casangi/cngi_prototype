@@ -22,21 +22,20 @@ from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.impute import SimpleImputer
 
-def contsub(xds,dv='IMAGE',fitOrder=2 , chans=None, polyfitCoefficiencs='CoefficiencesPoly',
-            linename='LinePoly', continuumname = 'ContinuumPoly'):
+def cont_sub(xds, dv='IMAGE', fitOrder=2 , chans=None, polyfitCoefficiencs='CoefficiencesPoly', linename='LinePoly', continuumname = 'ContinuumPoly'):
     """
-
-    .. note::
-        chans = "" for all channels
-        chans = "3~8,10~15"
     Continuum subtraction of an image cube
 
     Perform a polynomial baseline fit to the specified channels from an image and subtract it from all channels
+    
+    .. note::
+        chans = "" for all channels
+        chans = "3~8,10~15"
 
     Parameters
     ----------
     xds : xarray.core.dataset.Dataset
-        input Image
+        image xarray dataset
     dv : str
         name of data_var in xds to polynomal fit. Default is 'IMAGE'
     chans : str
@@ -58,11 +57,11 @@ def contsub(xds,dv='IMAGE',fitOrder=2 , chans=None, polyfitCoefficiencs='Coeffic
 
     import xarray as xr
     import dask.array as da
-    from cngi.image import imageUtility as iu
+    from cngi._utils import _image_utility as iu
 
     xr.set_options(keep_attrs=True)
 
-    if ( xds[dv].shape[3] > 1 ):
+    if (xds[dv].shape[3] > 1 ):
         raise NotImplementedError("The number of pol great than one is not yet supported")
 
     if chans is None:
@@ -121,6 +120,6 @@ def contsub(xds,dv='IMAGE',fitOrder=2 , chans=None, polyfitCoefficiencs='Coeffic
     xds.attrs[linename + '_min_max_error'] = min_max_error
     xds.attrs[linename + '_bw_frac'] = bw_frac
     xds.attrs[linename + '_freq_frac'] = freq_frac
-
+    
     return xds
 

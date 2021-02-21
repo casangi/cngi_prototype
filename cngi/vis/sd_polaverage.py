@@ -16,21 +16,23 @@ this module will be included in the api
 """
 
 ########################
-def rmfit(xds):
+def sd_polaverage(mxds, vis):
     """
     .. todo::
         This function is not yet implemented
 
-    Generate the rotation measure by performing a least square fit with Stokes Q and U axes
+    Average visibility data over different polarizations
 
     Parameters
     ----------
-    xds : xarray.core.dataset.Dataset
-        input Image
+    mxds : xarray.core.dataset.Dataset
+        input multi-xarray Dataset with global data
+    vis : str
+        visibility partition in the mxds to use
 
     Returns
     -------
     xarray.core.dataset.Dataset
-        output Image
+        New output multi-xarray Dataset with global data
     """
     return True

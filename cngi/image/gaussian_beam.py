@@ -16,7 +16,7 @@ this module will be included in the api
 """
 
 ########################
-def gaussianbeam(xds, source='commonbeam', scale=1.0, name='BEAM'):
+def gaussian_beam(xds, source='commonbeam', scale=1.0, name='BEAM'):
     """
     Construct a gaussian beam of image dimensions from specified size or beam attribute
     

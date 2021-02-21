@@ -18,15 +18,17 @@ this module will be included in the api
 import numpy as np
 
 ########################
-def fit_gaussian(img_dataset,image_data_variable_to_fit='PSF',beam_set_name='RESTORE_PARMS',npix_window=[9,9],sampling=[9,9],cutoff=0.35):
+def fit_gaussian(xds,dv='PSF',beam_set_name='RESTORE_PARMS',npix_window=[9,9],sampling=[9,9],cutoff=0.35):
     """
     Fit one or more elliptical gaussian components on an image region
 
     Parameters
     ----------
-    img_dataset : xarray.core.dataset.Dataset
-        input Image
-
+    xds : xarray.core.dataset.Dataset
+        input Image xarray dataset
+    dv : str
+        image data variable to fit. Default is 'PSF'
+        
     Returns
     -------
     xarray.core.dataset.Dataset
@@ -37,19 +39,18 @@ def fit_gaussian(img_dataset,image_data_variable_to_fit='PSF',beam_set_name='RES
     import dask.array as da
     from scipy.interpolate import interpn
     
-
-    
     sampling = np.array(sampling)
     npix_window = np.array(npix_window)
-    delta = np.array(img_dataset.incr[0:2])*3600*180/np.pi
-    chunks = img_dataset[image_data_variable_to_fit].data.chunks[2:] + (3,)
+    delta = np.array(xds.incr[0:2])*3600*180/np.pi
+    chunks = xds[dv].data.chunks[2:] + (3,)
     
 
-    ellipse_parms  = da.map_blocks(casa_fit,img_dataset[image_data_variable_to_fit].data,npix_window,sampling,cutoff,delta,dtype=np.double,drop_axis=[0,1],new_axis=[2],chunks=chunks)
+    ellipse_parms = da.map_blocks(casa_fit, xds[dv].data, npix_window, sampling,cutoff,
+                                  delta, dtype=np.double, drop_axis=[0,1], new_axis=[2], chunks=chunks)
         
-    img_dataset[beam_set_name] = xr.DataArray(ellipse_parms,dims=['chan','pol','elps_index'])
+    xds[beam_set_name] = xr.DataArray(ellipse_parms, dims=['chan','pol','elps_index'])
     
-    return img_dataset
+    return xds
     
 
 
