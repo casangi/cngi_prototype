@@ -1,4 +1,4 @@
-#   Copyright 2019 AUI, Inc. Washington DC, USA
+#   Copyright 2020 AUI, Inc. Washington DC, USA
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -15,29 +15,26 @@
 this module will be included in the api
 """
 
-#############################################
-def phaseshift(xds, refcode=None, reuse=True, phasecenter=None):
+########################
+def spec_fit(xds):
     """
     .. todo::
         This function is not yet implemented
 
-    Recalulate UVW and shift data to new phase center
+    .. note::
+        Potentially duplicates functionality of :py:func:`image.contsub` and :py:func:`image.spxfit`
+
+    Perform polynomial, gaussian and lorentzian spectral line fits in the image cube
 
     Parameters
     ----------
     xds : xarray.core.dataset.Dataset
-        input Visibility Dataset
-    refcode : str
-        reference frame to convert UVW coordinates to
-    reuse : bool
-        base UVW calculation on the old values
-    phasecenter : float
-        direction of new phase center. None = no change
+        input Image
 
     Returns
     -------
     xarray.core.dataset.Dataset
-        New Visibility Dataset with updated data
+        output Image
     """
-    return {}
+    return True
 

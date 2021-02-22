@@ -16,23 +16,28 @@ this module will be included in the api
 """
 
 ########################
-def applyflags(xds, flags='FLAG'):
+def apply_flags(mxds, vis, flags='FLAG'):
     """
     Apply flag variables to other data in Visibility Dataset
 
     Parameters
     ----------
-    xds : xarray.core.dataset.Dataset
-        input Visibility Dataset
+    mxds : xarray.core.dataset.Dataset
+        input multi-xarray Dataset with global data
+    vis : str
+        visibility partition in the mxds to use
     flags : list or str
         data var name or list of names to use as flags. Default 'FLAG' uses the FLAG field
     Returns
     -------
     xarray.core.dataset.Dataset
-        output Visibility Dataset
+        output multi-xarray Dataset with global data
     """
     import numpy as np
+    from cngi._utils._io import mxds_copier
 
+    xds = mxds.attrs[vis]
+    
     flags = np.atleast_1d(flags)
     
     flagged_xds = xds.copy()
@@ -45,4 +50,4 @@ def applyflags(xds, flags='FLAG'):
             if flagged_xds[dv].dims == flagged_xds[fv].dims:
                 flagged_xds[dv] = flagged_xds[dv].where(flagged_xds[fv] == 0).astype(xds[dv].dtype)
         
-    return flagged_xds
+    return mxds_copier(mxds, vis, flagged_xds)

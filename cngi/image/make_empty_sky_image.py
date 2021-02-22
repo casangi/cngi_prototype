@@ -13,7 +13,7 @@
 #   limitations under the License.
 
 
-def make_empty_sky_image(img_dataset,phase_center,image_size,cell_size,chan_coords,chan_width,pol_coords,time_coords,direction_reference='FK5',projection='SIN', spectral_reference='lsrk',velocity_type='radio',unit='Jy/beam'):
+def make_empty_sky_image(xds,phase_center,image_size,cell_size,chan_coords,chan_width,pol_coords,time_coords,direction_reference='FK5',projection='SIN', spectral_reference='lsrk',velocity_type='radio',unit='Jy/beam'):
     """
     Create an img_dataset with only coordinates (no datavariables).
     The image dimensionality is either:
@@ -21,7 +21,7 @@ def make_empty_sky_image(img_dataset,phase_center,image_size,cell_size,chan_coor
 
     Parameters
     ----------
-    img_dataset : xarray.Dataset
+    xds : xarray.Dataset
         Empty dataset (dataset = xarray.Dataset())
     phase_center : array of number, length = 2, units = rad
         Image phase center.
@@ -67,13 +67,13 @@ def make_empty_sky_image(img_dataset,phase_center,image_size,cell_size,chan_coor
     m = np.arange(-image_center[1], image_size[1]-image_center[1])*cell_size[1]
     
     coords = {'time':time_coords,'chan': chan_coords, 'pol': pol_coords, 'chan_width' : ('chan',chan_width),'l':l,'m':m,'right_ascension' : (('l','m'),ra/rad_to_deg),'declination' : (('l','m'),dec/rad_to_deg)}
-    img_dataset.attrs['axis_units'] =  ['rad', 'rad', 'time', 'Hz', 'pol']
+    xds.attrs['axis_units'] = ['rad', 'rad', 'time', 'Hz', 'pol']
 
-    img_dataset = img_dataset.assign_coords(coords)
+    xds = xds.assign_coords(coords)
         
-    img_dataset.attrs['direction_reference'] = direction_reference
-    img_dataset.attrs['spectral_reference'] = spectral_reference
-    img_dataset.attrs['velocity_type'] = velocity_type
-    img_dataset.attrs['unit'] = unit
+    xds.attrs['direction_reference'] = direction_reference
+    xds.attrs['spectral_reference'] = spectral_reference
+    xds.attrs['velocity_type'] = velocity_type
+    xds.attrs['unit'] = unit
     
-    return img_dataset
+    return xds

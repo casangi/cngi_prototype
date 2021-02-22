@@ -15,7 +15,7 @@
 this module will be included in the api
 """
 
-def fourier_transform(img_dataset):
+def fourier_transform(xds):
     """
     .. todo::
         This function is not yet implemented

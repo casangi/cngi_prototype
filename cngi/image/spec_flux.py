@@ -16,7 +16,7 @@ this module will be included in the api
 """
 
 ########################
-def specflux(xds):
+def spec_flux(xds):
     """
     .. todo::
         This function is not yet implemented

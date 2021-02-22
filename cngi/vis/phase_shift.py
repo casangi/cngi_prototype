@@ -1,4 +1,4 @@
-#   Copyright 2020 AUI, Inc. Washington DC, USA
+#   Copyright 2019 AUI, Inc. Washington DC, USA
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -15,22 +15,31 @@
 this module will be included in the api
 """
 
-########################
-def sdfit(xds):
+#############################################
+def phase_shift(mxds, vis, refcode=None, reuse=True, phasecenter=None):
     """
     .. todo::
         This function is not yet implemented
 
-    Compute a fit to single dish spectral line data
+    Recalulate UVW and shift data to new phase center
 
     Parameters
     ----------
-    xds : xarray.core.dataset.Dataset
-        input Visibility Dataset
+    mxds : xarray.core.dataset.Dataset
+        input multi-xarray Dataset with global data
+    vis : str
+        visibility partition in the mxds to use
+    refcode : str
+        reference frame to convert UVW coordinates to
+    reuse : bool
+        base UVW calculation on the old values
+    phasecenter : float
+        direction of new phase center. None = no change
 
     Returns
     -------
     xarray.core.dataset.Dataset
-        New Visibility Dataset with updated data
+        New output multi-xarray Dataset with global data
     """
-    return True
+    return {}
+

@@ -18,14 +18,21 @@
 # Not exposed in API
 #
 #################################
+import xarray
+
+
+##################################################################
+# copies mxds and replaces specified vis partition with new xds
+def mxds_copier(mxds, vis, xds):
+    txds = mxds.copy()
+    txds.attrs[vis] = xds
+    return txds
 
 
 ##################################################################
 # takes a list of visibility xarray datasets and packages them as a dataset of datasets
 # xds_list is a list of tuples (name, xds)
 def vis_xds_packager(xds_list):
-    import xarray
-
     mxds = xarray.Dataset(attrs=dict(xds_list))
     
     coords = {}

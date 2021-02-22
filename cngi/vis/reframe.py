@@ -16,7 +16,7 @@ this module will be included in the api
 """
 
 ###############################################
-def ddiregrid(xds, mode='channel', nchan=None, start=0, width=1, interpolation='linear', phasecenter=None, restfreq=None, outframe=None, veltype='radio'):
+def reframe(mxds, vis, mode='channel', nchan=None, start=0, width=1, interpolation='linear', phasecenter=None, restfreq=None, outframe=None, veltype='radio'):
     """
     .. todo::
         This function is not yet implemented
@@ -25,10 +25,10 @@ def ddiregrid(xds, mode='channel', nchan=None, start=0, width=1, interpolation='
 
     Parameters
     ----------
-    xds : xarray.core.dataset.Dataset
-        input Visibility Dataset
-    mode : str
-        regridding mode
+    mxds : xarray.core.dataset.Dataset
+        input multi-xarray Dataset with global data
+    vis : str
+        visibility partition in the mxds to use
     nchan : int
         number of channels in output spw. None=all
     start : int
@@ -49,7 +49,7 @@ def ddiregrid(xds, mode='channel', nchan=None, start=0, width=1, interpolation='
     Returns
     -------
     xarray.core.dataset.Dataset
-        New Visibility Dataset with updated data
+        New output multi-xarray Dataset with global data
     """
     return {}
 

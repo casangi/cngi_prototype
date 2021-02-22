@@ -17,7 +17,7 @@ this module will be included in the api
 
 def region(xds, name='REGION1', ra=None, dec=None, pixels=None, pol=-1, channels=-1):
     """
-    Create a new region Data variable in the Dataset \n
+    Create a new region Data variable in the Dataset
     
     .. note:: This function currently only supports rectangles and integer pixel boundaries
     

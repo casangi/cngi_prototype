@@ -16,21 +16,25 @@ this module will be included in the api
 """
 
 ########################
-def sdpolaverage(xds):
+def spx_fit(xds):
     """
     .. todo::
         This function is not yet implemented
 
-    Average visibility data over different polarizations
+    .. note::
+        Potentially duplicates functionality of :py:func:`image.contsub` and :py:func:`image.specfit`
+
+    Fit a power logarithmic polynomial to pixel values along specified axis
 
     Parameters
     ----------
     xds : xarray.core.dataset.Dataset
-        input Visibility Dataset
+        input Image
 
     Returns
     -------
     xarray.core.dataset.Dataset
-        New Visibility Dataset with updated data
+        output Image
     """
     return True
+

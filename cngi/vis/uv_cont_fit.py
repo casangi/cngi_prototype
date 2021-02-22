@@ -16,14 +16,16 @@ this module will be included in the api
 """
 
 ##################################################
-def uvcontfit(xds, source='DATA', target='CONTFIT', fitorder=1, excludechans=[]):
+def uv_cont_fit(mxds, vis, source='DATA', target='CONTFIT', fitorder=1, excludechans=[]):
     """
     Fit a polynomial regression to source data and return model values to target
 
     Parameters
     ----------
-    xds : xarray.core.dataset.Dataset
-        input Visibility Dataset
+    mxds : xarray.core.dataset.Dataset
+        input multi-xarray Dataset with global data
+    vis : str
+        visibility partition in the mxds to use
     source : str
         data variable in the dataset on which to fit the regression. Default is 'DATA'
     target : str
@@ -36,13 +38,16 @@ def uvcontfit(xds, source='DATA', target='CONTFIT', fitorder=1, excludechans=[])
     Returns
     -------
     xarray.core.dataset.Dataset
-        New Visibility Dataset with updated data
+        New output multi-xarray Dataset with global data
     """
     import numpy as np
     import xarray
     from sklearn.linear_model import LinearRegression
     from sklearn.preprocessing import PolynomialFeatures
     from sklearn.impute import SimpleImputer
+    from cngi._utils._io import mxds_copier
+
+    xds = mxds.attrs[vis]
     
     # selected channel bin values serve as our training data X
     # expanding out polynomial combinations allows us to use linear regression for non-linear higher order fits
@@ -86,4 +91,5 @@ def uvcontfit(xds, source='DATA', target='CONTFIT', fitorder=1, excludechans=[])
                                     target+'_min_max_error':min_max_error,
                                     target+'_bw_frac':bw_frac,
                                     target+'_freq_frac':freq_frac})
-    return new_xds
+    
+    return mxds_copier(mxds, vis, new_xds)
