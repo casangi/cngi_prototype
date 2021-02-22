@@ -122,10 +122,11 @@ def moments(xds, moment=-1, axis='chan'):
         #for i in range(intensity.shape[3]):
         #    mcnparray[mcnparray==i]=v[i]
         mcnparray = intensity.assign_coords({'chan':v.data}).max(dim=axis)
+        xds["MOMENTS_MAXIMUM_COORD"] = mcnparray
         
-        xds["MOMENTS_MAXIMUM_COORD"] = xa.DataArray(mcnparray,
-                                                    coords=xds["MOMENTS_MAXIMUM"].coords,
-                                                    dims=xds["MOMENTS_MAXIMUM"].dims)
+        #xds["MOMENTS_MAXIMUM_COORD"] = xa.DataArray(mcnparray,
+        #                                            coords=xds["MOMENTS_MAXIMUM"].coords,
+        #                                            dims=xds["MOMENTS_MAXIMUM"].dims)
     if 10 in moment:
         xds["MOMENTS_MINIMUM"] = intensity.min(dim=axis)
     # moments of maximum coordinate unit is km/m
@@ -134,10 +135,11 @@ def moments(xds, moment=-1, axis='chan'):
         #for i in range(intensity.shape[2]):
         #    mcnparray[mcnparray == i] = v[i]
         mcnparray = intensity.assign_coords({'chan': v.data}).min(dim=axis)
-
-        xds["MOMENTS_MINIMUM_COORD"] = xa.DataArray(mcnparray,
-                                                    coords=xds["MOMENTS_MAXIMUM"].coords,
-                                                    dims=xds["MOMENTS_MAXIMUM"].dims)
+        xds["MOMENTS_MINIMUM_COORD"] = mcnparray
+        
+        #xds["MOMENTS_MINIMUM_COORD"] = xa.DataArray(mcnparray,
+        #                                            coords=xds["MOMENTS_MAXIMUM"].coords,
+        #                                            dims=xds["MOMENTS_MAXIMUM"].dims)
 
     return xds
 
