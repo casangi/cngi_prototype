@@ -22,7 +22,7 @@ def summary(mxds, xds_idx, flag_varname='FLAG'):
         Dataset of xarray datasets
     xds_idx: int
         Index of the xarray datasets to get counts from (index in the xds'i'
-        attributes of mxds)
+        attributes of mxds). This is an oversimplification (early prototyping)
     flag_varname: str
         Name of the flag variable to summarize
     TBD - additional counts like 'spwchan', 'spwcorr', etc.
@@ -37,8 +37,7 @@ def summary(mxds, xds_idx, flag_varname='FLAG'):
         field, antenna, correlation, etc.)
     """
     # mxds is required to grab meta-information (names of fields, antennas and
-    # correlations). For now, working only on 1 SPW (given by index)
-
+    # correlations). But anyway for now, working only on 1 SPW (given by index)
     xds = mxds.attrs['xds' + '{}'.format(xds_idx)]
     return _summary_groupby(mxds, xds, flag_varname)
 
