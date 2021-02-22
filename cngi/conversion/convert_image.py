@@ -124,7 +124,12 @@ def convert_image(infile, outfile=None, artifacts=[], compressor=None, chunks=(-
         dtime = csys.torecord()['obsdate']['m0']['value']
         if csys.torecord()['obsdate']['m0']['unit'] == 'd': dtime = dtime * 86400
         coords['time'] = convert_time([dtime])
-        
+
+        # assign values to l, m coords based on incr and refpix in metadata
+        if ('incr' in summary) and ('refpix' in summary) and ('shape' in summary):
+            coords['l'] = np.arange(-summary['refpix'][0], summary['shape'][0]-summary['refpix'][0]) * summary['incr'][0]
+            coords['m'] = np.arange(-summary['refpix'][1], summary['shape'][1]-summary['refpix'][1]) * summary['incr'][1]
+
         # check to see if this image artifact is of a compatible shape to be part of the image artifact dataset
         try:  # easiest to try to merge and let xarray figure it out
             mxds = mxds.merge(xarray.Dataset(coords=coords), compat='equals')
@@ -139,7 +144,13 @@ def convert_image(infile, outfile=None, artifacts=[], compressor=None, chunks=(-
         mxds = mxds.assign_attrs(dict([(kk.lower(), summary[kk]) for kk in summary.keys() if kk not in omits + nested]))
         artifact_dims[imtype] = [ss.replace('right_ascension', 'l').replace('declination', 'm') for ss in coord_names]
         artifact_masks[imtype] = summary['masks']
-            
+        
+        # manually swap known meta attrs that deal with dim/coord units
+        if ('axisnames' in summary) and ('axisnames' not in omits):
+            mxds = mxds.assign_attrs({'axisnames':list(mxds.axisnames[:2]) + ['Time'] + list(mxds.axisnames[2:][::-1])})
+        if ('axisunits' in summary) and ('axisunits' not in omits):
+            mxds = mxds.assign_attrs({'axisunits':list(mxds.axisunits[:2]) + ['datetime64[ns]'] + list(mxds.axisunits[2:][::-1])})
+
         # check for common and restoring beams
         rb = IA.restoringbeam()
         if (len(rb) > 0) and ('restoringbeam' not in mxds.attrs):
@@ -168,6 +179,7 @@ def convert_image(infile, outfile=None, artifacts=[], compressor=None, chunks=(-
 
     # if taylor terms are present, the chan axis must be expanded to the length of the terms
     if ttcount > len(mxds.chan): mxds = mxds.pad({'chan': (0, ttcount-len(mxds.chan))}, mode='edge')
+    
     chunk_dict = dict(zip(['l','m','time','chan','pol'], chunks[:2]+(1,)+chunks[2:]))
     mxds = mxds.chunk(chunk_dict)
 
