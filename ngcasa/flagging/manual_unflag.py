@@ -6,7 +6,7 @@ import xarray as xr
 from ._flagging_utils._parse_sel_cmd import _parse_sel_cmd
 
 
-def manual_unflag(mxds, xds_idx, commands):  # , storage_parms?):
+def manual_unflag(mxds, xds_idx, commands=None):  # , storage_parms?):
     """
     Unflags the selected data. Flags corresponding to the selections are unset.
 
@@ -19,7 +19,7 @@ def manual_unflag(mxds, xds_idx, commands):  # , storage_parms?):
         attributes of mxds). This is an oversimplification (early prototyping)
     commands : List[Dict]
         List of selections, each expressed as an xarray selection dictionary,
-        using the same schema as in manual_flag.
+        using the same schema as in manual_flag. If empty, unflag all.
     TBD - Additional selection parameters / criteria
 
     Returns:
@@ -36,6 +36,9 @@ def manual_unflag(mxds, xds_idx, commands):  # , storage_parms?):
 def _unflag_with_reindex_like(mxds, xds, cmds):
     flag_var = 'FLAG'
     ret_xds = xds.assign()
+    if not cmds:
+        ret_xds[flag_var] = xr.zeros_like(xds[flag_var], dtype=bool)
+
     for cmd in cmds:
         sel = _parse_sel_cmd(mxds, xds, cmd)
         fsel = xds[flag_var].sel(sel)

@@ -34,9 +34,9 @@ def _parse_sel_cmd(mxds, xds, cmd):
         result['baseline'] = _antenna_to_baseline(mxds, xds, cmd['antenna'])
 
     if 'chan' in cmd:
-        result['chan'] = chan
+        result['chan'] = cmd['chan']
 
     if 'pol'in cmd:
-        result['pol'] = pol
+        result['pol'] = cmd['pol']
 
     return result
