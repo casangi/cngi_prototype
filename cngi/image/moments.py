@@ -121,12 +121,12 @@ def moments(xds, moment=-1, axis='chan'):
         #mcnparray = intensity.argmax(dim=axis).values.astype(np.float32)
         #for i in range(intensity.shape[3]):
         #    mcnparray[mcnparray==i]=v[i]
-        mcnparray = intensity.argmax(dim=axis).astype(np.float32)
-        mcnparray = mcnparray.where(mcnparray.isin(np.arange(intensity.shape[3])), drop=True)
-
-        xds["MOMENTS_MAXIMUM_COORD"] = xa.DataArray(mcnparray,
-                                                    coords=xds["MOMENTS_MAXIMUM"].coords,
-                                                    dims=xds["MOMENTS_MAXIMUM"].dims)
+        mcnparray = intensity.assign_coords({'chan':v.data}).max(dim=axis)
+        xds["MOMENTS_MAXIMUM_COORD"] = mcnparray
+        
+        #xds["MOMENTS_MAXIMUM_COORD"] = xa.DataArray(mcnparray,
+        #                                            coords=xds["MOMENTS_MAXIMUM"].coords,
+        #                                            dims=xds["MOMENTS_MAXIMUM"].dims)
     if 10 in moment:
         xds["MOMENTS_MINIMUM"] = intensity.min(dim=axis)
     # moments of maximum coordinate unit is km/m
@@ -134,12 +134,12 @@ def moments(xds, moment=-1, axis='chan'):
         #mcnparray = intensity.argmin(dim=axis).values.astype(np.float32)
         #for i in range(intensity.shape[2]):
         #    mcnparray[mcnparray == i] = v[i]
-        mcnparray = intensity.argmin(dim=axis).astype(np.float32)
-        mcnparray = mcnparray.where(mcnparray.isin(np.arange(intensity.shape[3])), drop=True)
-
-        xds["MOMENTS_MINIMUM_COORD"] = xa.DataArray(mcnparray,
-                                                    coords=xds["MOMENTS_MAXIMUM"].coords,
-                                                    dims=xds["MOMENTS_MAXIMUM"].dims)
+        mcnparray = intensity.assign_coords({'chan': v.data}).min(dim=axis)
+        xds["MOMENTS_MINIMUM_COORD"] = mcnparray
+        
+        #xds["MOMENTS_MINIMUM_COORD"] = xa.DataArray(mcnparray,
+        #                                            coords=xds["MOMENTS_MAXIMUM"].coords,
+        #                                            dims=xds["MOMENTS_MAXIMUM"].dims)
 
     return xds
 
