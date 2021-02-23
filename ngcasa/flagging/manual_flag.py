@@ -3,12 +3,10 @@
 this module will be included in the api
 """
 import xarray as xr
-# Use xdsio.vis_xds_packager to return an mxds?
-# import cngi._helper.io as xdsio
 from ._flagging_utils._parse_sel_cmd import _parse_sel_cmd
+from ._flagging_utils._read_flagcmds import _read_flagcmds
 
-
-def manual_flag(mxds, xds_idx, commands=None, cmd_file=None):
+def manual_flag(mxds, xds_idx, commands=None, cmd_filename=None):
     """
     Implements the 'manual' flagging method (equivalent to CASA6's flagdata manual
     mode).
@@ -22,10 +20,12 @@ def manual_flag(mxds, xds_idx, commands=None, cmd_file=None):
         attributes of mxds). This is an oversimplification (early prototyping)
     commands: List[Dict]
         List of selection commands. Each item in the list represent one
-        selection of data to flag. Mutually exclusive with cmd_file
+        selection of data to flag.
         Every selection item is a dictionary. Selection is currently supported
-        by 'time', 'chan', 'antenna', and 'pol'.
-    cmd_file: filename
+        by 'time', 'chan', 'antenna', and 'pol'. 'time', 'chan', and 'pol'
+        correspond directly to the dimensions of FLAG and DATA varaibles in
+        the xarray datasets. 'antenna' is translated to the 'baseline' dimension.
+    cmd_filename: filename
         Name of a file with text flagging commands, using the same format as
         used in the CASA6 pipelines for the "*flagonline.txt" or
         "*flagcmds.txt" files.
@@ -34,17 +34,21 @@ def manual_flag(mxds, xds_idx, commands=None, cmd_file=None):
     Returns:
     -------
     xarray.core.dataset.Dataset
-        Dataset with flags set on the selections given in either commands or
-        cmd_file
+        Dataset with flags set on the selections given in commands and/or
+        cmd_filename
     """
-    if commands and cmd_file:
-        raise RuntimeError('Use either commands (to give a list of commands),'
-                           'or cmd_file (to load the list of commands from a '
-                           'file)')
-    if not isinstance(commands, list):
-        raise ValueError('Parameter selection must be a list of selection dictionaries')
+    if commands and not isinstance(commands, list):
+        raise ValueError('Parameter selection must be a list of selection dicts')
+    all_cmds = []
+    if commands:
+        all_cmds.extend(commands)
+    if cmd_filename:
+        all_cmds.extend(_read_flagcmds(cmd_filename))
+    if not all_cmds:
+        raise RuntimeError("No valid flagging commands found in inputs. Direct "
+                           f"command list is: {commands}. File is: {cmd_filename}")
     xds = mxds.attrs['xds' + '{}'.format(xds_idx)]
-    return _manual_with_reindex_like(mxds, xds, commands)
+    return _manual_with_reindex_like(mxds, xds, all_cmds)
 
 
 def _manual_with_reindex_like(mxds, xds, cmds):
@@ -55,7 +59,7 @@ def _manual_with_reindex_like(mxds, xds, cmds):
         fsel = xds[flag_var].sel(selection)
         if 0 in fsel.shape:
             print('WARNING: selection results in 0 shape. Sel: {}. Shape: {}'.
-                  format(sel, fsel.shape))
+                  format(fsel, fsel.shape))
             continue
 
         # Alternative 1 with .sel(): sel-ones, broadcast, or
