@@ -27,10 +27,11 @@ def manual_unflag(mxds, xds_idx, commands):  # , storage_parms?):
     xarray.core.dataset.Dataset
         Visibility dataset with updated (unset) flags
     """
-    xds = mxds.attrs['xds' + '{}'.format(xds_idx)]
     if not isinstance(commands, list):
-        raise ValueError('Parameter selection must be a list of selection dictionaries')
+        raise ValueError('Parameter selection must be a list of selection dicts')
+    xds = mxds.attrs['xds' + '{}'.format(xds_idx)]
     return _unflag_with_reindex_like(mxds, xds, commands)
+
 
 def _unflag_with_reindex_like(mxds, xds, cmds):
     flag_var = 'FLAG'
@@ -44,7 +45,8 @@ def _unflag_with_reindex_like(mxds, xds, cmds):
             continue
 
         unflag_slice = xr.zeros_like(fsel, dtype=bool)
-        reindexed_slice = unflag_slice.reindex_like(xds[flag_var], fill_value=True)
+        reindexed_slice = unflag_slice.reindex_like(xds[flag_var],
+                                                    fill_value=True)
         ret_xds[flag_var] &= reindexed_slice
 
     return ret_xds
