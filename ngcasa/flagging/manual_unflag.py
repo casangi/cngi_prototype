@@ -3,39 +3,48 @@
 this module will be included in the api
 """
 import xarray as xr
+from ._flagging_utils._parse_sel_cmd import _parse_sel_cmd
 
 
-def manual_unflag(vis_dataset, selections):  # , storage_parms?):
+def manual_unflag(mxds, xds_idx, commands):  # , storage_parms?):
     """
     Unflags the selected data. Flags corresponding to the selections are unset.
 
     Parameters
     ----------
-    vis_dataset : xarray.core.dataset.Dataset
-        Input dataset.
-    sel : list of dictionaries
-        List of selections, each expressed as an xarray selection dictionary
+    mxds: xarray.core.dataset.Dataset
+        Input Dataset
+    xds_idx: int
+        Index of the xarray datasets to get counts from (index in the xds'i'
+        attributes of mxds). This is an oversimplification (early prototyping)
+    commands : List[Dict]
+        List of selections, each expressed as an xarray selection dictionary,
+        using the same schema as in manual_flag.
+    TBD - Additional selection parameters / criteria
 
     Returns:
     -------
-    xds: xarray.core.dataset.Dataset
+    xarray.core.dataset.Dataset
         Visibility dataset with updated (unset) flags
     """
-    def unflag_with_reindex_like(vis_dataset, selections):
-        flag_var = 'FLAG'
-        xds = vis_dataset.assign()
-        for sel in selections:
-            fsel = xds[flag_var].sel(sel)
-            if 0 in fsel.shape:
-                print('WARNING: selection results in 0 shape. Sel: {}. Shape: {}'.
-                      format(sel, fsel.shape))
-            else:
-                unflag_slice = xr.zeros_like(fsel, dtype=bool)
-                reindexed_slice = unflag_slice.reindex_like(xds[flag_var], fill_value=True)
-                xds[flag_var] &= reindexed_slice
-
-        return xds
-
-    if not isinstance(selections, list):
+    xds = mxds.attrs['xds' + '{}'.format(xds_idx)]
+    if not isinstance(commands, list):
         raise ValueError('Parameter selection must be a list of selection dictionaries')
-    return unflag_with_reindex_like(vis_dataset, selections)
+    return _unflag_with_reindex_like(mxds, xds, commands)
+
+def _unflag_with_reindex_like(mxds, xds, cmds):
+    flag_var = 'FLAG'
+    ret_xds = xds.assign()
+    for cmd in cmds:
+        sel = _parse_sel_cmd(mxds, xds, cmd)
+        fsel = xds[flag_var].sel(sel)
+        if 0 in fsel.shape:
+            print('WARNING: selection results in 0 shape. Sel: {}. Shape: {}'.
+                  format(sel, fsel.shape))
+            continue
+
+        unflag_slice = xr.zeros_like(fsel, dtype=bool)
+        reindexed_slice = unflag_slice.reindex_like(xds[flag_var], fill_value=True)
+        ret_xds[flag_var] &= reindexed_slice
+
+    return ret_xds
