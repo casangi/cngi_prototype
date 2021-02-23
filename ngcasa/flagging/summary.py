@@ -43,9 +43,11 @@ def summary(mxds, xds_idx, flag_varname='FLAG'):
 
 
 def _summary_groupby(mxds, xds, flag_varname):
-    # an implementation of summary based mostly on xarray groupby
-    # Assumes: xds['presence_baseline'] = xds.DATA.notnull().any(['chan', 'pol'])
-    # To use presence_baseline.sum() as count of 'total'
+    """
+    An implementation of flagging.summary based mostly on xarray groupby
+    Assumes: xds['presence_baseline'] = xds.DATA.notnull().any(['chan', 'pol'])
+    To use presence_baseline.sum() as count of 'total'
+    """
 
     # Sum up chan dimension, which is not relevant for any of the following:
     # FIELD, OBS, ANT, etc.
