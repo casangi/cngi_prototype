@@ -64,7 +64,7 @@ def read_vis(
         chunks = "auto"
         overwrite_encoded_chunks = False
 
-    if infile.lower.startswith("s3"):
+    if infile.lower().startswith("s3"):
         # for treating AWS object storage as a "file system"
         import s3fs
 
