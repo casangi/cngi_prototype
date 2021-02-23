@@ -6,6 +6,8 @@ def _antenna_to_baseline(mxds, xds, ant_name):
     def ant_name_to_idx(mxds, ant_name):
         # just want to find the first index. Could be a numba jitted for np.ndenumerate
         idxs = np.where(mxds.antennas == ant_name)
+        if not idxs or 0 == len(idxs) or 0==len(idxs[0]):
+            raise RuntimeError(f"Could not find antenna: {ant_name} in dataset")
         return idxs[0][0]
 
     def ant_idx_to_baseline_idxs(xds, ant_idx):
