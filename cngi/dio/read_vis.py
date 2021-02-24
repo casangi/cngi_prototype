@@ -141,7 +141,7 @@ def read_vis(
                         INPUT = s3fs.S3Map(root=uri, s3=s3, check=False)
                         xds_list += [
                             (
-                                uri.replace("global/", ""),
+                                uri.replace(s3_url+"/","").replace("global/", ""),
                                 open_zarr(
                                     INPUT,
                                     chunks=chunks,
