@@ -134,7 +134,7 @@ def read_vis(
 
             # now ready to read
             xds_list = []
-            if isinstance(partition, list):
+            if isinstance(partition, np.ndarray):
                 for part in partition:
                     uri = "/".join([s3_url, str(part)])
                     if s3.isdir(uri):
@@ -142,7 +142,7 @@ def read_vis(
                         xds_list += [
                             (
                                 uri.replace("global/", ""),
-                                xarray.open_zarr(
+                                open_zarr(
                                     INPUT,
                                     chunks=chunks,
                                     consolidated=consolidated,
@@ -155,7 +155,7 @@ def read_vis(
             else:
                 uri = "/".join([s3_url, partition])
                 INPUT = s3fs.S3Map(root=uri, s3=s3, check=False)
-                xds = xarray.open_zarr(
+                xds = open_zarr(
                     INPUT,
                     chunks=chunks,
                     consolidated=consolidated,
