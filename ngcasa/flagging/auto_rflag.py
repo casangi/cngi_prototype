@@ -20,7 +20,7 @@ def auto_rflag(vis_dataset, **kwargs):  # args to be defined, storage_parms?):
 
     Returns:
     -------
-    xds: xarray.core.dataset.Dataset
+    xarray.core.dataset.Dataset
         Visibility dataset with updated flags
     """
     raise NotImplementedError('This method is not implemented')
