@@ -126,7 +126,7 @@ def convert_image(infile, outfile=None, artifacts=[], compressor=None, chunks=(-
         coords['time'] = convert_time([dtime])
 
         # assign values to l, m coords based on incr and refpix in metadata
-        if ('incr' in summary) and ('refpix' in summary) and ('shape' in summary):
+        if ('incr' in summary) and ('refpix' in summary) and ('shape' in summary) and (imtype != 'sumwt'):
             coords['l'] = np.arange(-summary['refpix'][0], summary['shape'][0]-summary['refpix'][0]) * summary['incr'][0]
             coords['m'] = np.arange(-summary['refpix'][1], summary['shape'][1]-summary['refpix'][1]) * summary['incr'][1]
 
