@@ -75,7 +75,7 @@ def direction_rotate(mxds, rotation_parms, sel_parms):
     _vis_dataset = _mxds.attrs[sel_parms['xds']]
     
     #{'uvw':'UVW_ROT','data':'DATA_ROT','properties':{'new_phase_center':_rotation_parms['new_phase_center']}
-    _check_sel_parms(_vis_dataset,_sel_parms,function_type='a',modified_data_variables={'uvw':'UVW_ROT','data':'DATA_ROT'})
+    _check_sel_parms(_vis_dataset,_sel_parms,modified_data_variables={'uvw':'UVW_ROT','data':'DATA_ROT'})
     #NB NB NB if only uvw is to be modified drop data
     
     '''
