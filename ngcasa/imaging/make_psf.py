@@ -22,14 +22,16 @@ this module will be included in the api
 #    The full support used for convolutional gridding kernel. This will be removed in a later release and incorporated in the function that creates gridding convolutional kernels.
 #
 
-def make_psf(vis_dataset, img_dataset, grid_parms, sel_parms, storage_parms):
+def make_psf(vis_mxds, img_xds, grid_parms, vis_sel_parms, img_sel_parms):
     """
     Creates a cube or continuum point spread function (psf) image from the user specified uvw and imaging weight data. Only the prolate spheroidal convolutional gridding function is supported (this will change in a future releases.)
     
     Parameters
     ----------
-    vis_dataset : xarray.core.dataset.Dataset
-        Input visibility dataset.
+    vis_mxds : xarray.core.dataset.Dataset
+        Input multi-xarray Dataset with global data.
+    img_xds : xarray.core.dataset.Dataset
+        Input image dataset.
     grid_parms : dictionary
     grid_parms['image_size'] : list of int, length = 2
         The image size (no padding).
@@ -39,40 +41,140 @@ def make_psf(vis_dataset, img_dataset, grid_parms, sel_parms, storage_parms):
         Create a continuum or cube image.
     grid_parms['fft_padding'] : number, acceptable range [1,100], default = 1.2
         The factor that determines how much the gridded visibilities are padded before the fft is done.
-    sel_parms : dictionary
-    sel_parms['uvw'] : str, default ='UVW'
-        The name of uvw data variable that will be used to grid the visibilities.
-    sel_parms['data'] : str, default = 'DATA'
-        The name of the visibility data to be gridded.
-    sel_parms['imaging_weight'] : str, default ='IMAGING_WEIGHT'
-        The name of the imaging weights to be used.
-    sel_parms['image'] : str, default ='DIRTY_IMAGE'
+    vis_sel_parms : dictionary
+    vis_sel_parms['xds'] : str
+        The xds within the mxds to use to calculate the imaging weights for.
+    vis_sel_parms['data_group_in_id'] : int, default = first id in xds.data_groups
+        The data group in the xds to use.
+    img_sel_parms : dictionary
+    img_sel_parms['data_group_in_id'] : int, default = first id in xds.data_groups
+        The data group in the image xds to use.
+    img_sel_parms['psf'] : str, default ='PSF'
         The created image name.
-    sel_parms['sum_weight'] : str, default ='SUM_WEIGHT'
+    img_sel_parms['psf_sum_weight'] : str, default ='PSF_SUM_WEIGHT'
         The created sum of weights name.
-    storage_parms : dictionary
-    storage_parms['to_disk'] : bool, default = False
-        If true the dask graph is executed and saved to disk in the zarr format.
-    storage_parms['append'] : bool, default = False
-        If storage_parms['to_disk'] is True only the dask graph associated with the function is executed and the resulting data variables are saved to an existing zarr file on disk.
-        Note that graphs on unrelated data to this function will not be executed or saved.
-    storage_parms['outfile'] : str
-        The zarr file to create or append to.
-    storage_parms['chunks_on_disk'] : dict of int, default = {}
-        The chunk size to use when writing to disk. This is ignored if storage_parms['append'] is True. The default will use the chunking of the input dataset.
-    storage_parms['chunks_return'] : dict of int, default = {}
-        The chunk size of the dataset that is returned. The default will use the chunking of the input dataset.
-    storage_parms['graph_name'] : str
-        The time to compute and save the data is stored in the attribute section of the dataset and storage_parms['graph_name'] is used in the label.
-    storage_parms['compressor'] : numcodecs.blosc.Blosc,default=Blosc(cname='zstd', clevel=2, shuffle=0)
-        The compression algorithm to use. Available compression algorithms can be found at https://numcodecs.readthedocs.io/en/stable/blosc.html.
-    
     Returns
     -------
-    image_dataset : xarray.core.dataset.Dataset
+    img_xds : xarray.core.dataset.Dataset
         The image_dataset will contain the image created and the sum of weights.
     """
     print('######################### Start make_psf #########################')
+    import numpy as np
+    from numba import jit
+    import time
+    import math
+    import dask.array.fft as dafft
+    import xarray as xr
+    import dask.array as da
+    import matplotlib.pylab as plt
+    import dask
+    import copy, os
+    from numcodecs import Blosc
+    from itertools import cycle
+    
+    from cngi._utils._check_parms import _check_sel_parms, _check_existence_sel_parms
+    from ._imaging_utils._check_imaging_parms import _check_grid_parms
+    from ._imaging_utils._gridding_convolutional_kernels import _create_prolate_spheroidal_kernel, _create_prolate_spheroidal_kernel_1D
+    from ._imaging_utils._standard_grid import _graph_standard_grid
+    from ._imaging_utils._remove_padding import _remove_padding
+    from ._imaging_utils._aperture_grid import _graph_aperture_grid
+    from cngi.image import make_empty_sky_image
+    
+    #print('****',sel_parms,'****')
+    _mxds = vis_mxds.copy(deep=True)
+    _img_xds = img_xds.copy(deep=True)
+    _vis_sel_parms = copy.deepcopy(vis_sel_parms)
+    _img_sel_parms = copy.deepcopy(img_sel_parms)
+    _grid_parms = copy.deepcopy(grid_parms)
+
+    ##############Parameter Checking and Set Defaults##############
+    assert(_check_grid_parms(_grid_parms)), "######### ERROR: grid_parms checking failed"
+    assert('xds' in _vis_sel_parms), "######### ERROR: xds must be specified in sel_parms" #Can't have a default since xds names are not fixed.
+    _vis_xds = _mxds.attrs[_vis_sel_parms['xds']]
+    
+    #Check vis data_group
+    _check_sel_parms(_vis_xds,_vis_sel_parms)
+    
+    #Check img data_group
+    _check_sel_parms(_img_xds,_img_sel_parms,new_or_modified_data_variables={'psf_sum_weight':'SUM_WEIGHT','psf':'PSF'},append_to_in_id=True)
+
+    ##################################################################################
+    
+    # Creating gridding kernel
+    _grid_parms['oversampling'] = 100
+    _grid_parms['support'] = 7
+    
+    cgk, correcting_cgk_image = _create_prolate_spheroidal_kernel(_grid_parms['oversampling'], _grid_parms['support'], _grid_parms['image_size_padded'])
+    cgk_1D = _create_prolate_spheroidal_kernel_1D(_grid_parms['oversampling'], _grid_parms['support'])
+    
+    _grid_parms['complex_grid'] = False
+    _grid_parms['do_psf'] = True
+    grids_and_sum_weights = _graph_standard_grid(_vis_xds, cgk_1D, _grid_parms, _vis_sel_parms['data_group_in'])
+    uncorrected_dirty_image = dafft.fftshift(dafft.ifft2(dafft.ifftshift(grids_and_sum_weights[0], axes=(0, 1)), axes=(0, 1)), axes=(0, 1))
+    
+    #Remove Padding
+    correcting_cgk_image = _remove_padding(correcting_cgk_image,_grid_parms['image_size'])
+    uncorrected_dirty_image = _remove_padding(uncorrected_dirty_image,_grid_parms['image_size']).real * (_grid_parms['image_size_padded'][0] * _grid_parms['image_size_padded'][1])
+    
+    #############Normalize#############
+    def correct_image(uncorrected_dirty_image, sum_weights, correcting_cgk):
+        sum_weights_copy = copy.deepcopy(sum_weights) ##Don't mutate inputs, therefore do deep copy (https://docs.dask.org/en/latest/delayed-best-practices.html).
+        sum_weights_copy[sum_weights_copy == 0] = 1
+        # corrected_image = (uncorrected_dirty_image/sum_weights[:,:,None,None])/correcting_cgk[None,None,:,:]
+        corrected_image = (uncorrected_dirty_image / sum_weights_copy) / correcting_cgk
+        return corrected_image
+
+    corrected_dirty_image = da.map_blocks(correct_image, uncorrected_dirty_image, grids_and_sum_weights[1][None, None, :, :],correcting_cgk_image[:, :, None, None])
+    ####################################################
+
+    if _grid_parms['chan_mode'] == 'continuum':
+        freq_coords = [da.mean(_vis_xds.coords['chan'].values)]
+        chan_width = da.from_array([da.mean(_vis_xds['chan_width'].data)],chunks=(1,))
+        imag_chan_chunk_size = 1
+    elif _grid_parms['chan_mode'] == 'cube':
+        freq_coords = _vis_xds.coords['chan'].values
+        chan_width = _vis_xds['chan_width'].data
+        imag_chan_chunk_size = _vis_xds.DATA.chunks[2][0]
+    
+    phase_center = _grid_parms['phase_center']
+    image_size = _grid_parms['image_size']
+    cell_size = _grid_parms['cell_size']
+    phase_center = _grid_parms['phase_center']
+
+    pol_coords = _vis_xds.pol.data
+    time_coords = [_vis_xds.time.mean().data]
+    
+    _img_xds = make_empty_sky_image(_img_xds,phase_center,image_size,cell_size,freq_coords,chan_width,pol_coords,time_coords)
+    
+    
+    
+    _img_xds[_img_sel_parms['data_group_out']['psf_sum_weight']] = xr.DataArray(grids_and_sum_weights[1][None,:,:], dims=['time','chan','pol'])
+    _img_xds[_img_sel_parms['data_group_out']['psf']] = xr.DataArray(corrected_dirty_image[:,:,None,:,:], dims=['l', 'm', 'time', 'chan', 'pol'])
+    _img_xds.attrs['data_groups'][0] = {**_img_xds.attrs['data_groups'][0],**{_img_sel_parms['data_group_out']['id']:_img_sel_parms['data_group_out']}}
+    
+    
+    print('######################### Created graph for make_psf #########################')
+    return _img_xds
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    '''
     import numpy as np
     from numba import jit
     import time
@@ -152,18 +254,5 @@ def make_psf(vis_dataset, img_dataset, grid_parms, sel_parms, storage_parms):
     
     list_xarray_data_variables = [img_dataset[_sel_parms['image']],img_dataset[_sel_parms['sum_weight']]]
     return _store(img_dataset,list_xarray_data_variables,_storage_parms)
-    
-    '''
-    image_dict = {}
-    coords = {'d0': np.arange(_grid_parms['imsize'][0]), 'd1': np.arange(_grid_parms['imsize'][1]),
-              'chan': freq_coords, 'pol': np.arange(n_imag_pol), 'chan_width' : ('chan',chan_width)}
-              
-              
-    image_dict[_sel_parms['sum_weight']] = xr.DataArray(grids_and_sum_weights[1], dims=['chan','pol'])
-    image_dict[_sel_parms['image']] = xr.DataArray(corrected_dirty_image, dims=['d0', 'd1', 'chan', 'pol'])
-    image_dataset = xr.Dataset(image_dict, coords=coords)
-    
-    list_xarray_data_variables = [image_dataset[_sel_parms['image']],image_dataset[_sel_parms['sum_weight']]]
-    return _store(image_dataset,list_xarray_data_variables,_storage_parms)
     '''
 

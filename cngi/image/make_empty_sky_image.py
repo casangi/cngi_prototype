@@ -62,6 +62,7 @@ def make_empty_sky_image(xds,phase_center,image_size,cell_size,chan_coords,chan_
     X, Y = np.meshgrid(x, y,indexing='ij')
     ra, dec = w.wcs_pix2world(X, Y, 1)
     
+    #The l,m value can be caluclated from non-integer index using l_val = cell_size*l_indx - image_center[0]*cell_size[0]. This arises when using wcs libarary all_world2pix
     image_center = np.array(image_size)//2
     l = np.arange(-image_center[0], image_size[0]-image_center[0])*cell_size[0]
     m = np.arange(-image_center[1], image_size[1]-image_center[1])*cell_size[1]

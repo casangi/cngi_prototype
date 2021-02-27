@@ -23,14 +23,14 @@ this module will be included in the api
     (A cube with 1 channel is a continuum image (nterms=1))
 '''
 
-def make_pb(img_dataset,pb_parms, grid_parms, sel_parms):
+def make_pb(img_xds,pb_parms, grid_parms, sel_parms):
     """
     The make_pb function currently supports rotationally symmetric airy disk primary beams. Primary beams can be generated for any number of dishes.
     The make_pb_parms['list_dish_diameters'] and make_pb_parms['list_blockage_diameters'] must be specified for each dish.
     
     Parameters
     ----------
-    img_dataset : xarray.core.dataset.Dataset
+    img_xds : xarray.core.dataset.Dataset
         Input image dataset.
     pb_parms : dictionary
     pb_parms['list_dish_diameters'] : list of number
@@ -65,17 +65,16 @@ def make_pb(img_dataset,pb_parms, grid_parms, sel_parms):
     
     print('######################### Start make_pb #########################')
     
-    _img_dataset = img_dataset.copy(deep=True)
+    _img_xds = img_xds.copy(deep=True)
     _grid_parms = copy.deepcopy(grid_parms)
     _pb_parms =  copy.deepcopy(pb_parms)
     _sel_parms = copy.deepcopy(sel_parms)
     
-    if 'img_description_in_indx' in _sel_parms:
-        _sel_parms['img_description_in'] = _img_dataset.img_description[sel_parms['img_description_in_indx']]
-        
-    sel_defaults = {'img_description_in':_img_dataset.img_description[0],'pb':'PB'}
-    assert(_check_sel_parms(_sel_parms,sel_defaults)), "######### ERROR: sel_parms checking failed"
-    assert(_check_pb_parms(_img_dataset,_pb_parms)), "######### ERROR: user_imaging_weights_parms checking failed"
+    
+    #Check img data_group
+    _check_sel_parms(_img_xds,_sel_parms,new_or_modified_data_variables={'pb':'PB'},append_to_in_id=True)
+    
+    assert(_check_pb_parms(_img_xds,_pb_parms)), "######### ERROR: user_imaging_weights_parms checking failed"
     assert(_check_grid_parms(_grid_parms)), "######### ERROR: grid_parms checking failed"
     
     #parameter check
@@ -94,25 +93,25 @@ def make_pb(img_dataset,pb_parms, grid_parms, sel_parms):
     _pb_parms['center_indx'] = []
 
 
-    chan_chunk_size = _img_dataset.chan_width.chunks[0][0]
-    freq_coords = da.from_array(_img_dataset.coords['chan'].values, chunks=(chan_chunk_size))
+    chan_chunk_size = _img_xds.chan_width.chunks[0][0]
+    freq_coords = da.from_array(_img_xds.coords['chan'].values, chunks=(chan_chunk_size))
     
-    pol = _img_dataset.pol.values #don't want chunking here
+    pol = _img_xds.pol.values #don't want chunking here
 
     chunksize = (_grid_parms['image_size'][0],_grid_parms['image_size'][1]) + freq_coords.chunksize + (len(pol),) + (len(_pb_parms['list_dish_diameters']),)
     
     pb = da.map_blocks(pb_func, freq_coords, pol, _pb_parms, _grid_parms, chunks=chunksize ,new_axis=[0,1,3,4], dtype=np.double)
     
-    ## Add PB to img_dataset
+    ## Add PB to img_xds
     
 #    coords = {'d0': np.arange(pb_parms['imsize'][0]), 'd1': np.arange(_pb_parms['imsize'][1]),
 #              'chan': freq_coords.compute(), 'pol': pol,'dish_type': np.arange(len(_pb_parms['list_dish_diameters']))}
     
     
-    _img_dataset[_sel_parms['pb']] = xr.DataArray(pb[:,:,None,:,:,:], dims=['l', 'm', 'time', 'chan', 'pol','dish_type'])
-    _img_dataset = _img_dataset.assign_coords({'dish_type': np.arange(len(_pb_parms['list_dish_diameters']))})
-    _img_dataset.img_description[sel_parms['img_description_in_indx']]['pb'] = _sel_parms['pb']
+    _img_xds[_sel_parms['data_group_out']['pb']] = xr.DataArray(pb[:,:,None,:,:,:], dims=['l', 'm', 'time', 'chan', 'pol','dish_type'])
+    _img_xds = _img_xds.assign_coords({'dish_type': np.arange(len(_pb_parms['list_dish_diameters']))})
+    _img_xds.attrs['data_groups'][0] = {**_img_xds.attrs['data_groups'][0],**{_sel_parms['data_group_out']['id']:_sel_parms['data_group_out']}}
     
     print('######################### Created graph for make_pb #########################')
-    return _img_dataset
+    return _img_xds
     

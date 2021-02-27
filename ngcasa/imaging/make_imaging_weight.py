@@ -15,7 +15,7 @@
 this module will be included in the api
 """
 
-def make_imaging_weight(vis_dataset, imaging_weights_parms, grid_parms, sel_parms):
+def make_imaging_weight(vis_mxds, imaging_weights_parms, grid_parms, sel_parms):
     """
     Creates the imaging weight data variable that has dimensions time x baseline x chan x pol (matches the visibility data variable).
     The weight density can be averaged over channels or calculated independently for each channel using imaging_weights_parms['chan_mode'].
@@ -25,8 +25,8 @@ def make_imaging_weight(vis_dataset, imaging_weights_parms, grid_parms, sel_parm
     
     Parameters
     ----------
-    vis_dataset : xarray.core.dataset.Dataset
-        Input visibility dataset.
+    vis_mxds : xarray.core.dataset.Dataset
+        Input multi-xarray Dataset with global data.
     imaging_weights_parms : dictionary
     imaging_weights_parms['weighting'] : {'natural', 'uniform', 'briggs', 'briggs_abs'}, default = natural
         Weighting scheme used for creating the imaging weights.
@@ -46,14 +46,18 @@ def make_imaging_weight(vis_dataset, imaging_weights_parms, grid_parms, sel_parm
     grid_parms['fft_padding'] : number, acceptable range [1,100], default = 1.2
         The factor that determines how much the gridded visibilities are padded before the fft is done.
     sel_parms : dictionary
-    sel_parms['vis_description_in_indx'] : int, default = 0
-        The index of the vis_dataset.vis_description dictionary to use.
+    sel_parms['xds'] : str
+        The xds within the mxds to use to calculate the imaging weights for.
+    sel_parms['data_group_in_id'] : int, default = first id in xds.data_groups
+        The data group in the xds to use.
+    sel_parms['data_group_out_id'] : int, default = sel_parms['data_group_id']
+        The output data group. The default will append the imaging weight to the input data group.
     sel_parms['imaging_weight'] : str, default ='IMAGING_WEIGHT'
         The name of that will be used for the imaging weight data variable.
     Returns
     -------
-    vis_dataset : xarray.core.dataset.Dataset
-        The vis_dataset will contain a new data variable for the imaging weights the name is defined by the input parameter sel_parms['imaging_weight'].
+    vis_xds : xarray.core.dataset.Dataset
+        The vis_xds will contain a new data variable for the imaging weights the name is defined by the input parameter sel_parms['imaging_weight'].
     """
     print('######################### Start make_imaging_weights #########################')
     import time
@@ -71,40 +75,46 @@ def make_imaging_weight(vis_dataset, imaging_weights_parms, grid_parms, sel_parm
     from cngi._utils._check_parms import _check_sel_parms, _check_existence_sel_parms
     from ._imaging_utils._check_imaging_parms import _check_imaging_weights_parms, _check_grid_parms
     
-    _vis_dataset = vis_dataset.copy(deep=True)
     
+    #Deep copy so that inputs are not modified
+    _mxds = vis_mxds.copy(deep=True)
     _imaging_weights_parms =  copy.deepcopy(imaging_weights_parms)
     _grid_parms = copy.deepcopy(grid_parms)
     _sel_parms = copy.deepcopy(sel_parms)
     
+    ##############Parameter Checking and Set Defaults##############
+    assert('xds' in _sel_parms), "######### ERROR: xds must be specified in sel_parms" #Can't have a default since xds names are not fixed.
+    _vis_xds = _mxds.attrs[sel_parms['xds']]
+    
+    _check_sel_parms(_vis_xds,_sel_parms,new_or_modified_data_variables={'imaging_weight':'IMAGING_WEIGHT'},append_to_in_id=True)
+    
     assert(_check_imaging_weights_parms(_imaging_weights_parms)), "######### ERROR: imaging_weights_parms checking failed"
     if _imaging_weights_parms['weighting'] != 'natural':
         assert(_check_grid_parms(_grid_parms)), "######### ERROR: grid_parms checking failed"
+    else:
+        #If natural weighting reuse weight
+        _sel_parms['data_group_out']['imaging_weight'] = _sel_parms['data_group_in']['weight']
+        _vis_xds.attrs['data_groups'][0] = {**_vis_xds.attrs['data_groups'][0], **{_sel_parms['data_group_out']['id']:_sel_parms['data_group_out']}}
         
-    if 'vis_description_in_indx' in _sel_parms:
-        _sel_parms['vis_description_in'] = _vis_dataset.vis_description[sel_parms['vis_description_in_indx']]
-    sel_defaults = {'vis_description_in':_vis_dataset.vis_description[0], 'imaging_weight':'IMAGING_WEIGHT'}
-    assert(_check_sel_parms(_sel_parms,sel_defaults)), "######### ERROR: sel_parms checking failed"
-    sel_check = {'vis_description_in':_sel_parms['vis_description_in']}
-    assert(_check_existence_sel_parms(_vis_dataset,sel_check)), "######### ERROR: sel_parms checking failed"
-    
-    _sel_parms['vis_description_in']['imaging_weight'] =  _sel_parms['imaging_weight']
-    _vis_dataset[_sel_parms['imaging_weight']] = _vis_dataset[_sel_parms['vis_description_in']['weight']]
-    
-    if _imaging_weights_parms['weighting'] != 'natural':
-        calc_briggs_weights(_vis_dataset,_imaging_weights_parms,_grid_parms,_sel_parms['vis_description_in'])
+        print("Since weighting is natural input weight will be reused as imaging weight.")
+        print('######################### Created graph for make_imaging_weight #########################')
+        return _mxds
         
-    #print(_vis_dataset)
-    _vis_dataset.vis_description[sel_parms['vis_description_in_indx']]['imaging_weight'] = _sel_parms['imaging_weight']
-    
+    #################################################################
+    _vis_xds[_sel_parms['data_group_out']['imaging_weight']] = _vis_xds[_sel_parms['data_group_in']['weight']]
+    _sel_parms['data_group_in']['imaging_weight'] = _sel_parms['data_group_out']['imaging_weight']
+    calc_briggs_weights(_vis_xds,_imaging_weights_parms,_grid_parms,_sel_parms['data_group_in'])
+        
+    #print(_vis_xds)
+    _vis_xds.attrs['data_groups'][0] = {**_vis_xds.attrs['data_groups'][0], **{_sel_parms['data_group_out']['id']:_sel_parms['data_group_out']}}
     
     print('######################### Created graph for make_imaging_weight #########################')
-    return _vis_dataset
+    return _mxds
     
     
 '''
 def _match_array_shape(array_to_reshape,array_to_match):
-    # Reshape in_weight to match dimnetionality of vis_data (vis_dataset[imaging_weights_parms['data_name']])
+    # Reshape in_weight to match dimnetionality of vis_data (vis_xds[imaging_weights_parms['data_name']])
     # The order is assumed the same (there can be missing). array_to_reshape is a subset of array_to_match
     import dask.array as da
     import numpy as np
@@ -127,7 +137,7 @@ def _match_array_shape(array_to_reshape,array_to_match):
 '''
 
 
-def calc_briggs_weights(vis_dataset,imaging_weights_parms,grid_parms,sel_parms):
+def calc_briggs_weights(vis_xds,imaging_weights_parms,grid_parms,sel_parms):
     import dask.array as da
     import xarray as xr
     import numpy as np
@@ -144,7 +154,7 @@ def calc_briggs_weights(vis_dataset,imaging_weights_parms,grid_parms,sel_parms):
     grid_parms['do_imaging_weight'] = True
     
     cgk_1D = np.ones((1))
-    grid_of_imaging_weights, sum_weight = _graph_standard_grid(vis_dataset, cgk_1D, grid_parms, sel_parms)
+    grid_of_imaging_weights, sum_weight = _graph_standard_grid(vis_xds, cgk_1D, grid_parms, sel_parms)
     
     
     #############Calculate Briggs parameters#############
@@ -168,8 +178,8 @@ def calc_briggs_weights(vis_dataset,imaging_weights_parms,grid_parms,sel_parms):
     #Map blocks can be simplified by using new_axis and swapping grid_of_imaging_weights and sum_weight
     briggs_factors = da.map_blocks(calculate_briggs_parms,grid_of_imaging_weights,sum_weight, imaging_weights_parms,chunks=(2,1,1)+sum_weight.chunksize,dtype=np.double)[:,0,0,:,:]
     
-    imaging_weight = _graph_standard_degrid(vis_dataset, grid_of_imaging_weights, briggs_factors, cgk_1D, grid_parms, sel_parms)
+    imaging_weight = _graph_standard_degrid(vis_xds, grid_of_imaging_weights, briggs_factors, cgk_1D, grid_parms, sel_parms)
     
-    vis_dataset[sel_parms['imaging_weight']] = xr.DataArray(imaging_weight, dims=vis_dataset[sel_parms['data']].dims)
+    vis_xds[sel_parms['imaging_weight']] = xr.DataArray(imaging_weight, dims=vis_xds[sel_parms['data']].dims)
     
 
