@@ -81,7 +81,9 @@ def compute_dimensions(tbobj, ignore=[]):
 # dimnames is a list used to override default dimension names
 # timecols is a list of column names to convert to datetimes
 # ignore is a list of columns to ignore
-def convert_simple_table(infile, outfile, subtable='', dimnames=None, timecols=[], ignore=[], compressor=None, chunks=(40000, 20, 1), nofile=False):
+# add_row_id is here because in MSv3 some tables, such as FIELD,
+#     have an explicit key named after the table, such as field_id.
+def convert_simple_table(infile, outfile, subtable='', dimnames=None, timecols=[], ignore=[], compressor=None, chunks=(40000, 20, 1), nofile=False, add_row_id=False):
     
     if compressor is None:
         compressor = Blosc(cname='zstd', clevel=2, shuffle=0)
@@ -99,8 +101,11 @@ def convert_simple_table(infile, outfile, subtable='', dimnames=None, timecols=[
         chunks[0] = tb_tool.nrows()
     
     # master dataset holders
+    dim0 = "d0"
+    if (add_row_id):
+        dim0 = subtable.lower() + "_id"
     mvars, mcoords = {}, {}
-    mdims = {'d0': tb_tool.nrows()}  # keys are dimension names, values are dimension sizes
+    mdims = {dim0: tb_tool.nrows()}  # keys are dimension names, values are dimension sizes
     cshape, bad_cols = compute_dimensions(tb_tool, ignore)
     
     for start_idx in range(0, tb_tool.nrows(), chunks[0]):
@@ -131,7 +136,7 @@ def convert_simple_table(infile, outfile, subtable='', dimnames=None, timecols=[
 
             # if this column has additional dimensionality, we need to create/reuse placeholder names
             # then apply any specified names
-            dims = ['d0']
+            dims = [dim0]
             for ii, dd in enumerate(data.shape[1:]):
                 if (ii+1 >= len(mdims)) or (dd not in list(mdims.values())[ii+1:]):
                     mdims['d%i' % len(mdims.keys())] = dd
@@ -146,19 +151,23 @@ def convert_simple_table(infile, outfile, subtable='', dimnames=None, timecols=[
                 mcoords[col.lower()] = xarray.DataArray(data, dims=dims)
             else:
                 mvars[col.upper()] = xarray.DataArray(data, dims=dims).chunk(dict(zip(dims, chunking)))
-            
+        
+        # build up the current version of the dataset
+        # do this here to hopefully catch bugs sooner than after the entire table has been built up
         xds = xarray.Dataset(mvars, coords=mcoords)
-        if (not nofile) and (start_idx == 0):
-            encoding = dict(zip(list(xds.data_vars), cycle([{'compressor': compressor}])))
-            if len(subtable) > 0: xds = xds.assign_attrs({'name': subtable+' table'})
-            if len(bad_cols) > 0: xds = xds.assign_attrs({'bad_cols': bad_cols})
-            xds.to_zarr(os.path.join(outfile,subtable), mode='w', encoding=encoding, consolidated=True)
-        elif not nofile:
-            xds.to_zarr(os.path.join(outfile,subtable), mode='a', append_dim='d0', compute=True, consolidated=True)
     
+    # We're done parsing the table, release the table tool.
+    # Now we know how big all the dimensions are, assign explicit coordinates.
     tb_tool.close()
-    if not nofile:
-        xds = xarray.open_zarr(os.path.join(outfile,subtable))
+    if (add_row_id):
+        xds = xds.assign_coords({dim0: xds[dim0].values})
+
+    # save to file
+    if (not nofile):
+        encoding = dict(zip(list(xds.data_vars), cycle([{'compressor': compressor}])))
+        if len(subtable) > 0: xds = xds.assign_attrs({'name': subtable+' table'})
+        if len(bad_cols) > 0: xds = xds.assign_attrs({'bad_cols': bad_cols})
+        xds.to_zarr(os.path.join(outfile,subtable), mode='w', encoding=encoding, compute=True, consolidated=True)
     
     return xds
 
