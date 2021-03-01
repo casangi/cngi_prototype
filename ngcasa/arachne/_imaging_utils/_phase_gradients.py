@@ -115,9 +115,9 @@ def make_phase_gradient(phase_dir,gcf_parms,grid_parms):
     
     image_size = gcf_parms['resize_conv_size']
     center_indx = image_size//2
-    x = np.arange(-center_indx[0], image_size[0]-center_indx[0])
-    y = np.arange(-center_indx[1], image_size[1]-center_indx[1])
-    y_grid, x_grid = np.meshgrid(x,y,indexing='ij')
+    x = -np.arange(-center_indx[0], image_size[0]-center_indx[0])*math.copysign(1.0,grid_parms['cell_size'][0])
+    y = np.arange(-center_indx[1], image_size[1]-center_indx[1])*math.copysign(1.0,grid_parms['cell_size'][1])
+    x_grid, y_grid = np.meshgrid(x,y,indexing='ij')
     
     phase_gradient = np.moveaxis(np.exp(1j*(x_grid[:,:,None]*pix[:,0] + y_grid[:,:,None]*pix[:,1])),2,0)
     

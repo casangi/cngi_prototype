@@ -16,15 +16,12 @@ this module will be included in the api
 """
 
 ########################
-def spxfit(xds):
+def rm_fit(xds):
     """
     .. todo::
         This function is not yet implemented
 
-    .. note::
-        Potentially duplicates functionality of :py:func:`image.contsub` and :py:func:`image.specfit`
-
-    Fit a power logarithmic polynomial to pixel values along specified axis
+    Generate the rotation measure by performing a least square fit with Stokes Q and U axes
 
     Parameters
     ----------
@@ -37,4 +34,3 @@ def spxfit(xds):
         output Image
     """
     return True
-

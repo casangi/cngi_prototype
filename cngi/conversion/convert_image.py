@@ -51,10 +51,9 @@ def convert_image(infile, outfile=None, artifacts=[], compressor=None, chunks=(-
     import numpy as np
     from itertools import cycle
     import importlib_metadata
-    from pandas.io.json._normalize import nested_to_record, json_normalize
     import xarray
     from numcodecs import Blosc
-    import time, os, warnings
+    import time, os, warnings, re
     warnings.simplefilter("ignore", category=FutureWarning)  # suppress noisy warnings about bool types
 
     # TODO - find and save projection type
@@ -89,13 +88,16 @@ def convert_image(infile, outfile=None, artifacts=[], compressor=None, chunks=(-
     # extract the metadata from each
     # if taylor terms are present for the artifact, process metadata for first one only
     print("converting Image...")
+    dirlist = sorted([srcdir+ff for ff in os.listdir(srcdir) if (srcdir+ff).startswith(prefix)])
     for imtype in artifacts:
-        imagelist = sorted([srcdir+ff for ff in os.listdir(srcdir) if (srcdir+ff).startswith('%s.%s'%(prefix,imtype))])
-        imagelist = [ff for ff in imagelist if ff.endswith(imtype) or ff[ff.rindex('.') + 1:].startswith('tt')]
+        imagelist = [ff for ff in dirlist if len(re.findall('%s\.%s$'%(prefix, imtype), ff))>0]
+        if len(imagelist)==0: imagelist = [ff for ff in dirlist if len(re.findall('%s\.%s\.tt\d+$'%(prefix, imtype), ff))>0]
+        if (len(imagelist)==0) and (len(imtype.split('.'))>1):
+            imagelist = [ff for ff in dirlist if len(re.findall('%s\.%s\.tt\d\.%s$'%(prefix, imtype.split('.')[0], imtype.split('.')[1]), ff))>0]
         if len(imagelist) == 0: continue
 
         # find number of taylor terms for this artifact and update count for total set if necessary
-        ttcount = len([ff for ff in imagelist if ff[ff.rindex('.') + 1:].startswith('tt')]) if ttcount == 0 else ttcount
+        ttcount = len(imagelist) if ttcount == 0 else ttcount
 
         rc = IA.open(imagelist[0])
         csys = IA.coordsys()
@@ -122,7 +124,12 @@ def convert_image(infile, outfile=None, artifacts=[], compressor=None, chunks=(-
         dtime = csys.torecord()['obsdate']['m0']['value']
         if csys.torecord()['obsdate']['m0']['unit'] == 'd': dtime = dtime * 86400
         coords['time'] = convert_time([dtime])
-        
+
+        # assign values to l, m coords based on incr and refpix in metadata
+        if ('incr' in summary) and ('refpix' in summary) and ('shape' in summary) and (imtype != 'sumwt'):
+            coords['l'] = np.arange(-summary['refpix'][0], summary['shape'][0]-summary['refpix'][0]) * summary['incr'][0]
+            coords['m'] = np.arange(-summary['refpix'][1], summary['shape'][1]-summary['refpix'][1]) * summary['incr'][1]
+
         # check to see if this image artifact is of a compatible shape to be part of the image artifact dataset
         try:  # easiest to try to merge and let xarray figure it out
             mxds = mxds.merge(xarray.Dataset(coords=coords), compat='equals')
@@ -137,7 +144,13 @@ def convert_image(infile, outfile=None, artifacts=[], compressor=None, chunks=(-
         mxds = mxds.assign_attrs(dict([(kk.lower(), summary[kk]) for kk in summary.keys() if kk not in omits + nested]))
         artifact_dims[imtype] = [ss.replace('right_ascension', 'l').replace('declination', 'm') for ss in coord_names]
         artifact_masks[imtype] = summary['masks']
-            
+        
+        # manually swap known meta attrs that deal with dim/coord units
+        if ('axisnames' in summary) and ('axisnames' not in omits):
+            mxds = mxds.assign_attrs({'axisnames':list(mxds.axisnames[:2]) + ['Time'] + list(mxds.axisnames[2:][::-1])})
+        if ('axisunits' in summary) and ('axisunits' not in omits):
+            mxds = mxds.assign_attrs({'axisunits':list(mxds.axisunits[:2]) + ['datetime64[ns]'] + list(mxds.axisunits[2:][::-1])})
+
         # check for common and restoring beams
         rb = IA.restoringbeam()
         if (len(rb) > 0) and ('restoringbeam' not in mxds.attrs):
@@ -166,6 +179,7 @@ def convert_image(infile, outfile=None, artifacts=[], compressor=None, chunks=(-
 
     # if taylor terms are present, the chan axis must be expanded to the length of the terms
     if ttcount > len(mxds.chan): mxds = mxds.pad({'chan': (0, ttcount-len(mxds.chan))}, mode='edge')
+    
     chunk_dict = dict(zip(['l','m','time','chan','pol'], chunks[:2]+(1,)+chunks[2:]))
     mxds = mxds.chunk(chunk_dict)
 
@@ -173,8 +187,10 @@ def convert_image(infile, outfile=None, artifacts=[], compressor=None, chunks=(-
     # masks may be stored within each image, so they will need to be handled like subtables
     for ac, imtype in enumerate(list(artifact_dims.keys())):
         for ec, ext in enumerate([''] + ['/'+ff for ff in list(artifact_masks[imtype])]):
-            imagelist = sorted([srcdir + ff for ff in os.listdir(srcdir) if (srcdir + ff).startswith('%s.%s' % (prefix, imtype))])
-            imagelist = [ff for ff in imagelist if ff.endswith(imtype) or ff[ff.rindex('.') + 1:].startswith('tt')]
+            imagelist = [ff for ff in dirlist if len(re.findall('%s\.%s$' % (prefix, imtype), ff)) > 0]
+            if len(imagelist) == 0: imagelist = [ff for ff in dirlist if len(re.findall('%s\.%s\.tt\d+$' % (prefix, imtype), ff)) > 0]
+            if (len(imagelist) == 0) and (len(imtype.split('.')) > 1):
+                imagelist = [ff for ff in dirlist if len(re.findall('%s\.%s\.tt\d\.%s$' % (prefix, imtype.split('.')[0], imtype.split('.')[1]), ff)) > 0]
             if len(imagelist) == 0: continue
 
             dimorder = ['time'] + list(reversed(artifact_dims[imtype]))
@@ -190,7 +206,7 @@ def convert_image(infile, outfile=None, artifacts=[], compressor=None, chunks=(-
                 else:
                     ixds = ixds.pad({'chan': (0, 1)}, constant_values=np.nan)
 
-            ixds = ixds.rename({list(ixds.data_vars)[0]:(imtype+ext.replace('/','_')).upper()}).transpose('l','m','time','chan','pol')
+            ixds = ixds.rename({list(ixds.data_vars)[0]:(imtype.replace('.','_')+ext.replace('/','_')).upper()}).transpose('l','m','time','chan','pol')
             if imtype == 'sumwt': ixds = ixds.squeeze(['l','m'], drop=True)
             if imtype == 'mask': ixds = ixds.rename({'MASK':'AUTOMASK'})  # rename mask
 

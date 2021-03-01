@@ -16,22 +16,27 @@ this module will be included in the api
 """
 
 ########################
-def chanaverage(xds, width=1):
+def chan_average(mxds, vis, width=1):
     """
     Average data across the channel axis
 
     Parameters
     ----------
-    xds : xarray.core.dataset.Dataset
-        input Visibility Dataset
+    mxds : xarray.core.dataset.Dataset
+        input multi-xarray Dataset with global data
+    vis : str
+        visibility partition in the mxds to use
     width : int
         number of adjacent channels to average. Default=1 (no change)
 
     Returns
     -------
     xarray.core.dataset.Dataset
-        New Visibility Dataset
+        New output multi-xarray Dataset with global data
     """
+    from cngi._utils._io import mxds_copier
+    
+    xds = mxds.attrs[vis]
     
     # save names of coordinates, then reset them all to variables
     coords = [cc for cc in list(xds.coords) if cc not in xds.dims]
@@ -60,4 +65,4 @@ def chanaverage(xds, width=1):
     # return the appropriate variables to coordinates
     new_xds = new_xds.set_coords(coords)
 
-    return new_xds
+    return mxds_copier(mxds, vis, new_xds)

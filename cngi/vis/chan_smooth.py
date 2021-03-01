@@ -16,14 +16,16 @@ this module will be included in the api
 """
 
 ##########################
-def chansmooth(xds, type='triang', size=3, gain=1.0, window=None):
+def chan_smooth(mxds, vis, type='triang', size=3, gain=1.0, window=None):
     """
     Apply a smoothing kernel to the channel axis
 
     Parameters
     ----------
-    xds : xarray.core.dataset.Dataset
-        input Visibility Dataset
+    mxds : xarray.core.dataset.Dataset
+        input multi-xarray Dataset with global data
+    vis : str
+        visibility partition in the mxds to use
     type : str or tuple
         type of window function to use: 'boxcar', 'triang', 'hann' etc. Default is 'triang'.  Scipy.signal is used to generate the
         window weights, refer to https://docs.scipy.org/doc/scipy/reference/signal.windows.html#module-scipy.signal.windows for a
@@ -38,11 +40,14 @@ def chansmooth(xds, type='triang', size=3, gain=1.0, window=None):
     Returns
     -------
     xarray.core.dataset.Dataset
-        New Visibility Dataset with updated data
+        New output multi-xarray Dataset with global data
     """
     import xarray
     import numpy as np
     from scipy.signal import get_window
+    from cngi._utils._io import mxds_copier
+
+    xds = mxds.attrs[vis]
     
     if window is None:
         window = gain * get_window(type, size, False) / (np.sum(get_window(type, size, False)))
@@ -68,6 +73,6 @@ def chansmooth(xds, type='triang', size=3, gain=1.0, window=None):
     # return the appropriate variables to coordinates and stick attributes back in
     new_xds = new_xds.set_coords(coords).assign_attrs(xds.attrs)
     
-    return new_xds
+    return mxds_copier(mxds, vis, new_xds)
 
 

@@ -18,14 +18,16 @@ this module will be included in the api
 import numpy as np
 
 ########################
-def fit_gaussian_rl(img_dataset,image_data_variable_to_fit='PSF',beam_set_name='RESTORE_PARMS',fit_method='rm_fit',npix_window=[21,21],sampling=[401,401],cutoff=0.5,cutoff_sensitivity=0.003):
+def fit_gaussian_rl(xds,dv='PSF',beam_set_name='RESTORE_PARMS',fit_method='rm_fit',npix_window=[21,21],sampling=[401,401],cutoff=0.5,cutoff_sensitivity=0.003):
     """
     Fit one or more elliptical gaussian components on an image region
 
     Parameters
     ----------
-    img_dataset : xarray.core.dataset.Dataset
-        input Image
+    xds : xarray.core.dataset.Dataset
+        input Image xarray dataset
+    dv : str
+        image data variable to fit. Default is 'PSF'
 
     Returns
     -------
@@ -33,18 +35,17 @@ def fit_gaussian_rl(img_dataset,image_data_variable_to_fit='PSF',beam_set_name='
         output Image
     """
     import xarray as xr
-    import matplotlib.pyplot as plt
     import dask.array as da
-    from scipy.interpolate import interpn
     
     sampling = np.array(sampling)
     npix_window = np.array(npix_window)
-    delta = np.array(img_dataset.incr[0:2])*3600*180/np.pi
-    chunks = img_dataset[image_data_variable_to_fit].data.chunks[2:] + (3,)
-    ellipse_parms  = da.map_blocks(rm_fit,img_dataset[image_data_variable_to_fit].data,npix_window,sampling,cutoff,cutoff_sensitivity,delta,dtype=np.double,drop_axis=[0,1],new_axis=[2],chunks=chunks)
+    delta = np.array(xds.incr[0:2])*3600*180/np.pi
+    chunks = xds[dv].data.chunks[2:] + (3,)
+    ellipse_parms  = da.map_blocks(rm_fit, xds[dv].data, npix_window, sampling, cutoff, cutoff_sensitivity, delta,
+                                   dtype=np.double, drop_axis=[0,1], new_axis=[2], chunks=chunks)
 
-    img_dataset[beam_set_name] = xr.DataArray(ellipse_parms,dims=['chan','pol','elps_index'])
-    return img_dataset
+    xds[beam_set_name] = xr.DataArray(ellipse_parms, dims=['chan','pol','elps_index'])
+    return xds
     
     
 ##############################################################

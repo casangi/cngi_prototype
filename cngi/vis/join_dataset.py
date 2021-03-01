@@ -1,4 +1,4 @@
-#   Copyright 2020 AUI, Inc. Washington DC, USA
+#   Copyright 2019 AUI, Inc. Washington DC, USA
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
@@ -15,22 +15,25 @@
 this module will be included in the api
 """
 
-########################
-def posvel(xds):
+###############################################
+def join_dataset(mxds1, mxds2):
     """
     .. todo::
         This function is not yet implemented
 
-    Create a position-velocity image
+    Join together two visibility zarr directory
 
     Parameters
     ----------
-    xds : xarray.core.dataset.Dataset
-        input Image
+    mxds1 : xarray.core.dataset.Dataset
+        first multi-xarray Dataset with global data to join
+    mxds2 : xarray.core.dataset.Dataset
+        second multi-xarray Dataset with global data to join
 
     Returns
     -------
     xarray.core.dataset.Dataset
-        output Image
+        New output multi-xarray Dataset with global data
     """
-    return True
+    return
+

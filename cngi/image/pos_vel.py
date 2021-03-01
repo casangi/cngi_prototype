@@ -16,15 +16,12 @@ this module will be included in the api
 """
 
 ########################
-def specfit(xds):
+def pos_vel(xds):
     """
     .. todo::
         This function is not yet implemented
 
-    .. note::
-        Potentially duplicates functionality of :py:func:`image.contsub` and :py:func:`image.spxfit`
-
-    Perform polynomial, gaussian and lorentzian spectral line fits in the image cube
+    Create a position-velocity image
 
     Parameters
     ----------
@@ -37,4 +34,3 @@ def specfit(xds):
         output Image
     """
     return True
-

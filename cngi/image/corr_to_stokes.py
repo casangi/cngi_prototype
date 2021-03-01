@@ -15,7 +15,7 @@
 this module will be included in the api
 """
 
-def corr_to_stokes(img_dataset):
+def corr_to_stokes(xds):
     """
     .. todo::
         This function is not yet implemented
