@@ -116,6 +116,7 @@ def solve_calibration(vis_mxds, cal_xds, solve_parms, sel_parms):
         cal_solution_chunk = dask.delayed(_solve_calibration_chunk)(
             _vis_xds[sel_parms["data_group_in"]["data"]].data.partitions[c_time, c_baseline, c_chan, c_pol],
             _vis_xds[sel_parms["data_group_in"]["model_data"]].data.partitions[c_time, c_baseline, c_chan, c_pol],
+            _vis_xds[sel_parms["data_group_in"]["weight"]].data.partitions[c_time, c_baseline, c_chan, c_pol],
             dask.delayed(_solve_parms))
             
         #print(cal_solution_chunk)
@@ -123,13 +124,13 @@ def solve_calibration(vis_mxds, cal_xds, solve_parms, sel_parms):
         
     cal_solution = da.block(cal_solution_list)
     
-    print(cal_solution)
+    return cal_solution
     
 
-def _solve_calibration_chunk(cal_data, model_data, solve_parms):
+def _solve_calibration_chunk(cal_data, model_data, weight, solve_parms):
     print('cal_data chunk shape is', cal_data.shape)
     print('model_data chunk shape is', model_data.shape)
-    
+    print('weight chunk shape is', weight.shape)
     return cal_data
     
     
