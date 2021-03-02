@@ -79,7 +79,7 @@ def convert_ms(infile, outfile=None, ddis=None, ignore=['HISTORY'], compressor=N
     if ignore is None: ignore = []
     
     # we need the spectral window, polarization, and data description tables for processing the main table
-    spw_xds = tblconv.convert_simple_table(infile, outfile='', subtable='SPECTRAL_WINDOW', ignore=ignorecols, nofile=True)
+    spw_xds = tblconv.convert_simple_table(infile, outfile='', subtable='SPECTRAL_WINDOW', ignore=ignorecols, nofile=True, add_row_id=True)
     pol_xds = tblconv.convert_simple_table(infile, outfile='', subtable='POLARIZATION', ignore=ignorecols, nofile=True)
     ddi_xds = tblconv.convert_simple_table(infile, outfile='', subtable='DATA_DESCRIPTION', ignore=ignorecols, nofile=True)
 
@@ -185,17 +185,11 @@ def convert_ms(infile, outfile=None, ddis=None, ignore=['HISTORY'], compressor=N
                                                                           keys={'TIME': 'time', 'ANTENNA_ID': 'antenna_id'}, timecols=['time'],
                                                                           chunks=chunks))]
             else:
+                add_row_id = (subtable in ['ANTENNA','FIELD','OBSERVATION','SCAN','SPECTRAL_WINDOW','STATE'])
                 xds_sub_list = [(subtable, tblconv.convert_simple_table(infile, os.path.join(outfile, 'global'), subtable,
-                                                                        timecols=['TIME'], ignore=ignorecols, compressor=compressor, nofile=False))]
+                                                                        timecols=['TIME'], ignore=ignorecols, compressor=compressor, nofile=False, add_row_id=add_row_id))]
             
             if len(xds_sub_list[-1][1].dims) != 0:
-                # to conform to MSv3, we need to add explicit ID fields to certain tables
-                if subtable in ['ANTENNA','FIELD','OBSERVATION','SCAN','SPECTRAL_WINDOW','STATE']:
-                    #if 'd0' in xds_sub_list[-1][1].dims:
-                    aux_xds = xarray.Dataset(coords={subtable.lower()+'_id':xarray.DataArray(xds_sub_list[-1][1].d0.values,dims=['d0'])})
-                    aux_xds.to_zarr(os.path.join(outfile, 'global/'+subtable), mode='a', compute=True, consolidated=True)
-                    xds_sub_list[-1] = (subtable, xarray.open_zarr(os.path.join(outfile, 'global/'+subtable)))
-            
                 xds_list += xds_sub_list
             #else:
             #    print('Empty Subtable:',subtable)
