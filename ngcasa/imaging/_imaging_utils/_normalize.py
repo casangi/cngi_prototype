@@ -45,7 +45,7 @@ def _normalize(image, sum_weight, img_dataset, gcf_dataset, direction, norm_parm
             sincy = np.sinc(np.arange(-image_center[1], image_size[1]-image_center[1])/(image_size[1]*oversampling[1]))
             
             oversampling_correcting_func = np.dot(sincx[:,None],sincy[None,:]) #Last section for sinc correcting function https://library.nrao.edu/public/memos/evla/EVLAM_198.pdf
-        
+            
             normalized_image = (image / sum_weights_copy) / (oversampling_correcting_func[:,:,None,None]*normalizing_image)
             
             #print(sum_weights_copy,oversampling_correcting_func[500,360,None,None])
@@ -59,12 +59,18 @@ def _normalize(image, sum_weight, img_dataset, gcf_dataset, direction, norm_parm
         correct_oversampling = True
         if norm_type == 'flat_noise':
             # Divide the raw image by sqrt(.weight) so that the input to the minor cycle represents the product of the sky and PB. The noise is 'flat' across the region covered by each PB.
-            normalizing_image = gcf_dataset.PS_CORR_IMAGE.data[:,:,None,None]*img_dataset[sel_parms['pb']].data
+            normalizing_image = gcf_dataset.PS_CORR_IMAGE.data[:,:,None,None]*img_dataset[sel_parms['data_group_in']['pb']].data[:,:,0,:,:]
             normalized_image = da.map_blocks(normalize_image, image, sum_weight[None,None,:,:], normalizing_image, oversampling, correct_oversampling, dtype=np.double)
         elif norm_type == 'flat_sky':
             #  Divide the raw image by .weight so that the input to the minor cycle represents only the sky. The noise is higher in the outer regions of the primary beam where the sensitivity is low.
-            normalizing_image = gcf_dataset.PS_CORR_IMAGE.data[:,:,None,None]*img_dataset[sel_parms['weight_pb']].data
+            normalizing_image = gcf_dataset.PS_CORR_IMAGE.data[:,:,None,None]*img_dataset[sel_parms['data_group_in']['weight_pb']].data[:,:,0,:,:]
+            
+            #print(sel_parms['data_group_in']['weight_pb'])
+            #print('$%$%',img_dataset[sel_parms['data_group_in']['weight_pb']].data.compute())
+            
             normalized_image = da.map_blocks(normalize_image, image, sum_weight[None,None,:,:], normalizing_image, oversampling, correct_oversampling, dtype=np.double)
+            
+            #print(normalized_image.compute())
         elif norm_type == 'none':
             print('in normalize none ')
             #No normalization after gridding and FFT. The minor cycle sees the sky times pb square

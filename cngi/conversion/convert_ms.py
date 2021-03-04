@@ -78,8 +78,11 @@ def convert_ms(infile, outfile=None, ddis=None, ignore=['HISTORY'], compressor=N
     ignorecols = ['FLAG_CATEGORY', 'FLAG_ROW', 'DATA_DESC_ID']
     if ignore is None: ignore = []
     
+    # we need to assume an explicit ordering of dims
+    dimorder = ['time','baseline','chan','pol']
+    
     # we need the spectral window, polarization, and data description tables for processing the main table
-    spw_xds = tblconv.convert_simple_table(infile, outfile='', subtable='SPECTRAL_WINDOW', ignore=ignorecols, nofile=True)
+    spw_xds = tblconv.convert_simple_table(infile, outfile='', subtable='SPECTRAL_WINDOW', ignore=ignorecols, nofile=True, add_row_id=True)
     pol_xds = tblconv.convert_simple_table(infile, outfile='', subtable='POLARIZATION', ignore=ignorecols, nofile=True)
     ddi_xds = tblconv.convert_simple_table(infile, outfile='', subtable='DATA_DESCRIPTION', ignore=ignorecols, nofile=True)
 
@@ -99,7 +102,7 @@ def convert_ms(infile, outfile=None, ddis=None, ignore=['HISTORY'], compressor=N
         start_ddi = time.time()
 
         # these columns are different / absent in MSv3 or need to be handled as special cases
-        msv2 = ['WEIGHT', 'WEIGHT_SPECTRUM', 'SIGMA', 'SIGMA_SPECTRUM', 'UVW']
+        msv2 = ['WEIGHT', 'WEIGHT_SPECTRUM', 'SIGMA', 'SIGMA_SPECTRUM', 'ANTENNA1', 'ANTENNA2', 'UVW']
         
         # convert columns that are common to MSv2 and MSv3
         xds = tblconv.convert_expanded_table(infile, os.path.join(outfile,'xds'+str(ddi)), keys={'TIME': 'time', ('ANTENNA1', 'ANTENNA2'): 'baseline'},
@@ -110,39 +113,52 @@ def convert_ms(infile, outfile=None, ddis=None, ignore=['HISTORY'], compressor=N
         uvw_chunks = (chunks[0],chunks[1],3) #No chunking over uvw_index
         uvw_xds = tblconv.convert_expanded_table(infile, os.path.join(outfile,'tmp'), keys={'TIME': 'time', ('ANTENNA1', 'ANTENNA2'): 'baseline'},
                                                  subsel={'DATA_DESC_ID': ddi}, timecols=['time'], dimnames={'d2': 'uvw_index'},
-                                                 ignore=ignorecols + list(xds.data_vars) + msv2[:-1], compressor=compressor, chunks=uvw_chunks,
-                                                 nofile=False)
+                                                 ignore=ignorecols + list(xds.data_vars) + msv2[:-1], compressor=compressor, chunks=uvw_chunks, nofile=False)
         uvw_xds.to_zarr(os.path.join(outfile, 'xds'+str(ddi)), mode='a', compute=True, consolidated=True)
         
+        # convert and append the ANTENNA1 and ANTENNA2 columns separately so we can squash the unnecessary time dimension
+        ant_xds = tblconv.convert_expanded_table(infile, os.path.join(outfile, 'tmp'), keys={'TIME': 'time', ('ANTENNA1', 'ANTENNA2'): 'baseline'},
+                                                 subsel={'DATA_DESC_ID': ddi}, timecols=['time'], ignore=ignorecols+list(xds.data_vars)+msv2[:4]+['UVW'],
+                                                 compressor=compressor, chunks=chunks[:2], nofile=False)
+        ant_xds = ant_xds.assign({'ANTENNA1': ant_xds.ANTENNA1.max(axis=0), 'ANTENNA2': ant_xds.ANTENNA2.max(axis=0)}).drop_dims('time')
+        ant_xds.to_zarr(os.path.join(outfile, 'xds' + str(ddi)), mode='a', compute=True, consolidated=True)
+
         # now convert just the WEIGHT and WEIGHT_SPECTRUM (if preset)
         # WEIGHT needs to be expanded to full dimensionality (time, baseline, chan, pol)
         wt_xds = tblconv.convert_expanded_table(infile, os.path.join(outfile,'tmp'), keys={'TIME': 'time', ('ANTENNA1', 'ANTENNA2'): 'baseline'},
                                                 subsel={'DATA_DESC_ID':ddi}, timecols=['time'], dimnames={},
-                                                ignore=ignorecols + list(xds.data_vars) + msv2[2:], compressor=compressor, chunks=chunks,
-                                                nofile=False)
+                                                ignore=ignorecols + list(xds.data_vars) + msv2[-3:], compressor=compressor, chunks=chunks, nofile=False)
         
-        # if WEIGHT_SPECTRUM is present, append it to the main xds as the new WEIGHT column
-        # otherwise expand the dimensionality of WEIGHT and add it to the xds
-        if 'WEIGHT_SPECTRUM' in wt_xds.data_vars:
-            wt_xds = wt_xds.drop_vars('WEIGHT').rename(dict(zip(wt_xds.WEIGHT_SPECTRUM.dims, ['time','baseline','chan','pol'])))
-            wt_xds.to_zarr(os.path.join(outfile, 'xds'+str(ddi)), mode='a', compute=True, consolidated=True)
-        else:
-            wts = wt_xds.WEIGHT.shape[:2] + (1,) + (wt_xds.WEIGHT.shape[-1],)
-            wt_da = da.tile(da.reshape(wt_xds.WEIGHT.data, wts), (1,1,len(xds.chan),1)).rechunk(chunks)
-            wt_xds = wt_xds.drop_vars('WEIGHT').assign({'WEIGHT':xarray.DataArray(wt_da, dims=['time','baseline','chan','pol'])})
-            wt_xds.to_zarr(os.path.join(outfile, 'xds' + str(ddi)), mode='a', compute=True, consolidated=True)
-            
-        # add in relevant spw and polarization attributes
-        attrs = {}
+        # MSv3 changes to weight/sigma column handling
+        # 1. DATA_WEIGHT = 1/sqrt(SIGMA)
+        # 2. CORRECTED_DATA_WEIGHT = WEIGHT
+        # 3. if SIGMA_SPECTRUM or WEIGHT_SPECTRUM present, use them instead of SIGMA and WEIGHT
+        # 4. discard SIGMA, WEIGHT, SIGMA_SPECTRUM and WEIGHT_SPECTRUM from converted ms
+        # 5. set shape of DATA_WEIGHT / CORRECTED_DATA_WEIGHT to (time, baseline, chan, pol) padding as necessary
+        if 'DATA' in xds.data_vars:
+            if 'SIGMA_SPECTRUM' in wt_xds.data_vars:
+                wt_xds = wt_xds.rename(dict(zip(wt_xds.SIGMA_SPECTRUM.dims, dimorder))).assign({'DATA_WEIGHT':1/wt_xds.SIGMA_SPECTRUM**2})
+            elif 'SIGMA' in wt_xds.data_vars:
+                wts = wt_xds.SIGMA.shape[:2] + (1,) + (wt_xds.SIGMA.shape[-1],)
+                wt_da = da.tile(da.reshape(wt_xds.SIGMA.data, wts), (1, 1, len(xds.chan), 1)).rechunk(chunks)
+                wt_xds = wt_xds.assign({'DATA_WEIGHT': xarray.DataArray(1/wt_da**2, dims=dimorder)})
+        if 'CORRECTED_DATA' in xds.data_vars:
+            if 'WEIGHT_SPECTRUM' in wt_xds.data_vars:
+                wt_xds = wt_xds.rename(dict(zip(wt_xds.WEIGHT_SPECTRUM.dims, dimorder))).assign({'CORRECTED_DATA_WEIGHT':wt_xds.WEIGHT_SPECTRUM})
+            elif 'WEIGHT' in wt_xds.data_vars:
+                wts = wt_xds.WEIGHT.shape[:2] + (1,) + (wt_xds.WEIGHT.shape[-1],)
+                wt_da = da.tile(da.reshape(wt_xds.WEIGHT.data, wts), (1, 1, len(xds.chan), 1)).rechunk(chunks)
+                wt_xds = wt_xds.assign({'CORRECTED_DATA_WEIGHT': xarray.DataArray(wt_da, dims=dimorder)})
         
-        if ('DATA' in xds.data_vars) and ('CORRECTED_DATA' in xds.data_vars):
-            attrs['data_groups'] = [{'1':{'id':'1','data':'DATA','uvw':'UVW','flag':'FLAG','weight':'WEIGHT'}, '2':{'id':'2','data':'CORRECTED_DATA','uvw':'UVW','flag':'FLAG','weight':'WEIGHT'}}]
-        elif 'DATA' in xds.data_vars:
-            attrs['data_groups'] = [{'1':{'id':'1','data':'DATA','uvw':'UVW','flag':'FLAG','weight':'WEIGHT'}}]
-        elif 'CORRECTED_DATA' in xds.data_vars:
-            attrs['data_groups'] = [{'1':{'id':'1','data':'CORRECTED_DATA','uvw':'UVW','flag':'FLAG','weight':'WEIGHT'}}]
-        else:
-            print('The data_groups can not be created because no visibility data was found.')
+        wt_xds = wt_xds.drop([cc for cc in msv2 if cc in wt_xds.data_vars])
+        wt_xds.to_zarr(os.path.join(outfile, 'xds' + str(ddi)), mode='a', compute=True, consolidated=True)
+        
+        # add in relevant data grouping, spw and polarization attributes
+        attrs = {'data_groups':[{}]}
+        if ('DATA' in xds.data_vars) and ('DATA_WEIGHT' in wt_xds.data_vars):
+            attrs['data_groups'][0][str(len(attrs['data_groups'][0]))] = {'id':str(len(attrs['data_groups'][0])),'data':'DATA','uvw':'UVW','flag':'FLAG','weight':'DATA_WEIGHT'}
+        if ('CORRECTED_DATA' in xds.data_vars) and ('CORRECTED_DATA_WEIGHT' in wt_xds.data_vars):
+            attrs['data_groups'][0][str(len(attrs['data_groups'][0]))] = {'id':str(len(attrs['data_groups'][0])),'data':'CORRECTED_DATA','uvw':'UVW','flag':'FLAG','weight':'CORRECTED_DATA_WEIGHT'}
 
         for dv in spw_xds.data_vars:
             attrs[dv.lower()] = spw_xds[dv].values[ddi_xds['spectral_window_id'].values[ddi]]
@@ -185,17 +201,11 @@ def convert_ms(infile, outfile=None, ddis=None, ignore=['HISTORY'], compressor=N
                                                                           keys={'TIME': 'time', 'ANTENNA_ID': 'antenna_id'}, timecols=['time'],
                                                                           chunks=chunks))]
             else:
+                add_row_id = (subtable in ['ANTENNA','FIELD','OBSERVATION','SCAN','SPECTRAL_WINDOW','STATE'])
                 xds_sub_list = [(subtable, tblconv.convert_simple_table(infile, os.path.join(outfile, 'global'), subtable,
-                                                                        timecols=['TIME'], ignore=ignorecols, compressor=compressor, nofile=False))]
+                                                                        timecols=['TIME'], ignore=ignorecols, compressor=compressor, nofile=False, add_row_id=add_row_id))]
             
             if len(xds_sub_list[-1][1].dims) != 0:
-                # to conform to MSv3, we need to add explicit ID fields to certain tables
-                if subtable in ['ANTENNA','FIELD','OBSERVATION','SCAN','SPECTRAL_WINDOW','STATE']:
-                    #if 'd0' in xds_sub_list[-1][1].dims:
-                    aux_xds = xarray.Dataset(coords={subtable.lower()+'_id':xarray.DataArray(xds_sub_list[-1][1].d0.values,dims=['d0'])})
-                    aux_xds.to_zarr(os.path.join(outfile, 'global/'+subtable), mode='a', compute=True, consolidated=True)
-                    xds_sub_list[-1] = (subtable, xarray.open_zarr(os.path.join(outfile, 'global/'+subtable)))
-            
                 xds_list += xds_sub_list
             #else:
             #    print('Empty Subtable:',subtable)

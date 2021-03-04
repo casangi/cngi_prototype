@@ -46,6 +46,10 @@ def time_average(mxds, vis, bin=1, width=None, span='state', maxuvwdistance=None
 
     xds = mxds.attrs[vis]
     intnan = np.full((1), np.nan, dtype=np.int32)[0]
+    
+    # drop vars that don't have time so they don't get stacked later on
+    notime_vars = [cc for cc in list(xds.data_vars) if 'time' not in xds[cc].dims]
+    xds = xds.drop_vars(notime_vars)
 
     #######
     # mapped out over groups
@@ -53,27 +57,28 @@ def time_average(mxds, vis, bin=1, width=None, span='state', maxuvwdistance=None
         if stacked: gxds = gxds.unstack('stb')
         
         # mean coarsen/resample everything but data and weight
-        dvs = [dv for dv in gxds.data_vars if dv not in ['DATA', 'CORRECTED_DATA', 'WEIGHT']] + list(gxds.coords)
+        dvs = [dv for dv in gxds.data_vars if dv not in ['DATA', 'CORRECTED_DATA', 'DATA_WEIGHT', 'CORRECTED_DATA_WEIGHT']] + list(gxds.coords)
         if width is None:
             nxds = gxds[dvs].coarsen(time=bin, boundary='pad').mean()
         else:
             nxds = gxds[dvs].resample(time=width).mean()
         
         # sum coarsen/resample weight
-        if 'WEIGHT' in gxds.data_vars:
-            if width is None:
-                nxds['WEIGHT'] = gxds.WEIGHT.coarsen(time=bin, boundary='pad').sum()
-            else:
-                nxds['WEIGHT'] = gxds.WEIGHT.resample(time=width).sum()
+        for wt in ['DATA_WEIGHT', 'CORRECTED_DATA_WEIGHT']:
+            if wt in gxds.data_vars:
+                if width is None:
+                    nxds[wt] = gxds[wt].coarsen(time=bin, boundary='pad').sum()
+                else:
+                    nxds[wt] = gxds[wt].resample(time=width).sum()
                 
         # use weight in coarsening/resampling data cols
         for col in ['DATA', 'CORRECTED_DATA']:
-            if (col in gxds.data_vars) and ('WEIGHT' in gxds.data_vars):
+            if (col in gxds.data_vars) and (col+'_WEIGHT' in gxds.data_vars):
                 if width is None:
-                    xda = (gxds[col] * gxds.WEIGHT).coarsen(time=bin, boundary='pad').sum()
+                    xda = (gxds[col] * gxds[col+'_WEIGHT']).coarsen(time=bin, boundary='pad').sum()
                 else:
-                    xda = (gxds[col] * gxds.WEIGHT).resample(time=width).sum()
-                nxds[col] = xda / nxds['WEIGHT']
+                    xda = (gxds[col] * gxds[col+'_WEIGHT']).resample(time=width).sum()
+                nxds[col] = xda / nxds[col+'_WEIGHT']
         
         if stacked: nxds = nxds.stack({'stb': ('time', 'baseline')})
         return nxds
@@ -101,8 +106,8 @@ def time_average(mxds, vis, bin=1, width=None, span='state', maxuvwdistance=None
     for dv in txds.data_vars:
         txds[dv] = txds[dv].astype(xds[dv].dtype)
 
-    # put the attributes back in
-    txds = txds.assign_attrs(xds.attrs)
+    # put the attributes and dropped data vars back in
+    txds = txds.assign_attrs(xds.attrs).assign(dict([(dv, mxds.attrs[vis][dv]) for dv in notime_vars]))
 
     # verify values
     #cxds1 = xds_state.assign_coords({'time_s': xds_state.time.astype('datetime64[s]')}).swap_dims({'time':'time_s'})

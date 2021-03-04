@@ -25,7 +25,7 @@ this module will be included in the api
     (A cube with 1 channel is a continuum image (nterms=1))
 '''
 
-def make_mosaic_pb(vis_dataset,gcf_dataset,img_dataset,sel_parms,grid_parms,storage_parms):
+def make_mosaic_pb(mxds,gcf_dataset,img_dataset,vis_sel_parms,img_sel_parms,grid_parms):
     """
     The make_pb function currently supports rotationally symmetric airy disk primary beams. Primary beams can be generated for any number of dishes.
     The make_pb_parms['list_dish_diameters'] and make_pb_parms['list_blockage_diameters'] must be specified for each dish.
@@ -49,33 +49,29 @@ def make_mosaic_pb(vis_dataset,gcf_dataset,img_dataset,sel_parms,grid_parms,stor
         The list of dish diameters.
     make_pb_parms['list_blockage_diameters'] = list of number
         The list of blockage diameters for each dish.
-    make_pb_parms['pb_name'] = 'PB'
-        The created PB name.
-    storage_parms : dictionary
-    storage_parms['to_disk'] : bool, default = False
-        If true the dask graph is executed and saved to disk in the zarr format.
-    storage_parms['append'] : bool, default = False
-        If storage_parms['to_disk'] is True only the dask graph associated with the function is executed and the resulting data variables are saved to an existing zarr file on disk.
-        Note that graphs on unrelated data to this function will not be executed or saved.
-    storage_parms['outfile'] : str
-        The zarr file to create or append to.
-    storage_parms['chunks_on_disk'] : dict of int, default = {}
-        The chunk size to use when writing to disk. This is ignored if storage_parms['append'] is True. The default will use the chunking of the input dataset.
-    storage_parms['chunks_return'] : dict of int, default = {}
-        The chunk size of the dataset that is returned. The default will use the chunking of the input dataset.
-    storage_parms['graph_name'] : str
-        The time to compute and save the data is stored in the attribute section of the dataset and storage_parms['graph_name'] is used in the label.
-    storage_parms['compressor'] : numcodecs.blosc.Blosc,default=Blosc(cname='zstd', clevel=2, shuffle=0)
-        The compression algorithm to use. Available compression algorithms can be found at https://numcodecs.readthedocs.io/en/stable/blosc.html.
-    
+    vis_sel_parms : dictionary
+    vis_sel_parms['xds'] : str
+        The xds within the mxds to use to calculate the imaging weights for.
+    vis_sel_parms['data_group_in_id'] : int, default = first id in xds.data_groups
+        The data group in the xds to use.
+    img_sel_parms : dictionary
+    img_sel_parms['data_group_in_id'] : int, default = first id in xds.data_groups
+        The data group in the image xds to use.
+    img_sel_parms['pb'] : str, default ='PB'
+        The mosaic primary beam.
+    img_sel_parms['weight_pb'] : str, default ='WEIGHT_PB'
+        The weight image.
+    img_sel_parms['weight_pb_sum_weight'] : str, default ='WEIGHT_PB_SUM_WEIGHT'
+        The sum of weight calculated when gridding the gcfs to create the weight image.
     Returns
     -------
     img_xds : xarray.core.dataset.Dataset
     """
     print('######################### Start make_mosaic_pb #########################')
     
-    from ngcasa._ngcasa_utils._store import _store
-    from ngcasa._ngcasa_utils._check_parms import _check_storage_parms, _check_sel_parms, _check_existence_sel_parms
+    #from ngcasa._ngcasa_utils._store import _store
+    #from ngcasa._ngcasa_utils._check_parms import _check_storage_parms, _check_sel_parms, _check_existence_sel_parms
+    from cngi._utils._check_parms import _check_sel_parms, _check_existence_sel_parms
     from ._imaging_utils._check_imaging_parms import _check_grid_parms, _check_mosaic_pb_parms
     from ._imaging_utils._aperture_grid import _graph_aperture_grid
     import dask.array.fft as dafft
@@ -86,25 +82,40 @@ def make_mosaic_pb(vis_dataset,gcf_dataset,img_dataset,sel_parms,grid_parms,stor
     import xarray as xr
     from ._imaging_utils._remove_padding import _remove_padding
     from ._imaging_utils._normalize import _normalize
+    from cngi.image import make_empty_sky_image
+    import dask
     
-    _sel_parms = copy.deepcopy(sel_parms)
+    #Deep copy so that inputs are not modified
+    _mxds = mxds.copy(deep=True)
+    _img_dataset = img_dataset.copy(deep=True)
+    _vis_sel_parms = copy.deepcopy(vis_sel_parms)
+    _img_sel_parms = copy.deepcopy(img_sel_parms)
     _grid_parms = copy.deepcopy(grid_parms)
-    _storage_parms = copy.deepcopy(storage_parms)
     
-    assert(_check_sel_parms(_sel_parms,{'pb':'PB','weight_pb':'WEIGHT_PB','weight_pb_sum_weight':'WEIGHT_PB_SUM_WEIGHT'})), "######### ERROR: sel_parms checking failed"
+    ##############Parameter Checking and Set Defaults##############
+    assert('xds' in _vis_sel_parms), "######### ERROR: xds must be specified in sel_parms" #Can't have a default since xds names are not fixed.
+    _vis_dataset = _mxds.attrs[_vis_sel_parms['xds']]
+    
     assert(_check_grid_parms(_grid_parms)), "######### ERROR: grid_parms checking failed"
-    assert(_check_storage_parms(_storage_parms,'mosaic_pb.img.zarr','make_mosaic_pb')), "######### ERROR: storage_parms checking failed"
+
+    #Check vis data_group
+    _check_sel_parms(_vis_dataset,_vis_sel_parms)
+    #print(_vis_sel_parms)
     
+    #Check img data_group
+    _check_sel_parms(_img_dataset,_img_sel_parms,new_or_modified_data_variables={'pb':'PB','weight_pb':'WEIGHT_PB','weight_pb_sum_weight':'WEIGHT_PB_SUM_WEIGHT'},append_to_in_id=True)
+    #print('did this work',_img_sel_parms)
     
     _grid_parms['grid_weights'] = True
     _grid_parms['do_psf'] = False
     #_grid_parms['image_size_padded'] = _grid_parms['image_size']
     _grid_parms['oversampling'] = np.array(gcf_dataset.attrs['oversampling'])
-    grids_and_sum_weights = _graph_aperture_grid(vis_dataset,gcf_dataset,_grid_parms,_sel_parms)
+    grids_and_sum_weights = _graph_aperture_grid(_vis_dataset,gcf_dataset,_grid_parms,_vis_sel_parms)
     
 
-    #grids_and_sum_weights = _graph_aperture_grid(vis_dataset,gcf_dataset,_grid_parms)
+    #grids_and_sum_weights = _graph_aperture_grid(_vis_dataset,gcf_dataset,_grid_parms)
     weight_image = _remove_padding(dafft.fftshift(dafft.ifft2(dafft.ifftshift(grids_and_sum_weights[0], axes=(0, 1)), axes=(0, 1)), axes=(0, 1)),_grid_parms['image_size']).real*(_grid_parms['image_size_padded'][0] * _grid_parms['image_size_padded'][1])
+    
     
     #############Move this to Normalizer#############
     def correct_image(weight_image, sum_weights):
@@ -117,27 +128,36 @@ def make_mosaic_pb(vis_dataset,gcf_dataset,img_dataset,sel_parms,grid_parms,stor
     mosaic_primary_beam = da.sqrt(np.abs(weight_image))
     
     if _grid_parms['chan_mode'] == 'continuum':
-        freq_coords = [da.mean(vis_dataset.coords['chan'].values)]
-        chan_width = da.from_array([da.mean(vis_dataset['chan_width'].data)],chunks=(1,))
+        freq_coords = [da.mean(_vis_dataset.coords['chan'].values)]
+        chan_width = da.from_array([da.mean(_vis_dataset['chan_width'].data)],chunks=(1,))
         imag_chan_chunk_size = 1
     elif _grid_parms['chan_mode'] == 'cube':
-        freq_coords = vis_dataset.coords['chan'].values
-        chan_width = vis_dataset['chan_width'].data
-        imag_chan_chunk_size = vis_dataset.DATA.chunks[2][0]
+        freq_coords = _vis_dataset.coords['chan'].values
+        chan_width = _vis_dataset['chan_width'].data
+        imag_chan_chunk_size = _vis_dataset.DATA.chunks[2][0]
+        
+    phase_center = _grid_parms['phase_center']
+    image_size = _grid_parms['image_size']
+    cell_size = _grid_parms['cell_size']
+    phase_center = _grid_parms['phase_center']
+
+    pol_coords = _vis_dataset.pol.data
+    time_coords = [_vis_dataset.time.mean().data]
     
-    chunks = vis_dataset.DATA.chunks
-    n_imag_pol = chunks[3][0]
-    image_dict = {}
-    coords = {'d0': np.arange(_grid_parms['image_size'][0]), 'd1': np.arange(_grid_parms['image_size'][1]),
-              'chan': freq_coords, 'pol': np.arange(n_imag_pol), 'chan_width' : ('chan',chan_width)}
-    img_dataset = img_dataset.assign_coords(coords)
-    img_dataset[_sel_parms['pb']] = xr.DataArray(mosaic_primary_beam, dims=['d0', 'd1', 'chan', 'pol'])
-    img_dataset[_sel_parms['weight']] = xr.DataArray(weight_image, dims=['d0', 'd1', 'chan', 'pol'])
-    img_dataset[_sel_parms['weight_pb_sum_weight']] = xr.DataArray(grids_and_sum_weights[1], dims=['chan', 'pol'])
+    _img_dataset = make_empty_sky_image(_img_dataset,phase_center,image_size,cell_size,freq_coords,chan_width,pol_coords,time_coords)
     
-    list_xarray_data_variables = [img_dataset[_sel_parms['pb']],img_dataset[_sel_parms['weight']]]
-    return _store(img_dataset,list_xarray_data_variables,_storage_parms)
     
+    _img_dataset[_img_sel_parms['data_group_out']['pb']] = xr.DataArray(mosaic_primary_beam[:,:,None,:,:], dims=['l', 'm', 'time', 'chan', 'pol'])
+    _img_dataset[_img_sel_parms['data_group_out']['weight_pb']] = xr.DataArray(weight_image[:,:,None,:,:], dims=['l', 'm', 'time', 'chan', 'pol'])
+    _img_dataset[_img_sel_parms['data_group_out']['weight_pb_sum_weight']] = xr.DataArray(grids_and_sum_weights[1][None,:,:], dims=['time','chan', 'pol'])
+    _img_dataset.attrs['data_groups'][0] = {**_img_dataset.attrs['data_groups'][0],**{_img_sel_parms['data_group_out']['id']:_img_sel_parms['data_group_out']}}
+    
+    
+    #list_xarray_data_variables = [_img_dataset[_sel_parms['pb']],_img_dataset[_sel_parms['weight']]]
+    #return _store(_img_dataset,list_xarray_data_variables,_storage_parms)
+    
+    print('#########################  Created graph for make_mosaic_pb #########################')
+    return _img_dataset
     
     
     '''

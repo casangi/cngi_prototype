@@ -54,7 +54,7 @@ def _check_gcf_parms(gcf_parms):
     if not(_check_parms(gcf_parms, 'chan_tolerance_factor', [numbers.Number], default=0.005)): parms_passed = False
     if not(_check_parms(gcf_parms, 'oversampling', [list,np.array], list_acceptable_data_types=[np.int], list_len=2, default=[10,10])): parms_passed = False
     if not(_check_parms(gcf_parms, 'max_support', [list,np.array], list_acceptable_data_types=[np.int], list_len=2, default=[15,15])): parms_passed = False
-    if not(_check_parms(gcf_parms, 'image_phase_center', [list,np.array], list_acceptable_data_types=[numbers.Number], list_len=2)): parms_passed = False
+    #if not(_check_parms(gcf_parms, 'image_phase_center', [list,np.array], list_acceptable_data_types=[numbers.Number], list_len=2)): parms_passed = False
     if not(_check_parms(gcf_parms, 'support_cut_level', [numbers.Number], default=2.5*10**-2)): parms_passed = False
     if not(_check_parms(gcf_parms, 'a_chan_num_chunk', [np.int], default=3)): parms_passed = False
     
@@ -71,12 +71,12 @@ def _check_gcf_parms(gcf_parms):
     if parms_passed == True:
         gcf_parms['oversampling'] = np.array(gcf_parms['oversampling']).astype(int)
         gcf_parms['max_support'] = np.array(gcf_parms['max_support']).astype(int)
-        gcf_parms['image_phase_center'] =  np.array(gcf_parms['image_phase_center'])
+        #gcf_parms['image_phase_center'] =  np.array(gcf_parms['image_phase_center'])
         gcf_parms['freq_chan'] =  np.array(gcf_parms['freq_chan'])
         gcf_parms['list_dish_diameters'] =  np.array(gcf_parms['list_dish_diameters'])
         gcf_parms['list_blockage_diameters'] =  np.array(gcf_parms['list_blockage_diameters'])
         gcf_parms['unique_ant_indx'] =  np.array(gcf_parms['unique_ant_indx'])
-        gcf_parms['basline_ant'] =  np.array(gcf_parms['basline_ant'])
+        #gcf_parms['basline_ant'] =  np.array(gcf_parms['basline_ant'])
         gcf_parms['pol'] =  np.array(gcf_parms['pol'])
         
     return parms_passed
@@ -95,7 +95,7 @@ def _check_rotation_parms(rotation_parms):
     import numbers
     parms_passed = True
     
-    if not(_check_parms(rotation_parms, 'image_phase_center', [list], list_acceptable_data_types=[numbers.Number], list_len=2)): parms_passed = False
+    if not(_check_parms(rotation_parms, 'new_phase_center', [list], list_acceptable_data_types=[numbers.Number], list_len=2)): parms_passed = False
     
     if not(_check_parms(rotation_parms, 'common_tangent_reprojection', [bool], default=True)): parms_passed = False
     

@@ -16,6 +16,7 @@ this module will be included in the api
 """
 
 import numpy as np
+import cngi._utils._constants as const
 
 '''
     Calculate gridding convolution functions (GCF) as specified for standard, widefield and mosaic imaging.
@@ -30,7 +31,7 @@ import numpy as np
     - Wterm : FT of Fresnel kernel per baseline
 '''
 
-def make_gridding_convolution_function(vis_dataset, global_dataset, gcf_parms, grid_parms, storage_parms):
+def make_gridding_convolution_function(mxds, gcf_parms, grid_parms, sel_parms):
     """
     Currently creates a gcf to correct for the primary beams of antennas and supports heterogenous arrays (antennas with different dish sizes).
     Only the airy disk and ALMA airy disk model is implemented.
@@ -66,22 +67,6 @@ def make_gridding_convolution_function(vis_dataset, global_dataset, gcf_parms, g
         The image size (no padding).
     grid_parms['cell_size']  : list of number, length = 2, units = arcseconds
         The image cell size.
-    storage_parms : dictionary
-    storage_parms['to_disk'] : bool, default = False
-        If true the dask graph is executed and saved to disk in the zarr format.
-    storage_parms['append'] : bool, default = False
-        If storage_parms['to_disk'] is True only the dask graph associated with the function is executed and the resulting data variables are saved to an existing zarr file on disk.
-        Note that graphs on unrelated data to this function will not be executed or saved.
-    storage_parms['outfile'] : str
-        The zarr file to create or append to.
-    storage_parms['chunks_on_disk'] : dict of int, default = {}
-        The chunk size to use when writing to disk. This is ignored if storage_parms['append'] is True. The default will use the chunking of the input dataset.
-    storage_parms['chunks_return'] : dict of int, default = {}
-        The chunk size of the dataset that is returned. The default will use the chunking of the input dataset.
-    storage_parms['graph_name'] : str
-        The time to compute and save the data is stored in the attribute section of the dataset and storage_parms['graph_name'] is used in the label.
-    storage_parms['compressor'] : numcodecs.blosc.Blosc,default=Blosc(cname='zstd', clevel=2, shuffle=0)
-        The compression algorithm to use. Available compression algorithms can be found at https://numcodecs.readthedocs.io/en/stable/blosc.html.
     Returns
     -------
     gcf_dataset : xarray.core.dataset.Dataset
@@ -89,9 +74,8 @@ def make_gridding_convolution_function(vis_dataset, global_dataset, gcf_parms, g
     """
     print('######################### Start make_gridding_convolution_function #########################')
     
-    from ngcasa._ngcasa_utils._store import _store
-    from ngcasa._ngcasa_utils._check_parms import _check_storage_parms
     from ._imaging_utils._check_imaging_parms import _check_pb_parms
+    from cngi._utils._check_parms import _check_sel_parms, _check_existence_sel_parms
     from ._imaging_utils._check_imaging_parms import _check_grid_parms, _check_gcf_parms
     from ._imaging_utils._gridding_convolutional_kernels import _create_prolate_spheroidal_kernel_2D, _create_prolate_spheroidal_image_2D
     from ._imaging_utils._remove_padding import _remove_padding
@@ -102,25 +86,43 @@ def make_gridding_convolution_function(vis_dataset, global_dataset, gcf_parms, g
     import itertools
     import dask
     import dask.array.fft as dafft
+    import time
     
     import matplotlib.pylab as plt
     
+    #Deep copy so that inputs are not modified
+    _mxds = mxds.copy(deep=True)
     _gcf_parms = copy.deepcopy(gcf_parms)
     _grid_parms = copy.deepcopy(grid_parms)
-    _storage_parms = copy.deepcopy(storage_parms)
+    _sel_parms = copy.deepcopy(sel_parms)
     
-    _gcf_parms['basline_ant'] = vis_dataset.antennas.values # n_baseline x 2 (ant pair)
-    _gcf_parms['freq_chan'] = vis_dataset.chan.values
-    _gcf_parms['pol'] = vis_dataset.pol.values
-    _gcf_parms['vis_data_chunks'] = vis_dataset.DATA.chunks
-    _gcf_parms['field_phase_dir'] = np.array(global_dataset.FIELD_PHASE_DIR.values[:,:,vis_dataset.attrs['ddi']])
+    ##############Parameter Checking and Set Defaults##############
+    assert('xds' in _sel_parms), "######### ERROR: xds must be specified in sel_parms" #Can't have a default since xds names are not fixed.
+    _vis_dataset = _mxds.attrs[sel_parms['xds']]
+    
+    assert('xds' in _sel_parms), "######### ERROR: xds must be specified in sel_parms" #Can't have a default since xds names are not fixed.
+    _vis_dataset = _mxds.attrs[sel_parms['xds']]
+    
+    _check_sel_parms(_vis_dataset,_sel_parms)
+
+    #_gcf_parms['basline_ant'] = np.unique([_vis_dataset.ANTENNA1.max(axis=0), _vis_dataset.ANTENNA2.max(axis=0)], axis=0).T
+    _gcf_parms['basline_ant'] = np.array([_vis_dataset.ANTENNA1.values, _vis_dataset.ANTENNA2.values]).T
+    
+    _gcf_parms['freq_chan'] = _vis_dataset.chan.values
+    _gcf_parms['pol'] = _vis_dataset.pol.values
+    _gcf_parms['vis_data_chunks'] = _vis_dataset.DATA.chunks
+    
+    
+    _gcf_parms['field_phase_dir'] = mxds.FIELD.PHASE_DIR[:,0,:].data.compute()
+    field_id = mxds.FIELD.field_id.data#.compute()
+    
+    
+    #print(_gcf_parms['field_phase_dir'])
+    #_gcf_parms['field_phase_dir'] = np.array(global_dataset.FIELD_PHASE_DIR.values[:,:,vis_dataset.attrs['ddi']])
     
     assert(_check_gcf_parms(_gcf_parms)), "######### ERROR: gcf_parms checking failed"
     assert(_check_grid_parms(_grid_parms)), "######### ERROR: grid_parms checking failed"
-    assert(_check_storage_parms(_storage_parms,'dataset.gcf.zarr','make_gcf')), "######### ERROR: user_storage_parms checking failed"
-    
-    assert(not _storage_parms['append']), "######### ERROR: storage_parms['append'] = True is not available for make_gridding_convolution_function"
-        
+
     if _gcf_parms['function'] == 'airy':
         from ._imaging_utils._make_pb_symmetric import _airy_disk_rorder
         pb_func = _airy_disk_rorder
@@ -147,28 +149,29 @@ def make_gridding_convolution_function(vis_dataset, global_dataset, gcf_parms, g
         ps_term_padded_ifft = dafft.fftshift(dafft.ifft2(dafft.ifftshift(da.from_array(ps_term_padded))))
 
         ps_image = da.from_array(_remove_padding(_create_prolate_spheroidal_image_2D(_grid_parms['image_size_padded']),_grid_parms['image_size']),chunks=_grid_parms['image_size'])
-        
+
         #Effecively no mapping needed if ps_term == True and a_term == False
         cf_baseline_map = np.zeros((len(_gcf_parms['basline_ant']),),dtype=int)
         cf_chan_map = np.zeros((len(_gcf_parms['freq_chan']),),dtype=int)
         cf_pol_map = np.zeros((len(_gcf_parms['pol']),),dtype=int)
         '''
-    
+
     if _gcf_parms['a_term'] == True:
         n_unique_ant = len(_gcf_parms['list_dish_diameters'])
-        cf_baseline_map,pb_ant_pairs = create_cf_baseline_map(_gcf_parms['unique_ant_indx'],_gcf_parms['basline_ant'],n_unique_ant)
         
+        cf_baseline_map,pb_ant_pairs = create_cf_baseline_map(_gcf_parms['unique_ant_indx'],_gcf_parms['basline_ant'],n_unique_ant)
+
         cf_chan_map, pb_freq = create_cf_chan_map(_gcf_parms['freq_chan'],_gcf_parms['chan_tolerance_factor'])
         pb_freq = da.from_array(pb_freq,chunks=np.ceil(len(pb_freq)/_gcf_parms['a_chan_num_chunk'] ))
-        
+
         cf_pol_map = np.zeros((len(_gcf_parms['pol']),),dtype=int) #create_cf_pol_map(), currently treating all pols the same
         pb_pol = da.from_array(np.array([0]),1)
-        
+
         n_chunks_in_each_dim = [pb_freq.numblocks[0],pb_pol.numblocks[0]]
         iter_chunks_indx = itertools.product(np.arange(n_chunks_in_each_dim[0]), np.arange(n_chunks_in_each_dim[1]))
         chan_chunk_sizes = pb_freq.chunks
         pol_chunk_sizes = pb_pol.chunks
-        
+
         #print(pb_freq, pb_pol,pol_chunk_sizes)
         list_baseline_pb = []
         list_weight_baseline_pb_sqrd = []
@@ -176,18 +179,26 @@ def make_gridding_convolution_function(vis_dataset, global_dataset, gcf_parms, g
                 #print('chan, pol ',c_chan,c_pol)
                 _gcf_parms['ipower'] = 1
                 delayed_baseline_pb = dask.delayed(make_baseline_patterns)(pb_freq.partitions[c_chan],pb_pol.partitions[c_pol],dask.delayed(pb_ant_pairs),dask.delayed(pb_func),dask.delayed(_gcf_parms),dask.delayed(_grid_parms))
-                
+
                 list_baseline_pb.append(da.from_delayed(delayed_baseline_pb,(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],_grid_parms['image_size_padded'][0],_grid_parms['image_size_padded'][1]),dtype=np.double))
-                              
+
                 _gcf_parms['ipower'] = 2
                 delayed_weight_baseline_pb_sqrd = dask.delayed(make_baseline_patterns)(pb_freq.partitions[c_chan],pb_pol.partitions[c_pol],dask.delayed(pb_ant_pairs),dask.delayed(pb_func),dask.delayed(_gcf_parms),dask.delayed(_grid_parms))
-                
+
                 list_weight_baseline_pb_sqrd.append(da.from_delayed(delayed_weight_baseline_pb_sqrd,(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],_grid_parms['image_size_padded'][0],_grid_parms['image_size_padded'][1]),dtype=np.double))
-               
-        
+
+
         baseline_pb = da.concatenate(list_baseline_pb,axis=1)
         weight_baseline_pb_sqrd = da.concatenate(list_weight_baseline_pb_sqrd,axis=1)
+        
+        
+#    x = baseline_pb.compute()
+#    print("&*&*&*&",x.shape)
+#    plt.figure()
+#    plt.imshow(x[0,0,0,240:260,240:260])
+#    plt.show()
     
+
     #Combine patterns and fft to obtain the gridding convolutional kernel
     #print(weight_baseline_pb_sqrd)
 
@@ -196,8 +207,8 @@ def make_gridding_convolution_function(vis_dataset, global_dataset, gcf_parms, g
     if (_gcf_parms['a_term'] == True) and (_gcf_parms['ps_term'] == True):
         conv_kernel = da.real(dafft.fftshift(dafft.fft2(dafft.ifftshift(ps_term_padded_ifft*baseline_pb, axes=(3, 4)), axes=(3, 4)), axes=(3, 4)))
         conv_weight_kernel = da.real(dafft.fftshift(dafft.fft2(dafft.ifftshift(weight_baseline_pb_sqrd, axes=(3, 4)), axes=(3, 4)), axes=(3, 4)))
-        
-        
+
+
         list_conv_kernel = []
         list_weight_conv_kernel = []
         list_conv_support = []
@@ -207,13 +218,13 @@ def make_gridding_convolution_function(vis_dataset, global_dataset, gcf_parms, g
                 list_conv_kernel.append(da.from_delayed(delayed_kernels_and_support[0],(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],_gcf_parms['resize_conv_size'][0],_gcf_parms['resize_conv_size'][1]),dtype=np.double))
                 list_weight_conv_kernel.append(da.from_delayed(delayed_kernels_and_support[1],(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],_gcf_parms['resize_conv_size'][0],_gcf_parms['resize_conv_size'][1]),dtype=np.double))
                 list_conv_support.append(da.from_delayed(delayed_kernels_and_support[2],(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],2),dtype=np.int))
-                
-        
+
+
         conv_kernel = da.concatenate(list_conv_kernel,axis=1)
         weight_conv_kernel = da.concatenate(list_weight_conv_kernel,axis=1)
         conv_support = da.concatenate(list_conv_support,axis=1)
-        
-    
+
+
         dataset_dict['SUPPORT'] = xr.DataArray(conv_support, dims=['conv_baseline','conv_chan','conv_pol','xy'])
         dataset_dict['PS_CORR_IMAGE'] = xr.DataArray(ps_image, dims=['l','m'])
         dataset_dict['WEIGHT_CONV_KERNEL'] = xr.DataArray(weight_conv_kernel, dims=['conv_baseline','conv_chan','conv_pol','u','v'])
@@ -231,6 +242,13 @@ def make_gridding_convolution_function(vis_dataset, global_dataset, gcf_parms, g
         conv_kernel =        da.real(dafft.fftshift(dafft.fft2(dafft.ifftshift(baseline_pb, axes=(3, 4)), axes=(3, 4)), axes=(3, 4)))
         conv_weight_kernel = da.real(dafft.fftshift(dafft.fft2(dafft.ifftshift(weight_baseline_pb_sqrd, axes=(3, 4)), axes=(3, 4)), axes=(3, 4)))
         
+#        x = conv_weight_kernel.compute()
+#        print("&*&*&*&",x.shape)
+#        plt.figure()
+#        #plt.imshow(x[0,0,0,240:260,240:260])
+#        plt.imshow(x[0,0,0,:,:])
+#        plt.show()
+
         list_conv_kernel = []
         list_weight_conv_kernel = []
         list_conv_support = []
@@ -240,50 +258,62 @@ def make_gridding_convolution_function(vis_dataset, global_dataset, gcf_parms, g
                 list_conv_kernel.append(da.from_delayed(delayed_kernels_and_support[0],(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],_gcf_parms['resize_conv_size'][0],_gcf_parms['resize_conv_size'][1]),dtype=np.double))
                 list_weight_conv_kernel.append(da.from_delayed(delayed_kernels_and_support[1],(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],_gcf_parms['resize_conv_size'][0],_gcf_parms['resize_conv_size'][1]),dtype=np.double))
                 list_conv_support.append(da.from_delayed(delayed_kernels_and_support[2],(len(pb_ant_pairs),chan_chunk_sizes[0][c_chan], pol_chunk_sizes[0][c_pol],2),dtype=np.int))
-                
-        
+
+
         conv_kernel = da.concatenate(list_conv_kernel,axis=1)
         weight_conv_kernel = da.concatenate(list_weight_conv_kernel,axis=1)
         conv_support = da.concatenate(list_conv_support,axis=1)
         
-    
+#        x = weight_conv_kernel.compute()
+#        print("&*&*&*&",x.shape)
+#        plt.figure()
+#        #plt.imshow(x[0,0,0,240:260,240:260])
+#        plt.imshow(x[0,0,0,:,:])
+#        plt.show()
+
+
         dataset_dict['SUPPORT'] = xr.DataArray(conv_support, dims=['conv_baseline','conv_chan','conv_pol','xy'])
         dataset_dict['WEIGHT_CONV_KERNEL'] = xr.DataArray(weight_conv_kernel, dims=['conv_baseline','conv_chan','conv_pol','u','v'])
         dataset_dict['PS_CORR_IMAGE'] = xr.DataArray(da.from_array(np.ones(_grid_parms['image_size']),chunks=_grid_parms['image_size']), dims=['l','m'])
     else:
         assert(False), "######### ERROR: At least 'a_term' or 'ps_term' must be true."
-    
+
     ###########################################################
     #Make phase gradient (one for each field)
     field_phase_dir = _gcf_parms['field_phase_dir']
     field_phase_dir = da.from_array(field_phase_dir,chunks=(np.ceil(len(field_phase_dir)/_gcf_parms['a_chan_num_chunk']),2))
-    
+
     phase_gradient = da.blockwise(make_phase_gradient, ("n_field","n_x","n_y"), field_phase_dir, ("n_field","2"), gcf_parms=_gcf_parms, grid_parms=_grid_parms, dtype=complex,  new_axes={"n_x": _gcf_parms['resize_conv_size'][0], "n_y": _gcf_parms['resize_conv_size'][1]})
-    
+
 
     ###########################################################
-    
+
     #coords = {'baseline': np.arange(n_unique_ant), 'chan': pb_freq, 'pol' : pb_pol, 'u': np.arange(resize_conv_size[0]), 'v': np.arange(resize_conv_size[1]), 'xy':np.arange(2), 'field':np.arange(field_phase_dir.shape[0]),'l':np.arange(_gridding_convolution_parms['imsize'][0]),'m':np.arange(_gridding_convolution_parms['imsize'][1])}
-        
+
     #coords = { 'conv_chan': pb_freq, 'conv_pol' : pb_pol, 'u': np.arange(resize_conv_size[0]), 'v': np.arange(resize_conv_size[1]), 'xy':np.arange(2), 'field':np.arange(field_phase_dir.shape[0]),'l':np.arange(_gridding_convolution_parms['imsize'][0]),'m':np.arange(_gridding_convolution_parms['imsize'][1])}
-    
-    coords = { 'u': np.arange(_gcf_parms['resize_conv_size'][0]), 'v': np.arange(_gcf_parms['resize_conv_size'][1]), 'xy':np.arange(2), 'field':np.arange(field_phase_dir.shape[0]),'l':np.arange(_grid_parms['image_size'][0]),'m':np.arange(_grid_parms['image_size'][1])}
-    
+
+    coords = { 'u': np.arange(_gcf_parms['resize_conv_size'][0]), 'v': np.arange(_gcf_parms['resize_conv_size'][1]), 'xy':np.arange(2), 'field_id':field_id,'l':np.arange(_grid_parms['image_size'][0]),'m':np.arange(_grid_parms['image_size'][1])}
+
     dataset_dict['CF_BASELINE_MAP'] = xr.DataArray(cf_baseline_map, dims=('baseline')).chunk(_gcf_parms['vis_data_chunks'][1])
     dataset_dict['CF_CHAN_MAP'] = xr.DataArray(cf_chan_map, dims=('chan')).chunk(_gcf_parms['vis_data_chunks'][2])
     dataset_dict['CF_POL_MAP'] = xr.DataArray(cf_pol_map, dims=('pol')).chunk(_gcf_parms['vis_data_chunks'][3])
-    
-        
+
+
     dataset_dict['CONV_KERNEL'] = xr.DataArray(conv_kernel, dims=('conv_baseline','conv_chan','conv_pol','u','v'))
-    dataset_dict['PHASE_GRADIENT'] = xr.DataArray(phase_gradient, dims=('field','u','v'))
-    
+    dataset_dict['PHASE_GRADIENT'] = xr.DataArray(phase_gradient, dims=('field_id','u','v'))
+
+    #print(field_id)
     gcf_dataset = xr.Dataset(dataset_dict, coords=coords)
     gcf_dataset.attrs['cell_uv'] =1/(_grid_parms['image_size_padded']*_grid_parms['cell_size']*_gcf_parms['oversampling'])
     gcf_dataset.attrs['oversampling'] = _gcf_parms['oversampling']
-    
-    
+
+
     #list_xarray_data_variables = [gcf_dataset['A_TERM'],gcf_dataset['WEIGHT_A_TERM'],gcf_dataset['A_SUPPORT'],gcf_dataset['WEIGHT_A_SUPPORT'],gcf_dataset['PHASE_GRADIENT']]
-    return _store(gcf_dataset,list_xarray_data_variables,_storage_parms)
+    #return _store(gcf_dataset,list_xarray_data_variables,_storage_parms)
+    
+    print('#########################  Created graph for make_gridding_convolution_function #########################')
+    
+    return gcf_dataset
         
 #Apply Phase Gradient
 #How to use WCS with Python https://astropy4cambridge.readthedocs.io/en/latest/_static/Astropy%20-%20WCS%20Transformations.html
@@ -297,25 +327,31 @@ def make_gridding_convolution_function(vis_dataset, global_dataset, gcf_parms, g
 #Fortran numbering issue
 def make_phase_gradient(field_phase_dir,gcf_parms,grid_parms):
     from astropy.wcs import WCS
+    import math
     rad_to_deg =  180/np.pi
+    
+    #print(' make_phase_gradient ',field_phase_dir,gcf_parms,grid_parms)
 
-    phase_center = gcf_parms['image_phase_center']
+    phase_center = gcf_parms['phase_center']
     w = WCS(naxis=2)
     w.wcs.crpix = grid_parms['image_size_padded']//2
     w.wcs.cdelt = grid_parms['cell_size']*rad_to_deg
+    #w.wcs.cdelt = [grid_parms['cell_size'][0]*rad_to_deg, grid_parms['cell_size'][1]*rad_to_deg]
     w.wcs.crval = phase_center*rad_to_deg
     w.wcs.ctype = ['RA---SIN','DEC--SIN']
     
     #print('field_phase_dir ',field_phase_dir)
     pix_dist = np.array(w.all_world2pix(field_phase_dir[0]*rad_to_deg, 1)) - grid_parms['image_size_padded']//2
     pix = -(pix_dist)*2*np.pi/(grid_parms['image_size_padded']*gcf_parms['oversampling'])
+    #print('%%%%%%%%%%%%%%%%')
     
     image_size = gcf_parms['resize_conv_size']
     center_indx = image_size//2
     x = np.arange(-center_indx[0], image_size[0]-center_indx[0])
     y = np.arange(-center_indx[1], image_size[1]-center_indx[1])
-    y_grid, x_grid = np.meshgrid(x,y,indexing='ij')
-    
+    #y_grid, x_grid = np.meshgrid(y,x)
+    x_grid, y_grid = np.meshgrid(x,y,indexing='ij')
+
     phase_gradient = np.moveaxis(np.exp(1j*(x_grid[:,:,None]*pix[:,0] + y_grid[:,:,None]*pix[:,1])),2,0)
     return phase_gradient
 
@@ -359,6 +395,9 @@ def make_baseline_patterns(pb_freq,pb_pol,pb_ant_pairs,pb_func,gcf_parms,grid_pa
     pb_grid_parms['cell_size'] = grid_parms['cell_size']*gcf_parms['oversampling']
     pb_grid_parms['image_size'] =  pb_grid_parms['image_size_padded']
     pb_grid_parms['image_center'] =  pb_grid_parms['image_size']//2
+    
+    #print("grid_parms",grid_parms)
+    #print("pb_grid_parms",pb_grid_parms)
     
     patterns = pb_func(pb_freq,pb_pol,gcf_parms,pb_grid_parms)
     baseline_pattern = np.zeros((len(pb_ant_pairs),len(pb_freq),len(pb_pol), grid_parms['image_size_padded'][0], grid_parms['image_size_padded'][1]), dtype=np.double)
@@ -410,6 +449,58 @@ def calc_conv_size(sub_a_term,imsize,support_cut_level,oversampling,max_support)
         return [support_x, support_y]
         
 ##########################
+def _create_beam_map(mxds,sel_parms):
+    import xarray as xr
+    import dask.array as da
+
+    #print(mxds)
+    beam_ids = mxds.beam_ids.data.compute()
+    n_beam = len(beam_ids)
+    feed_beam_ids = mxds.FEED.beam_id.data.compute()
+    
+    #Assuming antenna ids remain constant over time and that feed and antenna ids line up
+    #ant1_id = mxds.attrs[sel_parms['xds']].ANTENNA1[0,:]
+    #ant2_id = mxds.attrs[sel_parms['xds']].ANTENNA2[0,:]
+    ant1_id = mxds.attrs[sel_parms['xds']].ANTENNA1.data.compute()
+    ant2_id = mxds.attrs[sel_parms['xds']].ANTENNA2.data.compute()
+    
+    unified_ant_indx = np.zeros((ant1_id.shape[1],2),dtype=int)
+    for i in range(ant1_id.shape[1]): #for baseline
+        id1 = np.unique(ant1_id[:,i])
+        id1 = id1[id1 >= 0]
+        id2 = np.unique(ant2_id[:,i])
+        id2 = id2[id2 >= 0]
+        #unified_ant_indx
+        assert(len(id1) == 1 and len(id2) == 1), "Antennas not consistant over time."
+        
+        unified_ant_indx[i,:] = [id1[0],id2[0]]
+        
+    baseline_beam_id = np.full((len(unified_ant_indx),2), np.nan, dtype=np.int32)
+    ant_ids = mxds.antenna_ids #same length as feed_beam_ids
+    
+    for indx,id in enumerate(ant_ids.data):
+        baseline_beam_id[unified_ant_indx[:,0]==id,0] = feed_beam_ids[indx]
+        baseline_beam_id[unified_ant_indx[:,1]==id,1] = feed_beam_ids[indx]
+        
+
+    beam_pair_id = find_unique_pairs(baseline_beam_id)
+    #n_beam_pair = #max possible is int((n_beam**2 + n_beam)/2)
+
+    beam_map = np.zeros((len(unified_ant_indx),),dtype=int)
+
+    for k,ij in enumerate(beam_pair_id):
+        #print(k,ij)
+        beam_map[(baseline_beam_id[:,0] == ij[0]) & (baseline_beam_id[:,1] == ij[1])] = k
+        beam_map[(baseline_beam_id[:,1] == ij[0]) & (baseline_beam_id[:,0] == ij[1])] = k
+        
+    vis_dataset = mxds.attrs[sel_parms['xds']]
+    baseline_chunksize = vis_dataset[sel_parms['data_group_in']['data']].chunks[1]
+    
+    beam_map = xr.DataArray(da.from_array(beam_map,chunks=(baseline_chunksize)), dims=('baseline'))
+    beam_pair_id = xr.DataArray(da.from_array(beam_pair_id,chunks=beam_pair_id.shape), dims=('beam_pair','pair'))
+    return beam_map,beam_pair_id
+
+
 def create_cf_baseline_map(unique_ant_indx,basline_ant,n_unique_ant):
     n_unique_ant_pairs = int((n_unique_ant**2 + n_unique_ant)/2)
 
@@ -419,13 +510,13 @@ def create_cf_baseline_map(unique_ant_indx,basline_ant,n_unique_ant):
         for j in range(i,n_unique_ant):
            pb_ant_pairs[k,:] = [i,j]
            k = k + 1
-           
+
     cf_baseline_map = np.zeros((basline_ant.shape[0],),dtype=int)
     basline_ant_unique_ant_indx = np.concatenate((unique_ant_indx[basline_ant[:,0]][:,None],unique_ant_indx[basline_ant[:,1]][:,None]),axis=1)
 
     for k,ij in enumerate(pb_ant_pairs):
         cf_baseline_map[(basline_ant_unique_ant_indx[:,0] == ij[0]) & (basline_ant_unique_ant_indx[:,1] == ij[1])] = k
-        
+
     return cf_baseline_map,pb_ant_pairs
     
 #########################
@@ -506,3 +597,17 @@ print(px, py)
 #84.92957845698562 87.39711173077471
 #85.92957845698562 88.39711173077471
 '''
+#https://stackoverflow.com/questions/47531532/find-unique-pairs-of-array-with-python
+def find_unique_pairs(a):
+    s = np.max(a)+1
+    p1 = a[:,1]*s + a[:,0]
+    p2 = a[:,0]*s + a[:,1]
+    p = np.maximum(p1,p2)
+    sidx = p.argsort(kind='mergesort')
+    ps = p[sidx]
+    m = np.concatenate(([True],ps[1:] != ps[:-1]))
+    sm = sidx[m]
+    #print(m)
+    #print(a[sm,:])
+    
+    return a[sm,:]

@@ -67,7 +67,7 @@ def read_image(
                 anon=False,
                 requester_pays=False,
                 key=kwargs["s3_key"],
-                secret=kwargs["myvalues"],
+                secret=kwargs["s3_secret"],
             )
 
         else:

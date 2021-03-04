@@ -5,7 +5,7 @@ with open('README.md', "r") as fid:   #encoding='utf-8'
 
 setup(
     name='cngi_prototype',
-    version='0.0.68rc16',
+    version='0.0.72',
     description='CASA Next Generation Infrastructure Prototype',
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -19,7 +19,7 @@ setup(
                       'distributed>=2.9.3',
                       'graphviz>=0.13.2',
                       'matplotlib>=3.1.2',
-                      'numba==0.48.0',
+                      'numba>=0.51.0',
                       'numcodecs>=0.6.3',
                       'numpy>=1.18.1',
                       'pandas>=0.25.2',

@@ -14,4 +14,4 @@ for ms in ms_list:
 #mxds = convert_ms('data/sis14_twhya_calibrated_flagged.ms')
 #mxds = convert_ms('data/M100_full.ms')
 
-mxds = convert_ms('data/uid___A002_Xc3032e_X27c3.ms', ddis=[0,1,'global'])
+mxds = convert_ms('data/uid___A002_Xc3032e_X27c3.ms', ddis=[0,1,2,3,4,5,6,7,8,9,10,11,12,'global'])
