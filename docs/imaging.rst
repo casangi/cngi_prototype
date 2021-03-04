@@ -10,3 +10,4 @@ ngCASA demonstration of imaging prototype functions
    imaging/cube_imaging_example
    imaging/imaging_weights_example
    imaging/mosaic_image_example
+   imaging/alma_mosaic_test
