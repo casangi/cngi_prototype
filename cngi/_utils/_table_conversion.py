@@ -106,6 +106,7 @@ def convert_simple_table(infile, outfile, subtable='', dimnames=None, timecols=[
         dim0 = subtable.lower() + "_id"
     mvars, mcoords = {}, {}
     mdims = {dim0: tb_tool.nrows()}  # keys are dimension names, values are dimension sizes
+    old_mdims = mdims.copy()
     cshape, bad_cols = compute_dimensions(tb_tool, ignore)
     
     for start_idx in range(0, tb_tool.nrows(), chunks[0]):
@@ -134,13 +135,27 @@ def convert_simple_table(infile, outfile, subtable='', dimnames=None, timecols=[
             if col in timecols:
                 data = convert_time(data)
 
-            # if this column has additional dimensionality, we need to create/reuse placeholder names
-            # then apply any specified names
+            # If this column has additional dimensionality, we need to create/reuse placeholder names from mdims.
+            # Then, apply any specified names from dimnames.
+            old_dims = [dim0]
+            for ii, dd in enumerate(data.shape[1:]): # ii=index, dd=dimension length
+                if (ii+1 >= len(old_mdims)) or (dd not in list(old_mdims.values())[ii+1:]):
+                    old_mdims['d%i' % len(old_mdims.keys())] = dd
+                old_dims += [list(old_mdims.keys())[ii+1:][list(old_mdims.values())[ii+1:].index(dd)]]
             dims = [dim0]
-            for ii, dd in enumerate(data.shape[1:]):
-                if (ii+1 >= len(mdims)) or (dd not in list(mdims.values())[ii+1:]):
-                    mdims['d%i' % len(mdims.keys())] = dd
-                dims += [list(mdims.keys())[ii+1:][list(mdims.values())[ii+1:].index(dd)]]
+            avail_mdims = mdims.copy()
+            del avail_mdims[dim0] # don't want to pick from the "row" dimension
+            for ii, dd in enumerate(data.shape[1:]): # ii=index, dd=dimension length
+                if dd in avail_mdims.values(): # reuse: there's a matching placeholder name
+                    matching_mdims = filter(lambda dn: avail_mdims[dn] == dd, avail_mdims.keys())
+                    dimname = sorted(list(matching_mdims))[0]
+                    del avail_mdims[dimname]
+                else:                          # create: no matching placeholder names exist
+                    dimname = 'd%i' % len(mdims.keys())
+                    mdims[dimname] = dd
+                dims += [dimname]
+            if (dims != old_dims):
+                print(f"\nDifferences for {subtable}.{col}: {old_dims} -> {dims}")
             if dimnames is not None: dims = (dimnames[:len(dims)] + dims[len(dims)-len(dimnames)-1:])[:len(dims)]
             
             chunking = [chunks[di] if di < len(chunks) else chunks[-1] for di, dk in enumerate(dims)]
