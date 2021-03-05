@@ -16,6 +16,7 @@ this module will be included in the api
 """
 
 import numpy as np
+import cngi._utils._constants as const
 
 '''
     Calculate gridding convolution functions (GCF) as specified for standard, widefield and mosaic imaging.
@@ -85,6 +86,7 @@ def make_gridding_convolution_function(mxds, gcf_parms, grid_parms, sel_parms):
     import itertools
     import dask
     import dask.array.fft as dafft
+    import time
     
     import matplotlib.pylab as plt
     
@@ -103,20 +105,16 @@ def make_gridding_convolution_function(mxds, gcf_parms, grid_parms, sel_parms):
     
     _check_sel_parms(_vis_dataset,_sel_parms)
 
-    ant1 = np.unique(_vis_dataset.ANTENNA1,axis=0)
-    ant2 = np.unique(_vis_dataset.ANTENNA2,axis=0)
-    
-    assert (ant1.shape[0] == 1) and (ant2.shape[0] == 1), "make_gridding_convolution only supports xds where ant1 and ant2 remains constant over time."
-    _gcf_parms['basline_ant'] = np.array([ant1[0,:],ant2[0,:]]).T # n_baseline x 2 (ant pair)
+    #_gcf_parms['basline_ant'] = np.unique([_vis_dataset.ANTENNA1.max(axis=0), _vis_dataset.ANTENNA2.max(axis=0)], axis=0).T
+    _gcf_parms['basline_ant'] = np.array([_vis_dataset.ANTENNA1.values, _vis_dataset.ANTENNA2.values]).T
     
     _gcf_parms['freq_chan'] = _vis_dataset.chan.values
     _gcf_parms['pol'] = _vis_dataset.pol.values
     _gcf_parms['vis_data_chunks'] = _vis_dataset.DATA.chunks
     
-    assert np.unique(_vis_dataset.FIELD_ID,axis=1).shape[1] == 1, "make_gridding_convolution only supports xds where field_id remains constant over baseline."
     
     _gcf_parms['field_phase_dir'] = mxds.FIELD.PHASE_DIR[:,0,:].data.compute()
-    field_id = mxds.FIELD.field_id.data.compute()
+    field_id = mxds.FIELD.field_id.data#.compute()
     
     
     #print(_gcf_parms['field_phase_dir'])
@@ -192,6 +190,14 @@ def make_gridding_convolution_function(mxds, gcf_parms, grid_parms, sel_parms):
 
         baseline_pb = da.concatenate(list_baseline_pb,axis=1)
         weight_baseline_pb_sqrd = da.concatenate(list_weight_baseline_pb_sqrd,axis=1)
+        
+        
+#    x = baseline_pb.compute()
+#    print("&*&*&*&",x.shape)
+#    plt.figure()
+#    plt.imshow(x[0,0,0,240:260,240:260])
+#    plt.show()
+    
 
     #Combine patterns and fft to obtain the gridding convolutional kernel
     #print(weight_baseline_pb_sqrd)
@@ -235,6 +241,13 @@ def make_gridding_convolution_function(mxds, gcf_parms, grid_parms, sel_parms):
     elif (_gcf_parms['a_term'] == True) and (_gcf_parms['ps_term'] == False):
         conv_kernel =        da.real(dafft.fftshift(dafft.fft2(dafft.ifftshift(baseline_pb, axes=(3, 4)), axes=(3, 4)), axes=(3, 4)))
         conv_weight_kernel = da.real(dafft.fftshift(dafft.fft2(dafft.ifftshift(weight_baseline_pb_sqrd, axes=(3, 4)), axes=(3, 4)), axes=(3, 4)))
+        
+#        x = conv_weight_kernel.compute()
+#        print("&*&*&*&",x.shape)
+#        plt.figure()
+#        #plt.imshow(x[0,0,0,240:260,240:260])
+#        plt.imshow(x[0,0,0,:,:])
+#        plt.show()
 
         list_conv_kernel = []
         list_weight_conv_kernel = []
@@ -250,6 +263,13 @@ def make_gridding_convolution_function(mxds, gcf_parms, grid_parms, sel_parms):
         conv_kernel = da.concatenate(list_conv_kernel,axis=1)
         weight_conv_kernel = da.concatenate(list_weight_conv_kernel,axis=1)
         conv_support = da.concatenate(list_conv_support,axis=1)
+        
+#        x = weight_conv_kernel.compute()
+#        print("&*&*&*&",x.shape)
+#        plt.figure()
+#        #plt.imshow(x[0,0,0,240:260,240:260])
+#        plt.imshow(x[0,0,0,:,:])
+#        plt.show()
 
 
         dataset_dict['SUPPORT'] = xr.DataArray(conv_support, dims=['conv_baseline','conv_chan','conv_pol','xy'])
@@ -327,8 +347,8 @@ def make_phase_gradient(field_phase_dir,gcf_parms,grid_parms):
     
     image_size = gcf_parms['resize_conv_size']
     center_indx = image_size//2
-    x = -np.arange(-center_indx[0], image_size[0]-center_indx[0])*math.copysign(1.0,grid_parms['cell_size'][0])
-    y = np.arange(-center_indx[1], image_size[1]-center_indx[1])*math.copysign(1.0,grid_parms['cell_size'][1])
+    x = np.arange(-center_indx[0], image_size[0]-center_indx[0])
+    y = np.arange(-center_indx[1], image_size[1]-center_indx[1])
     #y_grid, x_grid = np.meshgrid(y,x)
     x_grid, y_grid = np.meshgrid(x,y,indexing='ij')
 
@@ -375,6 +395,9 @@ def make_baseline_patterns(pb_freq,pb_pol,pb_ant_pairs,pb_func,gcf_parms,grid_pa
     pb_grid_parms['cell_size'] = grid_parms['cell_size']*gcf_parms['oversampling']
     pb_grid_parms['image_size'] =  pb_grid_parms['image_size_padded']
     pb_grid_parms['image_center'] =  pb_grid_parms['image_size']//2
+    
+    #print("grid_parms",grid_parms)
+    #print("pb_grid_parms",pb_grid_parms)
     
     patterns = pb_func(pb_freq,pb_pol,gcf_parms,pb_grid_parms)
     baseline_pattern = np.zeros((len(pb_ant_pairs),len(pb_freq),len(pb_pol), grid_parms['image_size_padded'][0], grid_parms['image_size_padded'][1]), dtype=np.double)

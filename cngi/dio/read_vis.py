@@ -111,7 +111,14 @@ def read_vis(
                     print(f"Assigning partition = {partition}")
                     s3_url = ("/").join(s3_url.split("/")[:-1])
 
-            # at this point, s3_url should be compatible
+            # at this point, s3_url should be compatible and reference top level of a mxds
+            if partition is None:
+                contents_map = s3.listdir(s3_url)[1:]
+                object_names = [
+                    object_dict["name"].split("/")[-1] for object_dict in contents_map[1:]
+                ]
+                partition = object_names
+                
             if "global" in partition:
                 # attempt to replicate behavior of os.listdir (i.e., ignore .zattrs etc.)
                 contents_map_global = s3.listdir("/".join([s3_url, "global"]))[1:]

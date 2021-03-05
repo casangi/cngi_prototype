@@ -146,11 +146,10 @@ def make_mosaic_pb(mxds,gcf_dataset,img_dataset,vis_sel_parms,img_sel_parms,grid
     
     _img_dataset = make_empty_sky_image(_img_dataset,phase_center,image_size,cell_size,freq_coords,chan_width,pol_coords,time_coords)
     
-   
     
-    _img_dataset[_img_sel_parms['data_group_out']['pb']] = xr.DataArray(mosaic_primary_beam, dims=['l', 'm', 'chan', 'pol'])
-    _img_dataset[_img_sel_parms['data_group_out']['weight_pb']] = xr.DataArray(weight_image, dims=['l', 'm', 'chan', 'pol'])
-    _img_dataset[_img_sel_parms['data_group_out']['weight_pb_sum_weight']] = xr.DataArray(grids_and_sum_weights[1], dims=['chan', 'pol'])
+    _img_dataset[_img_sel_parms['data_group_out']['pb']] = xr.DataArray(mosaic_primary_beam[:,:,None,:,:], dims=['l', 'm', 'time', 'chan', 'pol'])
+    _img_dataset[_img_sel_parms['data_group_out']['weight_pb']] = xr.DataArray(weight_image[:,:,None,:,:], dims=['l', 'm', 'time', 'chan', 'pol'])
+    _img_dataset[_img_sel_parms['data_group_out']['weight_pb_sum_weight']] = xr.DataArray(grids_and_sum_weights[1][None,:,:], dims=['time','chan', 'pol'])
     _img_dataset.attrs['data_groups'][0] = {**_img_dataset.attrs['data_groups'][0],**{_img_sel_parms['data_group_out']['id']:_img_sel_parms['data_group_out']}}
     
     

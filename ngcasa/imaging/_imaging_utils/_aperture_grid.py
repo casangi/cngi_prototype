@@ -14,6 +14,7 @@
 from numba import jit
 import numpy as np
 import math
+import cngi._utils._constants as const
 #from numba import gdb
 
 def ndim_list(shape):
@@ -63,7 +64,7 @@ def _graph_aperture_grid(vis_dataset,gcf_dataset,grid_parms,sel_parms):
             sub_grid_and_sum_weights = dask.delayed(_aperture_weight_grid_numpy_wrap)(
             vis_dataset[sel_parms["data_group_in"]["uvw"]].data.partitions[c_time, c_baseline, 0],
             vis_dataset[sel_parms["data_group_in"]["imaging_weight"]].data.partitions[c_time, c_baseline, c_chan, c_pol],
-            vis_dataset["FIELD_ID"].data.partitions[c_time],
+            vis_dataset["FIELD_ID"].data.partitions[c_time,c_baseline],
             gcf_dataset["CF_BASELINE_MAP"].data.partitions[c_baseline],
             gcf_dataset["CF_CHAN_MAP"].data.partitions[c_chan],
             gcf_dataset["CF_POL_MAP"].data.partitions[c_pol],
@@ -80,7 +81,7 @@ def _graph_aperture_grid(vis_dataset,gcf_dataset,grid_parms,sel_parms):
             vis_dataset[sel_parms["data_group_in"]["data"]].data.partitions[c_time, c_baseline, c_chan, c_pol],
             vis_dataset[sel_parms["data_group_in"]["uvw"]].data.partitions[c_time, c_baseline, 0],
             vis_dataset[sel_parms["data_group_in"]["imaging_weight"]].data.partitions[c_time, c_baseline, c_chan, c_pol],
-            vis_dataset["FIELD_ID"].data.partitions[c_time],
+            vis_dataset["FIELD_ID"].data.partitions[c_time,c_baseline],
             gcf_dataset["CF_BASELINE_MAP"].data.partitions[c_baseline],
             gcf_dataset["CF_CHAN_MAP"].data.partitions[c_chan],
             gcf_dataset["CF_POL_MAP"].data.partitions[c_pol],
@@ -151,11 +152,15 @@ def _aperture_weight_grid_numpy_wrap(uvw,imaging_weight,field,cf_baseline_map,cf
         grid = np.zeros((n_imag_chan, n_imag_pol, n_uv[0], n_uv[1]), dtype=np.double)
     sum_weight = np.zeros((n_imag_chan, n_imag_pol), dtype=np.double)
     
+    #print('Pos 2')
+    
     _aperture_weight_grid_jit(grid, sum_weight, uvw, freq_chan, chan_map, pol_map, cf_baseline_map, cf_chan_map, cf_pol_map, imaging_weight, weight_conv_kernel, n_uv, delta_lm, weight_support, oversampling, field, field_id, phase_gradient)
+    
+    
 
 
     return grid, sum_weight
-    
+#XXXXXXXX
 @jit(nopython=True, cache=True, nogil=True)
 def _aperture_weight_grid_jit(grid, sum_weight, uvw, freq_chan, chan_map, pol_map, cf_baseline_map, cf_chan_map, cf_pol_map, imaging_weight, weight_conv_kernel, n_uv, delta_lm, weight_support, oversampling, field, field_id, phase_gradient):
     c = 299792458.0
@@ -186,11 +191,13 @@ def _aperture_weight_grid_jit(grid, sum_weight, uvw, freq_chan, chan_map, pol_ma
     
     prev_field = -1
     
+    #print('field_id',field_id)
+    
     for i_time in range(n_time):
 
         for i_baseline in range(n_baseline):
         
-            if ~np.isnan(field[i_time,i_baseline]):
+            if field[i_time,i_baseline] != const.INT_NAN:
                 field_indx = np.where(field_id == field[i_time,i_baseline])[0][0]
                 
                 if prev_field != field_indx:
@@ -346,12 +353,20 @@ def _aperture_grid_jit(grid, sum_weight, do_psf, vis_data, uvw, freq_chan, chan_
     #print(weight_conv_kernel.shape)
     prev_field = -1
     
+#    print('Hallo')
+    
     for i_time in range(n_time):
     
         for i_baseline in range(n_baseline):
         
-            if ~np.isnan(field[i_time,i_baseline]):
+#            if field[i_time,i_baseline] == const.INT_NAN:
+#                print('Nan detected')
+            
+            if field[i_time,i_baseline] != const.INT_NAN:
                 field_indx = np.where(field_id == field[i_time,i_baseline])[0][0]
+                
+#                if field_indx != field[i_time,i_baseline]:
+#                    print('no match')
                 
                 if prev_field != field_indx:
                     conv_kernel_phase_gradient = conv_kernel*phase_gradient[field_indx,:,:]

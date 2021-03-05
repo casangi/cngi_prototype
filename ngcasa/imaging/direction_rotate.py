@@ -14,6 +14,7 @@
 
 import numpy as np
 import scipy
+import cngi._utils._constants as const
 #from numba import jit
 # silence NumbaPerformanceWarning
 #import warnings
@@ -76,52 +77,8 @@ def direction_rotate(mxds, rotation_parms, sel_parms):
     
     #{'uvw':'UVW_ROT','data':'DATA_ROT','properties':{'new_phase_center':_rotation_parms['new_phase_center']}
     _check_sel_parms(_vis_dataset,_sel_parms,new_or_modified_data_variables={'uvw':'UVW_ROT','data':'DATA_ROT'})
-    #NB NB NB if only uvw is to be modified drop data
-    
-    '''
-    assert(_check_rotation_parms(_rotation_parms)), "######### ERROR: rotation_parms checking failed"
-    
-    assert('xds' in _sel_parms), "######### ERROR: xds must be specified in sel_parms" #Can't have a default since xds names are not fixed.
-    _vis_dataset = _mxds.attrs[sel_parms['xds']]
-    
-    data_group_ids = np.array(list(_vis_dataset.data_groups[0])).astype(int)
-    new_data_group_id = np.max(data_group_ids) + 1 #Needs to be a string to write to disk.b
-    
-    if 'data_group_in' in _sel_parms:
-        if 'id' in _sel_parms['data_group_in']:
-            assert (int(_sel_parms['data_group_in']['id']) in data_group_ids), "######### ERROR: data_group_in id does not exist in " + sel_parms['xds']
-            _sel_parms['data_group_in'] = _vis_dataset.data_groups[0][str(_sel_parms['data_group_in']['id'])]
-            print("Setting data_group_in  to ",_sel_parms['data_group_in'])
-            data_group_in_default = _sel_parms['data_group_in']
-        else:
-            data_group_in_default = _vis_dataset.data_groups[0]['1']
-            data_group_in_default['id'] = -1 #Custom
-    else:
-        data_group_in_default = _vis_dataset.data_groups[0]['1'] #Choose id 1
-    
-    
-    data_group_out_defaults = {**data_group_in_default,**{'id':str(new_data_group_id),'uvw':'UVW_ROT','data':'DATA_ROT','properties':{'new_phase_center':_rotation_parms['new_phase_center']} }} #{**x, **y} merges dicts with y taking precedence for repeated entries.
-    
-    sel_defaults = {'data_group_in':data_group_in_default,'data_group_out':data_group_out_defaults}
-    assert(_check_sel_parms(_sel_parms,sel_defaults)), "######### ERROR: sel_parms checking failed"
-    
-    sel_check = {'data_group_in':_sel_parms['data_group_in']}
-    assert(_check_existence_sel_parms(_vis_dataset,sel_check)), "######### ERROR: sel_parms checking failed"
-    
-    #data_group_id = _sel_parms['data_group_out']['id']
-    
-    print(_sel_parms['data_group_in'], data_group_in_default)
-    
-    modified_data_variable = 'data' #Nb do this for all modified datavariables
-    
-    for d_id in _vis_dataset.data_groups[0]:
-        #print(_vis_dataset.data_groups[0][d_id][modified_data_variable])
-        assert (_sel_parms['data_group_out']['id'] == d_id) or (_vis_dataset.data_groups[0][d_id][modified_data_variable] != _sel_parms['data_group_out'][modified_data_variable]), "Data variables, that are modified by the function, can not be replaced if they are referenced in another data_group"
-        #if (_sel_parms['data_group_out']['id'] != d_id) and (_vis_dataset.data_groups[0][d_id][modified_data_variable] == _sel_parms['data_group_out'][modified_data_variable]):
-        #    print(_sel_parms['data_group_out']['id'], d_id)
-    '''
-    assert np.unique(_vis_dataset.FIELD_ID,axis=1).shape[1] == 1, "direction_rotate only supports xds where field_id remains constant over baseline."
-    
+    #If only uvw is to be modified drop data
+        
     #################################################################
     
     #Calculate rotation matrices for each field (not parallelized)
@@ -156,6 +113,7 @@ def direction_rotate(mxds, rotation_parms, sel_parms):
     
 def calc_rotation_mats(vis_dataset,field_dataset,rotation_parms):
     from scipy.spatial.transform import Rotation as R
+    import cngi._utils._constants as const
     #Phase center
     ra_image = rotation_parms['new_phase_center'][0]
     dec_image = rotation_parms['new_phase_center'][1]
@@ -163,7 +121,8 @@ def calc_rotation_mats(vis_dataset,field_dataset,rotation_parms):
     rotmat_new_phase_center = R.from_euler('XZ',[[np.pi/2 - dec_image, - ra_image + np.pi/2]]).as_matrix()[0]
     new_phase_center_cosine = _directional_cosine([ra_image,dec_image])
     
-    field_id = np.unique(vis_dataset.FIELD_ID) #??????? Or should the roation matrix be calculated for all fields #field_id = field_dataset.field_id
+    field_id = np.unique(vis_dataset.FIELD_ID) # Or should the roation matrix be calculated for all fields #field_id = field_dataset.field_id
+    field_id  = field_id[field_id != const.INT_NAN] #remove nan
     
     n_fields = len(field_id)
     uvw_rotmat = np.zeros((n_fields,3,3),np.double)
@@ -172,8 +131,9 @@ def calc_rotation_mats(vis_dataset,field_dataset,rotation_parms):
     # Can't use fields_phase_center = field_dataset.PHASE_DIR.sel(field_id=field_id) because PHASE_DIR dims are d0,d1,d2. field_id(d0) a non-dimension coordinate
     # https://github.com/pydata/xarray/issues/934, https://github.com/pydata/xarray/issues/2028
     # https://github.com/pydata/xarray/issues/1603 is a planned refactor
-    # Consequently have to use where. All subtables have this issue.
-    fields_phase_center = field_dataset.PHASE_DIR.where(field_dataset.field_id==field_id, drop=True)[:,0,:] #n_fields x 2
+    # Consequently have to use isin.
+    #fields_phase_center = field_dataset.PHASE_DIR.sel(d0=field_dataset.PHASE_DIR.d0[field_dataset.PHASE_DIR.field_id.isin(field_id)],d1=0)
+    fields_phase_center = field_dataset.PHASE_DIR.sel(field_id=field_id,d1=0)
     
     #Create a rotation matrix for each field
     for i_field in range(n_fields):
@@ -212,8 +172,11 @@ def apply_rotation_matrix(uvw, field_id, uvw_rotmat, rot_field_id):
     
     for i_time in range(uvw.shape[0]):
         #uvw[i_time,:,0:2] = -uvw[i_time,:,0:2] this gives the same result as casa (in the ftmachines uvw(negateUV(vb)) is used). In ngcasa we don't do this since the uvw definition in the gridder and vis.zarr are the same.
-        field_id_t = field_id[i_time,:,:]
-        rot_field_indx = np.where(rot_field_id == np.unique(field_id_t[~np.isnan(field_id_t)])[0])[0][0] #should be len 1
+        field_id_t = field_id[i_time,:,0]
+        
+        unique_field_id = np.unique(field_id_t[field_id_t != const.INT_NAN])
+        assert len(unique_field_id)==1, "direction_rotate only supports xds where field_id remains constant over baseline."
+        rot_field_indx = np.where(rot_field_id == unique_field_id[0])[0][0] #should be len 1
         
         uvw_rot[i_time,:,:] = uvw[i_time,:,:] @ uvw_rotmat[rot_field_indx,:,:] #uvw time x baseline x uvw_indx, uvw_rotmat n_field x 3 x 3.  1 x 3 @  3 x 3
         
@@ -234,7 +197,10 @@ def apply_phasor(vis_data,uvw, field_id,freq_chan,phase_rotation,rot_field_id,co
     
     for i_time in range(uvw.shape[0]):
         field_id_t = field_id[i_time,:,:,:]
-        rot_field_indx = np.where(rot_field_id == np.unique(field_id_t[~np.isnan(field_id_t)])[0])[0][0]
+        
+        unique_field_id = np.unique(field_id_t[field_id_t != const.INT_NAN])
+        assert len(unique_field_id)==1, "direction_rotate only supports xds where field_id remains constant over baseline."
+        rot_field_indx = np.where(rot_field_id == unique_field_id[0])[0][0] #should be len 1
         phase_direction[i_time,:] = uvw[i_time,:,0:end_slice,0] @ phase_rotation[rot_field_indx,0:end_slice]
         
     
