@@ -16,7 +16,7 @@ this module will be included in the api
 """
 
 
-def convert_ms(infile, outfile=None, ddis=None, ignore=['HISTORY'], compressor=None, chunks=(100, 400, 32, 1), append=False):
+def convert_ms(infile, outfile=None, ddis=None, ignore=['HISTORY'], compressor=None, chunks=(100, 400, 32, 1), sub_chunks=10000, append=False):
     """
     Convert legacy format MS to xarray Visibility Dataset and zarr storage format
 
@@ -44,6 +44,9 @@ def convert_ms(infile, outfile=None, ddis=None, ignore=['HISTORY'], compressor=N
     chunks: 4-D tuple of ints
         Shape of desired chunking in the form of (time, baseline, channel, polarization), use -1 for entire axis in one chunk. Default is (100, 400, 20, 1)
         Note: chunk size is the product of the four numbers, and data is batch processed by time axis, so that will drive memory needed for conversion.
+    sub_chunks: int
+        Chunking used for subtable conversion (except for POINTING which will use time/baseline dims from chunks parameter). This is a single integer
+        used for the row-axis (d0) chunking only, no other dims in the subtables will be chunked.
     append : bool
         Keep destination zarr store intact and add new DDI's to it. Note that duplicate DDI's will still be overwritten. Default False deletes and replaces
         entire directory.
@@ -108,6 +111,7 @@ def convert_ms(infile, outfile=None, ddis=None, ignore=['HISTORY'], compressor=N
         xds = tblconv.convert_expanded_table(infile, os.path.join(outfile,'xds'+str(ddi)), keys={'TIME': 'time', ('ANTENNA1', 'ANTENNA2'): 'baseline'},
                                              subsel={'DATA_DESC_ID':ddi}, timecols=['time'], dimnames={'d2':'chan', 'd3':'pol'},
                                              ignore=ignorecols + msv2, compressor=compressor, chunks=chunks, nofile=False)
+        if len(xds.dims) == 0: continue
         
         # convert and append UVW separately so we can handle its special dimension
         uvw_chunks = (chunks[0],chunks[1],3) #No chunking over uvw_index
@@ -203,7 +207,8 @@ def convert_ms(infile, outfile=None, ddis=None, ignore=['HISTORY'], compressor=N
             else:
                 add_row_id = (subtable in ['ANTENNA','FIELD','OBSERVATION','SCAN','SPECTRAL_WINDOW','STATE'])
                 xds_sub_list = [(subtable, tblconv.convert_simple_table(infile, os.path.join(outfile, 'global'), subtable,
-                                                                        timecols=['TIME'], ignore=ignorecols, compressor=compressor, nofile=False, add_row_id=add_row_id))]
+                                                                        timecols=['TIME'], ignore=ignorecols, compressor=compressor, nofile=False,
+                                                                        chunks=(sub_chunks,-1), add_row_id=add_row_id))]
             
             if len(xds_sub_list[-1][1].dims) != 0:
                 xds_list += xds_sub_list

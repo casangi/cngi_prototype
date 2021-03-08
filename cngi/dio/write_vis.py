@@ -16,18 +16,22 @@ this module will be included in the api
 """
 
 #############################################
-def write_vis(xds, outfile='vis.zarr', partition='part0', compressor=None, append=True):
+def write_vis(mxds, outfile='vis.zarr', partition=None, compressor=None, append=False):
     """
     Write xarray Visibility Dataset to zarr format on disk
+    
+    Note the convention that global subtables are all CAPITALIZED in the mxds while visibility
+    partitions are all lowercase
   
     Parameters
     ----------
-    xds : xarray.core.dataset.Dataset
-        Visibility Dataset to write to disk
+    mxds : xarray.core.dataset.Dataset
+        input multi-xarray Dataset with global data
     outfile : str
         output filename, generally ends in .zarr
-    partition : str
-        Name of partition to write into outfile. Overwrites existing partition of same name. Default is 'part0'
+    partition : str or list
+        Name of partition xds to write into outfile (from the mxds attributes section). Overwrites existing partition of same name.
+        Default None writes entire mxds
     compressor : numcodecs.blosc.Blosc
         The blosc compressor to use when saving the converted data to disk using zarr.
         If None the zstd compression algorithm used with compression level 2.
@@ -40,6 +44,7 @@ def write_vis(xds, outfile='vis.zarr', partition='part0', compressor=None, appen
     import os
     from numcodecs import Blosc
     from itertools import cycle
+    import numpy as np
     
     outfile = os.path.expanduser(outfile)
     
@@ -51,5 +56,13 @@ def write_vis(xds, outfile='vis.zarr', partition='part0', compressor=None, appen
       tmp = os.system("rm -fr " + outfile)
       tmp = os.system("mkdir " + outfile)
     
-    encoding = dict(zip(list(xds.data_vars), cycle([{'compressor': compressor}])))
-    xds.to_zarr(os.path.join(outfile, partition), mode='w', encoding=encoding)
+    if partition is None:
+        partition = list(mxds.attrs.keys())
+    partition = list(np.atleast_1d(partition))
+    
+    for part in partition:
+        assert part in mxds.attrs, 'invalid partition parameter, not found in mxds'
+        encoding = dict(zip(list(mxds.attrs[partition].data_vars), cycle([{'compressor': compressor}])))
+        subdir = 'global' if partition == partition.upper() else ''
+        mxds.attrs[partition].to_zarr(os.path.join(outfile, subdir), mode='w', encoding=encoding)
+        
