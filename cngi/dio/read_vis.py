@@ -181,6 +181,7 @@ def read_vis(
 
         xds_list = []
         for part in partition:
+            if part == 'global': continue
             if os.path.isdir(os.path.join(infile, str(part))):
                 xds_list += [(part.replace("global/", ""), open_zarr(os.path.join(infile, str(part)), chunks=chunks,
                                                                      consolidated=consolidated,
