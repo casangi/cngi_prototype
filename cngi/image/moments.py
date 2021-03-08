@@ -61,8 +61,8 @@ def moments(xds, moment=None, axis='chan'):
     
     # input parameter checking
     # moment: int array: a List of moments to compute
+    if moment is None: moment = np.arange(-1,12)
     moment = np.atleast_1d(moment)
-    if moment ==  None: moment = np.arange(-1,12)
     assert np.min(moment) in range(-1,12), "Input to moment parameter must be between -1 and 11"
     assert np.max(moment) in range(-1,12), "Input to moment parameter must be between -1 and 11"
     
