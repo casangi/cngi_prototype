@@ -61,13 +61,13 @@ def cont_sub(xds, dv='IMAGE', fitOrder=2 , chans=None, polyfitCoefficiencs='Coef
 
     xr.set_options(keep_attrs=True)
 
-    if (xds[dv].shape[3] > 1 ):
+    if (xds.dims['pol'] > 1 ):
         raise NotImplementedError("The number of pol great than one is not yet supported")
 
     if chans is None:
-       includechans = list(range(xds[dv].shape[2]))
+       includechans = list(range(xds.dims['chan']))
     else:
-       includechans = iu.selectedchannels(chans, xds[dv].shape[2])
+       includechans = iu.selectedchannels(chans, xds.dims['chan'])
 
     if fitOrder is None:
        fitOrder = 2
@@ -92,14 +92,14 @@ def cont_sub(xds, dv='IMAGE', fitOrder=2 , chans=None, polyfitCoefficiencs='Coef
     # with the dask='parallelized' option in apply_ufunc, this function receives a straight numpy array of chunk size
     # but does not compute the dag, which is nice
     def lspolyfit(npa):
-        yy = npa.swapaxes(0, 2).reshape(len(xx), -1)  # flatten to chans by (ra * dec*pol) features
-        yy[:, np.all(np.isnan(yy), axis=0)] = 0  # fill ra/dec/pol cols that are all nan with 0's
+        yy = npa.swapaxes(0, 3).reshape(len(xx), -1)  # flatten to chans by (ra * dec*time*pol) features
+        yy[:, np.all(np.isnan(yy), axis=0)] = 0  # fill ra/dec/time/pol cols that are all nan with 0's
         yy_r = SimpleImputer(missing_values=np.nan, strategy='median').fit_transform(
             np.real(yy))  # remove remaining nan's
         model_r = LinearRegression(fit_intercept=False).fit(xx[includechans], yy_r[includechans])
         model_vals = model_r.predict(xx)  # compute model values
 
-        return model_vals.reshape(npa.swapaxes(0, 2).shape).swapaxes(0, 2)
+        return model_vals.reshape(npa.swapaxes(0, 3).shape).swapaxes(0, 3)
 
     #local debug lspolyfit using below line code
     #model_data = lspolyfit(xds[dv].values)
@@ -109,7 +109,7 @@ def cont_sub(xds, dv='IMAGE', fitOrder=2 , chans=None, polyfitCoefficiencs='Coef
     xds[continuumname] = xds[dv] - model_data
     xds = xds.assign({linename: model_data}).unify_chunks()
 
-    error = xds[linename][:, :, includechans, :] - xds[dv][:, :, includechans, :]
+    error = xds[linename][:, :, :,includechans, :] - xds[dv][:, :, :,includechans, :]
     abs_error = (error.real ** 2 + error.imag ** 2) ** 0.5
     rms_error = (error ** 2).mean() ** 0.5
     min_max_error = [abs_error.min(), abs_error.max()]

@@ -136,7 +136,7 @@ def _check_sel_parms(xds,sel_parms,new_or_modified_data_variables={},required_da
         if 'data_group_out_id' in sel_parms:
             xds.attrs['data_groups'] = [{str(sel_parms['data_group_out_id']):{'id':str(sel_parms['data_group_out_id'])}}]
         else:
-            xds.attrs['data_groups'] = [{'1':{'id':'1'}}]
+            xds.attrs['data_groups'] = [{'0':{'id':'0'}}]
         append_to_in_id = True
     ######################
     
