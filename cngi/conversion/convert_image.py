@@ -59,9 +59,10 @@ def convert_image(infile, outfile=None, artifacts=[], compressor=None, chunks=(-
     # TODO - find and save projection type
 
     infile = os.path.expanduser(infile[:-1]) if infile.endswith('/') else os.path.expanduser(infile)
+    infile = infile if infile.startswith('/') else './' + infile
     prefix = infile[:infile.rindex('.')]
     suffix = infile[infile.rindex('.') + 1:]
-    srcdir = infile[:infile.rindex('/')+1] if '/' in infile else './'
+    srcdir = infile[:infile.rindex('/') + 1]
     if outfile == None: outfile = prefix + '.img.zarr'
     outfile = os.path.expanduser(outfile)
 
