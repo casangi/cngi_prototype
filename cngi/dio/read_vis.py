@@ -174,38 +174,18 @@ def read_vis(
         infile = os.path.expanduser(infile)
         if partition is None:
             partition = os.listdir(infile)
-        partition = np.atleast_1d(partition)
+        partition = list(np.atleast_1d(partition))
 
         if ("global" in partition) and (os.path.isdir(os.path.join(infile, "global"))):
-            global_dirs = sorted(
-                ["global/" + tt for tt in os.listdir(os.path.join(infile, "global"))]
-            )
-            partition = np.hstack(
-                (np.delete(partition, np.where(partition == "global")), global_dirs)
-            )
+            partition += sorted(["global/"+tt for tt in os.listdir(os.path.join(infile, "global"))])
 
-        if partition.size == 1:
-            xds = open_zarr(
-                os.path.join(infile, str(partition[0])),
-                chunks=chunks,
-                consolidated=consolidated,
-                overwrite_encoded_chunks=overwrite_encoded_chunks,
-            )
-        else:
-            xds_list = []
-            for part in partition:
-                if os.path.isdir(os.path.join(infile, str(part))):
-                    xds_list += [
-                        (
-                            part.replace("global/", ""),
-                            open_zarr(
-                                os.path.join(infile, str(part)),
-                                chunks=chunks,
-                                consolidated=consolidated,
-                                overwrite_encoded_chunks=overwrite_encoded_chunks,
-                            ),
-                        )
-                    ]
+        xds_list = []
+        for part in partition:
+            if part == 'global': continue
+            if os.path.isdir(os.path.join(infile, str(part))):
+                xds_list += [(part.replace("global/", ""), open_zarr(os.path.join(infile, str(part)), chunks=chunks,
+                                                                     consolidated=consolidated,
+                                                                     overwrite_encoded_chunks=overwrite_encoded_chunks))]
     # build the master xds to return
     xds = xdsio.vis_xds_packager(xds_list)
 

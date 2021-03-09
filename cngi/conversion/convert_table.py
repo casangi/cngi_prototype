@@ -17,7 +17,7 @@ this module will be included in the api
 
 
 
-def convert_table(infile, outfile=None, subtable=None, keys=None, timecols=None, ignorecols=None, compressor=None, chunk_shape=(40000, 20, 1), append=False, nofile=False):
+def convert_table(infile, outfile=None, subtable=None, keys=None, timecols=None, ignorecols=None, compressor=None, chunks=(10000, -1), append=False, nofile=False):
     """
     Convert casacore table format to xarray Dataset and zarr storage format.
 
@@ -41,7 +41,7 @@ def convert_table(infile, outfile=None, subtable=None, keys=None, timecols=None,
     compressor : numcodecs.blosc.Blosc
         The blosc compressor to use when saving the converted data to disk using zarr.
         If None the zstd compression algorithm used with compression level 2.
-    chunk_shape : int
+    chunks : int
         Shape of desired chunking in the form of (dim0, dim1, ..., dimN), use -1 for entire axis in one chunk. Default is (80000, 10).
         Chunking is applied per column / data variable.  If too few dimensions are specified, last chunk size is reused as necessary.
         Note: chunk size is the product of the four numbers, and data is batch processed by the first axis, so that will drive memory needed for conversion.
@@ -85,7 +85,7 @@ def convert_table(infile, outfile=None, subtable=None, keys=None, timecols=None,
                                            timecols=[] if timecols is None else timecols,
                                            ignore= [] if ignorecols is None else ignorecols,
                                            compressor=compressor,
-                                           chunk_shape=chunk_shape,
+                                           chunks=chunks,
                                            nofile=nofile)
     else:
         xds = tblconv.convert_expanded_table(infile, outfile,
@@ -96,7 +96,7 @@ def convert_table(infile, outfile=None, subtable=None, keys=None, timecols=None,
                                              dimnames={},
                                              ignore=[] if ignorecols is None else ignorecols,
                                              compressor=compressor,
-                                             chunk_shape=chunk_shape,
+                                             chunks=chunks,
                                              nofile=nofile)
 
     # write sw version that did this conversion to zarr directory

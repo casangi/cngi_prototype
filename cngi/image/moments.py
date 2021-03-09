@@ -20,7 +20,7 @@ import numpy as np
 
 xa.set_options(keep_attrs=True)
 
-def moments(xds, moment=-1, axis='chan'):
+def moments(xds, moment=None, axis='chan'):
     """
     Collapse an n-dimensional image cube into a moment by taking a linear combination of individual planes
     
@@ -61,8 +61,8 @@ def moments(xds, moment=-1, axis='chan'):
     
     # input parameter checking
     # moment: int array: a List of moments to compute
+    if moment is None: moment = np.arange(-1,12)
     moment = np.atleast_1d(moment)
-    if -1 in moment: moment = np.arange(12)
     assert np.min(moment) in range(-1,12), "Input to moment parameter must be between -1 and 11"
     assert np.max(moment) in range(-1,12), "Input to moment parameter must be between -1 and 11"
     
