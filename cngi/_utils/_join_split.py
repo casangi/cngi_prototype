@@ -64,7 +64,7 @@ def _get_subtable_dimcoords_or_primcoords(sub : xr.Dataset, subtable_name : str)
     primary_key_names = get_subtable_primary_key_names(sub, subtable_name)
     return list(np.unique(dim_coords + primary_key_names))
 
-def get_subtable_matching_dimcoords(sub0: xr.Dataset, sub1 : xr.Dataset, subtable_name : str, matchtype="exact") -> dict:
+def _get_subtable_matching_dimcoords(sub0: xr.Dataset, sub1 : xr.Dataset, subtable_name : str, matchtype="exact") -> dict:
     """!!!COMPUTES!!! Finds the dimensional/primary coordinate values in sub0 and sub1 which represent the same thing.
 
     Extended Summary
@@ -94,8 +94,8 @@ def get_subtable_matching_dimcoords(sub0: xr.Dataset, sub1 : xr.Dataset, subtabl
         from the sub1 coordinate values to the sub0 coordinate values.
     """
     # check parameters
-    assert(isinstance(sub0, xr.Dataset)), f"######### ERROR: subtable must be a dataset!"
-    assert(isinstance(sub1, xr.Dataset)), f"######### ERROR: subtable must be a dataset!"
+    assert(isinstance(sub0, xr.Dataset)), f"######### ERROR: subtable {subtable_name} must be a dataset!"
+    assert(isinstance(sub1, xr.Dataset)), f"######### ERROR: subtable {subtable_name} must be a dataset!"
 
     # easy case
     if (matchtype != "exact"):
@@ -201,8 +201,8 @@ def _get_subtable_dimcoord_remap(sub0: xr.Dataset, sub1 : xr.Dataset, subtable_n
         existing_map = {}
 
     # check parameters
-    assert(isinstance(sub0, xr.Dataset)), f"######### ERROR: subtable must be a dataset!"
-    assert(isinstance(sub1, xr.Dataset)), f"######### ERROR: subtable must be a dataset!"
+    assert(isinstance(sub0, xr.Dataset)), f"######### ERROR: subtable {subtable_name} must be a dataset!"
+    assert(isinstance(sub1, xr.Dataset)), f"######### ERROR: subtable {subtable_name} must be a dataset!"
 
     # get the dimensional/primary coordinates
     check_coords0 = _get_subtable_dimcoords_or_primcoords(sub0, subtable_name)
@@ -251,7 +251,7 @@ def _get_subtable_dimcoord_remap(sub0: xr.Dataset, sub1 : xr.Dataset, subtable_n
 
     return coords_map
     
-def remap_subtable_coords_and_vals(sub1 : xr.Dataset, subtable_name : str, coords_vals_remap : dict, relational_ids_map : dict, update_refs_only=False) -> xr.Dataset:
+def _remap_subtable_coords_and_vals(sub1 : xr.Dataset, subtable_name : str, coords_vals_remap : dict, relational_ids_map : dict, update_refs_only=False) -> xr.Dataset:
     """!!!COMPUTES!!! Update subtable sub1 with the given coords_vals_remap and relation_ids_map. pseudocode: ret = sub1.update(coords_vals_remap, relational_ids_map)
 
     Extended Summary
@@ -288,7 +288,7 @@ def remap_subtable_coords_and_vals(sub1 : xr.Dataset, subtable_name : str, coord
         append_xds_subtable(...).
     """
     # check parameters
-    assert(isinstance(sub1, xr.Dataset)), f"######### ERROR: subtable must be a dataset!"
+    assert(isinstance(sub1, xr.Dataset)), f"######### ERROR: subtable {subtable_name} must be a dataset!"
 
     # get the list of non-reference coordinates
     nonref_coord_names = _get_subtable_dimcoords_or_primcoords(sub1, subtable_name)
@@ -328,6 +328,32 @@ def remap_subtable_coords_and_vals(sub1 : xr.Dataset, subtable_name : str, coord
 
     return sub1
 
+def _build_mxds_coords(mxds : xr.Dataset, subtables : dict):
+    from cngi._utils._mxds_ops import get_subtable_primary_key_names
+
+    # make a copy of the current coordinates, as a dictionary so that it can be easily updated
+    coords = dict(mxds.coords).copy()
+
+    # build new coordinates based on the primary keys in each of the subtables
+    for sn in subtables:
+        sub = subtables[sn]
+
+        # update the global coordinate with the matching primary key name "coord_*_name"
+        primary_key_names = get_subtable_primary_key_names(sub, subtable_name=sn)
+        for pkname in primary_key_names:
+
+            # find the coord_name, example "antenna_ids" and "antennas"
+            coord_id = sn.lower().replace("spectral_window", "spw")+"_ids"
+            coord_name = sn.lower().replace("spectral_window", "spw").replace("_id", "")+"s"
+
+            # update coordinate ids
+            if coord_id in coords:
+                coords[coord_id] = (coord_id, sub.coords[pkname].values)
+            if (coord_name in coords) and ("NAME" in sub.data_vars):
+                coords[coord_name] = (coord_id, sub.data_vars["NAME"].values)
+
+    return coords
+
 def append_xds_subtable(sub0 : xr.Dataset, sub1 : xr.Dataset) -> xr.Dataset:
     """!!!COMPUTES!!! Append the given subtable sub1 to a new subtable based on sub0. pseudocode: ret = sub0.append(sub1)
 
@@ -353,8 +379,8 @@ def append_xds_subtable(sub0 : xr.Dataset, sub1 : xr.Dataset) -> xr.Dataset:
         current subtable in sub0.
     """
     # check parameters
-    assert(isinstance(sub0, xr.Dataset)), f"######### ERROR: subtable must be a dataset!"
-    assert(isinstance(sub1, xr.Dataset)), f"######### ERROR: subtable must be a dataset!"
+    assert(isinstance(sub0, xr.Dataset)), f"######### ERROR: subtable {subtable_name} must be a dataset!"
+    assert(isinstance(sub1, xr.Dataset)), f"######### ERROR: subtable {subtable_name} must be a dataset!"
     if ('DATA' in list(sub0.data_vars)) or ('CORRECTED_DATA' in list(sub0.data_vars)) or \
        ('DATA' in list(sub1.data_vars)) or ('CORRECTED_DATA' in list(sub1.data_vars)):
         print("Warning: subtable should not be a visibility xds, but rather one of the 'global' tables. Found 'DATA' or 'CORRECTED_DATA' variable, which is usually only found in a visibility xds.")
@@ -395,7 +421,7 @@ def append_mxds_subtables(mxds0 : xr.Dataset, mxds1 : xr.Dataset, matchtype="exa
         is then used to determine which mxds1 coordinate and data_var values
         need to be remapped to new coordinates and merged, and which values can
         be safely ignored in the merge.
-        See get_subtable_matching_dimcoords() for a description of possible
+        See _get_subtable_matching_dimcoords() for a description of possible
         values.
 
     Returns
@@ -411,9 +437,8 @@ def append_mxds_subtables(mxds0 : xr.Dataset, mxds1 : xr.Dataset, matchtype="exa
     import copy
     from cngi._utils._mxds_ops import get_subtables, get_subtable_primary_key_names, check_mxds_subtable_ref_ids, assign_dimensions_for_primary_coordinates
 
-    # make some copies
-    attrs  = mxds0.attrs.copy() # type: typing.Dict[str, xr.Dataset]
-    coords = dict(mxds0.coords).copy()
+    # make a copy of the subtables, as a dictionary so that subtables can be easily updated
+    attrs = mxds0.attrs.copy() # type: typing.Dict[str, xr.Dataset]
 
     # get the list of subtables to append to mxds0 from mxds1
     subs    = {} # type: typing.Dict[str, xr.Dataset]
@@ -423,8 +448,8 @@ def append_mxds_subtables(mxds0 : xr.Dataset, mxds1 : xr.Dataset, matchtype="exa
         sub_in0[sn] = (sn in attrs)
 
     # Assign dimension coordinates for primary keys that aren't already dimension coordinates.
-    # Use the same name as the primary key's current 0-axis dimension.
     # We do this so that there aren't going to be collisions when we try to merge mxds1 into mxds0.
+    # Use the same name as the primary key.
     for sn in subs:
         if sub_in0[sn]:
             # this is a shared subtable, add dimension coordinates
@@ -450,7 +475,7 @@ def append_mxds_subtables(mxds0 : xr.Dataset, mxds1 : xr.Dataset, matchtype="exa
             sub0 = attrs[sn]
             sub1 = subs[sn]
             if sub_in0[sn]:
-                matching_dimcoords = get_subtable_matching_dimcoords(sub0, sub1, subtable_name=sn, matchtype=matchtype)
+                matching_dimcoords = _get_subtable_matching_dimcoords(sub0, sub1, subtable_name=sn, matchtype=matchtype)
                 coords_vals_remap = _get_subtable_dimcoord_remap(sub0, sub1, subtable_name=sn, matching_dimcoords=matching_dimcoords, existing_map=new_ids_map)
                 for coord_name in coords_vals_remap:
                     # assert(coord_name not in ids_map), f"######### ERROR: subtables can't share the same dimensional coordinates! Offending subtable/coordinate: {subtable_name}/{coord_name}"
@@ -467,7 +492,7 @@ def append_mxds_subtables(mxds0 : xr.Dataset, mxds1 : xr.Dataset, matchtype="exa
                 #   (the reference values could have changed, causing keys to change, causing reference values
                 #    to change in some places but not in others).
                 sub1 = fresh_subs[sn]
-                new_subtable = remap_subtable_coords_and_vals(sub1, subtable_name=sn, coords_vals_remap=ids_map, relational_ids_map=ids_map, update_refs_only=keys_changed)
+                new_subtable = _remap_subtable_coords_and_vals(sub1, subtable_name=sn, coords_vals_remap=ids_map, relational_ids_map=ids_map, update_refs_only=keys_changed)
                 subs[sn] = new_subtable # use this new value for computing the next loop (above), or for appending (below)
 
     # Build out the new subtables by appending those in mxds1 to the ones in mxds0.
@@ -475,28 +500,140 @@ def append_mxds_subtables(mxds0 : xr.Dataset, mxds1 : xr.Dataset, matchtype="exa
     for sn in subs:
         if sub_in0[sn]:
             # this is a shared subtable, append it to the subtable from mxds0
-            attrs[sn] = append_xds_subtable(sub0=attrs[sn], sub1=subs[sn])
+            try:
+                attrs[sn] = append_xds_subtable(sub0=attrs[sn], sub1=subs[sn])
+            except xr.MergeError as e:
+                print(f"Error in appending subtable {sn} in {append_mxds_subtables.__name__}")
+                raise
         else:
             # include all subtables in mxds1 that aren't in mxds0 (copy sub1 to the missing sub0)
             attrs[sn] = subs[sn]
 
     # update the global coordinates to reflect the new coordinate values in the subtables
-    for sn in subs:
-        sub0 = attrs[sn]
-        # update the global coordinate with the matching primay key name "coord_*_name"
-        primary_key_names = get_subtable_primary_key_names(sub0, subtable_name=sn)
-        for pkname in primary_key_names:
-            # find the coord_name, example "antenna_ids" and "antennas"
-            coord_id = sn.lower().replace("spectral_window", "spw") + "_ids"
-            coord_name = sn.lower().replace("spectral_window", "spw").replace("_id","") + "s"
-            # update coordinate ids
-            if coord_id in coords:
-                coords[coord_id] = (coord_id, sub0.coords[pkname].values)
-            if (coord_name in coords) and ("NAME" in sub0.data_vars):
-                coords[coord_name] = (coord_id, sub0.data_vars["NAME"].values)
+    coords = _build_mxds_coords(mxds0, attrs)
 
     # merge mxds0 and mxds1
     ret = xr.Dataset(data_vars=mxds0.data_vars, coords=coords, attrs=attrs)
     check_mxds_subtable_ref_ids(ret)
 
     return ret, ids_map
+
+def extract_xds_with_subtables(mxds : xr.Dataset, xds_name : str) -> xr.Dataset:
+    """Pull the xds visibilites out with the mxds, preserving only that information in the subtables that is related to the given xds.
+
+    Parameters
+    ----------
+    mxds: xarray.Dataset
+        The multi-xds dataset to pull data out of.
+    xds_name: str
+        Name of the visibilities dataset. Should be of the form "xds*"
+
+    Returns
+    -------
+    xarray.Dataset
+        A new mxds, which includes just the xds_name visibility Dataset and the
+        related information from the subtables.
+    """
+    import numpy as np
+    from cngi._utils._mxds_ops import get_subtables, get_subtable_primary_key_names, check_mxds_subtable_ref_ids, assign_dimensions_for_primary_coordinates
+
+    # check that the main table exists
+    assert ("xds" in xds_name), f"######### ERROR: xds_name must reference a main table! Name should contain \"xds\" but is instead {xds_name}!"
+    assert (xds_name in mxds.attrs), f"######### ERROR: main table {xds_name} does not appear in the mxds list of attrs!"
+    main = mxds.attrs[xds_name] # type: xr.Dataset
+    assert (isinstance(main, xr.Dataset)), f"######### ERROR: xds visibilities table must be a Dataset but is instead a {type(main)}!"
+
+    # make a copy of the subtables, as a dictionary so that it can be easily updated
+    # exclude all xds visibilities other than the desired xds
+    attrs = {} # type: typing.Dict[str, xr.Dataset]
+    for sn in mxds.attrs:
+        if ("xds" not in sn) or (sn == xds_name):
+            attrs[sn] = mxds.attrs[sn]
+
+    # get the list of subtables, and the list of key coordinates used for indexing those subtables
+    subnames = get_subtables(mxds)
+    sub_keynames = {}
+    keynames = [] # type: typing.List[str]
+    for sn in subnames:
+        sub_kns = _get_subtable_dimcoords_or_primcoords(attrs[sn], sn)
+        keynames += sub_kns
+        sub_keynames[sn] = sub_kns
+    keynames = list(np.unique(keynames))
+
+    # get the list of key values to keep, based off of the main table
+    used_keyvals = {}
+    for kn in keynames:
+        # find the variant of this keyname that is used in the main table
+        knvariant = '' # here to make pycharm happy
+        for knvariant in [kn.lower(), kn.upper(), kn.lower()+'s', kn.upper()+'S', '']:
+            if (knvariant in main.coords) or (knvariant in main.data_vars):
+                break
+        if knvariant == '':
+            used_keyvals[kn] = None
+            continue
+
+        # find the used values
+        vals = np.unique(main[knvariant].values) # get unique values along each dimension
+        used_keyvals[kn] = np.unique(vals.flatten()) # flatten to a single dimension and get unique values along that single dimension
+        used_keyvals[kn] = list(filter(lambda x: not np.isnan(x), used_keyvals[kn]))
+
+    # build a new set of subtables with trimmed values
+    alldrops = {}
+    for sn in subnames:
+        sub = attrs[sn]
+
+        # we don't know how to trim down tables that don't have keys
+        if len(sub_keynames[sn]) == 0:
+            # automatically keep this entire table
+            continue
+
+        # find the used dimensions of the subtable based on its keys
+        used_dims = {}
+        for dn in sub.dims:
+            # limit this dimension based on which values are used by the key coordinates
+            # TODO how to find used dimension values of multi-dimension keys?
+            for kn in sub_keynames[sn]:
+                coord = sub[kn]
+                if used_keyvals[kn] is None:
+                    continue
+                if dn not in coord.dims:
+                    continue
+                if dn not in used_dims:
+                    used_dims[dn] = []
+                # find the matching dimension values to the those used key coordinate values
+                used = []
+                for dimval in sub[dn].values:
+                    keyval = coord.sel({dn:[dimval]}).values[0]
+                    if keyval in used_keyvals[kn]:
+                        used.append(dimval)
+                used_dims[dn] += used
+
+            # if this dimension does not appear in any keynames, then assume the entire dimension is used
+            if dn not in used_dims:
+                used_dims[dn] = sub[dn].values
+
+        # find dimension values that aren't used, to be dropped
+        dropvals = {}
+        for dn in sub.dims:
+            used = used_dims[dn]
+            unused = list(filter(lambda v: v not in used, sub[dn].values))
+            if len(unused) > 0:
+                dropvals[dn] = unused
+        # TODO remove
+        alldrops[sn] = dropvals
+
+        # drop unused dimension values
+        if len(dropvals) > 0:
+            attrs[sn] = sub.drop_sel(dropvals)
+
+    # update the global coordinates to reflect the new coordinate values in the subtables
+    coords = _build_mxds_coords(mxds, attrs)
+
+    for kn in keynames:
+        if used_keyvals[kn] is not None:
+            print(f"{kn} used values: {np.sort(used_keyvals[kn])}")
+    for sn in alldrops:
+        print(f"{sn} dropped values: {alldrops[sn]}")
+
+    # create the new mxds
+    return xr.Dataset(coords=coords, data_vars=mxds.data_vars, attrs=attrs)
