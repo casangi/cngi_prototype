@@ -20,7 +20,7 @@ import numpy as np
 
 xa.set_options(keep_attrs=True)
 
-def moments(xds, moment=None, axis='chan'):
+def moments(xds, dv = 'IMAGE', moment=None, axis='chan'):
     """
     Collapse an n-dimensional image cube into a moment by taking a linear combination of individual planes
     
@@ -31,6 +31,8 @@ def moments(xds, moment=None, axis='chan'):
     ----------
     xds : xarray.core.dataset.Dataset
         input Image Dataset
+    dv : str
+        image data variable. Default is 'IMAGE'
     moment : int or list of ints
         number that selects which moment to calculate from the following list
         -1 - mean value of the spectrum (default)
@@ -75,11 +77,11 @@ def moments(xds, moment=None, axis='chan'):
     f0 = float(xds.attrs['rest_frequency'].replace('hz', ''))
     v = (1 - xds.coords[axis] / f0) * lightSpeed
     deltaV = (xds.coords[axis].values[1]-xds.coords[axis].values[0])*lightSpeed / f0
-    intensity = xds.IMAGE
+    intensity = xds[dv]
 
     # moments calculation
     if 0 in moment or 1 in moment or 2 in moment:
-        xds["MOMENTS_AVERAGE"] = intensity.sum(dim=axis) / intensity.shape[2]
+        xds["MOMENTS_AVERAGE"] = intensity.sum(dim=axis) / intensity.shape[3]
         xds["MOMENTS_INTEGRATED"]=intensity.sum(dim=axis)*deltaV
 
         # replace this loop with vectorized mathematics
@@ -99,11 +101,12 @@ def moments(xds, moment=None, axis='chan'):
     if 3 in moment:
         xds["MOMENTS_MEDIAN"] = intensity.median(dim=axis)
     if 4 in moment:
-        xds["MOMENTS_MEDIAN_COORD"] = intensity.chunk({'chan':-1}).quantile(0.25, dim=axis)  #np.quantile(intensity.values, .25)
+        xds["MOMENTS_MEDIAN_COORD"] = intensity.chunk({'chan':None}).quantile(0.25, dim=axis)  #np.quantile(intensity.values, .25)
     if 5 in moment:
 
-        sd = pow((intensity - intensity.mean(dim=axis)),2)
-        standarddeviation = np.sqrt(sd.sum(dim=axis) / (intensity.shape[2]-1))
+        sd = (intensity - intensity.mean(dim=axis))**2
+
+        standarddeviation = np.sqrt(sd.sum(dim=axis) / (intensity.shape[3]-1))
         xds["MOMENTS_STANDARD_DEVIATION"] = standarddeviation
 
         # The default xarray.std returns large difference between casa6 and CNGI
