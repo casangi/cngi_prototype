@@ -518,15 +518,15 @@ def append_mxds_subtables(mxds0 : xr.Dataset, mxds1 : xr.Dataset, matchtype="exa
 
     return ret, ids_map
 
-def extract_xds_with_subtables(mxds : xr.Dataset, xds_name : str) -> xr.Dataset:
+def extract_xds_with_subtables(mxds : xr.Dataset, xds_names : typing.Union[str, typing.List[str]]) -> xr.Dataset:
     """Pull the xds visibilites out with the mxds, preserving only that information in the subtables that is related to the given xds.
 
     Parameters
     ----------
     mxds: xarray.Dataset
         The multi-xds dataset to pull data out of.
-    xds_name: str
-        Name of the visibilities dataset. Should be of the form "xds*"
+    xds_name: str or list
+        Name(s) of the visibilities dataset. Should be of the form "xds*"
 
     Returns
     -------
@@ -537,20 +537,27 @@ def extract_xds_with_subtables(mxds : xr.Dataset, xds_name : str) -> xr.Dataset:
     import numpy as np
     from cngi._utils._mxds_ops import get_subtables, get_subtable_primary_key_names, check_mxds_subtable_ref_ids, assign_dimensions_for_primary_coordinates
 
-    # check that the main table exists
-    assert ("xds" in xds_name), f"######### ERROR: xds_name must reference a main table! Name should contain \"xds\" but is instead {xds_name}!"
-    assert (xds_name in mxds.attrs), f"######### ERROR: main table {xds_name} does not appear in the mxds list of attrs!"
-    main = mxds.attrs[xds_name] # type: xr.Dataset
-    assert (isinstance(main, xr.Dataset)), f"######### ERROR: xds visibilities table must be a Dataset but is instead a {type(main)}!"
+    # get a list of the main tables
+    main_tables = [] # type: typing.List[xr.Dataset]
+    if isinstance(xds_names, str):
+        xds_names = [xds_names]
+    for xds_name in xds_names:
+        assert ("xds" in xds_name), f"######### ERROR: xds_name must reference a main table! Name should contain \"xds\" but is instead {xds_name}!"
+        assert (xds_name in mxds.attrs), f"######### ERROR: main table {xds_name} does not appear in the mxds list of attrs!"
+        main = mxds.attrs[xds_name] # type: xr.Dataset
+        assert (isinstance(main, xr.Dataset)), f"######### ERROR: xds visibilities table must be a Dataset but is instead a {type(main)}!"
+        main_tables.append(main)
 
     # make a copy of the subtables, as a dictionary so that it can be easily updated
-    # exclude all xds visibilities other than the desired xds
+    # exclude all xds visibilities other than the desired main tables
     attrs = {} # type: typing.Dict[str, xr.Dataset]
-    for sn in mxds.attrs:
-        if ("xds" not in sn) or (sn == xds_name):
+    for sn in mxds.attrs: # sn = subtable_name
+        if ("xds" not in sn) or (sn in xds_names):
             attrs[sn] = mxds.attrs[sn]
 
     # get the list of subtables, and the list of key coordinates used for indexing those subtables
+    # example subtables: ANTENNA, ASDM_ANTENNA, FEED, WEATHER
+    # example key coordinates: antenna_id, beam_id, feed_id, spectral_window_id -> spw_id, ns_ws_station_id
     subnames = get_subtables(mxds)
     sub_keynames = {}
     keynames = [] # type: typing.List[str]
@@ -560,22 +567,38 @@ def extract_xds_with_subtables(mxds : xr.Dataset, xds_name : str) -> xr.Dataset:
         sub_keynames[sn] = sub_kns
     keynames = list(np.unique(keynames))
 
-    # get the list of key values to keep, based off of the main table
+    # get the list of key values to keep, based off of the main tables
     used_keyvals = {}
+    used_knvariants = []
     for kn in keynames:
-        # find the variant of this keyname that is used in the main table
-        knvariant = '' # here to make pycharm happy
-        for knvariant in [kn.lower(), kn.upper(), kn.lower()+'s', kn.upper()+'S', '']:
-            if (knvariant in main.coords) or (knvariant in main.data_vars):
-                break
-        if knvariant == '':
-            used_keyvals[kn] = None
-            continue
+        # get a list of variant keynames that could be used in the main tables
+        # example variants: "pol_id", "spw_id", "ANTENNA1", "ANTENNA2", "ARRAY_ID", "FEED1"
+        knvariants = []
+        knl = kn.lower()
+        for kn1 in [kn, knl.replace("spectral_window", "spw")]:
+            for kn2 in [kn1, kn1.replace("_id", "")]:
+                for kn3 in [kn2, kn2.upper(), kn2+'s', kn2.upper()+'S']:
+                    knvariants.append(kn3)
+                for kn3 in [kn2+'1', kn2+'2', kn2.upper()+'1', kn2.upper()+'2']:
+                    knvariants.append(kn3)
 
         # find the used values
-        vals = np.unique(main[knvariant].values) # get unique values along each dimension
-        used_keyvals[kn] = np.unique(vals.flatten()) # flatten to a single dimension and get unique values along that single dimension
-        used_keyvals[kn] = list(filter(lambda x: not np.isnan(x), used_keyvals[kn]))
+        used = []
+        for main in main_tables:
+            for knvariant in knvariants:
+                if (knvariant not in main.coords) and (knvariant not in main.data_vars):
+                    continue
+                used_knvariants.append(knvariant)
+                vals = np.unique(main[knvariant].values) # get unique values along each dimension
+                tmpused = np.unique(vals.flatten()) # flatten to a single dimension and get unique values along that single dimension
+                tmpused = list(filter(lambda x: not np.isnan(x), tmpused))
+                used += tmpused
+        if len(used) == 0:
+            used_keyvals[kn] = None
+        else:
+            used_keyvals[kn] = np.unique(used)
+    # print(keynames)
+    # print(np.unique(used_knvariants))
 
     # build a new set of subtables with trimmed values
     alldrops = {}
@@ -629,11 +652,11 @@ def extract_xds_with_subtables(mxds : xr.Dataset, xds_name : str) -> xr.Dataset:
     # update the global coordinates to reflect the new coordinate values in the subtables
     coords = _build_mxds_coords(mxds, attrs)
 
-    for kn in keynames:
-        if used_keyvals[kn] is not None:
-            print(f"{kn} used values: {np.sort(used_keyvals[kn])}")
-    for sn in alldrops:
-        print(f"{sn} dropped values: {alldrops[sn]}")
+    # for kn in keynames:
+    #     if used_keyvals[kn] is not None:
+    #         print(f"{kn} used values: {np.sort(used_keyvals[kn])}")
+    # for sn in alldrops:
+    #     print(f"{sn} dropped values: {alldrops[sn]}")
 
     # create the new mxds
     return xr.Dataset(coords=coords, data_vars=mxds.data_vars, attrs=attrs)
