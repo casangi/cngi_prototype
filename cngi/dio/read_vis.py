@@ -76,7 +76,7 @@ def read_vis(
                 anon=False,
                 requester_pays=False,
                 key=kwargs["s3_key"],
-                secret=kwargs["myvalues"],
+                secret=kwargs["s3_secret"],
             )
 
         else:
@@ -111,7 +111,14 @@ def read_vis(
                     print(f"Assigning partition = {partition}")
                     s3_url = ("/").join(s3_url.split("/")[:-1])
 
-            # at this point, s3_url should be compatible
+            # at this point, s3_url should be compatible and reference top level of a mxds
+            if partition is None:
+                contents_map = s3.listdir(s3_url)[1:]
+                object_names = [
+                    object_dict["name"].split("/")[-1] for object_dict in contents_map[1:]
+                ]
+                partition = object_names
+                
             if "global" in partition:
                 # attempt to replicate behavior of os.listdir (i.e., ignore .zattrs etc.)
                 contents_map_global = s3.listdir("/".join([s3_url, "global"]))[1:]
@@ -167,38 +174,18 @@ def read_vis(
         infile = os.path.expanduser(infile)
         if partition is None:
             partition = os.listdir(infile)
-        partition = np.atleast_1d(partition)
+        partition = list(np.atleast_1d(partition))
 
         if ("global" in partition) and (os.path.isdir(os.path.join(infile, "global"))):
-            global_dirs = sorted(
-                ["global/" + tt for tt in os.listdir(os.path.join(infile, "global"))]
-            )
-            partition = np.hstack(
-                (np.delete(partition, np.where(partition == "global")), global_dirs)
-            )
+            partition += sorted(["global/"+tt for tt in os.listdir(os.path.join(infile, "global"))])
 
-        if partition.size == 1:
-            xds = open_zarr(
-                os.path.join(infile, str(partition[0])),
-                chunks=chunks,
-                consolidated=consolidated,
-                overwrite_encoded_chunks=overwrite_encoded_chunks,
-            )
-        else:
-            xds_list = []
-            for part in partition:
-                if os.path.isdir(os.path.join(infile, str(part))):
-                    xds_list += [
-                        (
-                            part.replace("global/", ""),
-                            open_zarr(
-                                os.path.join(infile, str(part)),
-                                chunks=chunks,
-                                consolidated=consolidated,
-                                overwrite_encoded_chunks=overwrite_encoded_chunks,
-                            ),
-                        )
-                    ]
+        xds_list = []
+        for part in partition:
+            if part == 'global': continue
+            if os.path.isdir(os.path.join(infile, str(part))):
+                xds_list += [(part.replace("global/", ""), open_zarr(os.path.join(infile, str(part)), chunks=chunks,
+                                                                     consolidated=consolidated,
+                                                                     overwrite_encoded_chunks=overwrite_encoded_chunks))]
     # build the master xds to return
     xds = xdsio.vis_xds_packager(xds_list)
 

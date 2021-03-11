@@ -58,10 +58,11 @@ def convert_image(infile, outfile=None, artifacts=[], compressor=None, chunks=(-
 
     # TODO - find and save projection type
 
-    infile = os.path.expanduser('./'+infile[:-1]) if infile.endswith('/') else os.path.expanduser('./'+infile)
+    infile = os.path.expanduser(infile[:-1]) if infile.endswith('/') else os.path.expanduser(infile)
+    infile = infile if infile.startswith('/') else './' + infile
     prefix = infile[:infile.rindex('.')]
     suffix = infile[infile.rindex('.') + 1:]
-    srcdir = infile[:infile.rindex('/')+1]
+    srcdir = infile[:infile.rindex('/') + 1]
     if outfile == None: outfile = prefix + '.img.zarr'
     outfile = os.path.expanduser(outfile)
 
@@ -175,7 +176,7 @@ def convert_image(infile, outfile=None, artifacts=[], compressor=None, chunks=(-
         rc = csys.done()
         rc = IA.close()
 
-    print('incompatible components: ', diftypes)
+    if len(diftypes) > 0: print('incompatible components: ', diftypes)
 
     # if taylor terms are present, the chan axis must be expanded to the length of the terms
     if ttcount > len(mxds.chan): mxds = mxds.pad({'chan': (0, ttcount-len(mxds.chan))}, mode='edge')
@@ -200,7 +201,7 @@ def convert_image(infile, outfile=None, artifacts=[], compressor=None, chunks=(-
             # if the image set has taylor terms, loop through any for this artifact and concat together
             # pad the chan dim as necessary to fill remaining elements if not enough taylor terms in this artifact
             for ii in range(1, ttcount):
-                if ii < len(imagelist):
+                if (ii < len(imagelist)) and os.path.exists(imagelist[ii] + ext):
                     txds = convert_simple_table(imagelist[ii]+ext, outfile + '.temp', dimnames=dimorder, chunks=chunkorder, nofile=True)
                     ixds = xarray.concat([ixds, txds], dim='chan')
                 else:

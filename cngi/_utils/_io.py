@@ -53,7 +53,7 @@ def vis_xds_packager(xds_list):
         coords['source_ids'] = mxds.SOURCE.source_id.values
         coords['sources'] = xarray.DataArray(mxds.SOURCE.NAME.values, dims=['source_ids'])
     if 'SPECTRAL_WINDOW' in mxds.attrs:
-        coords['spw_ids'] = mxds.SPECTRAL_WINDOW.d0.values
+        coords['spw_ids'] = mxds.SPECTRAL_WINDOW.spectral_window_id.values
     if 'STATE' in mxds.attrs:
         coords['state_ids'] = mxds.STATE.state_id.values
     

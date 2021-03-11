@@ -109,10 +109,12 @@ def statistics(xds, dv='IMAGE', algorithm='classic', clmethod='auto', fence=-1.0
     max = intensity.max().values
 
     # the median pixel value
-    median = intensity.median(dim=['l','m','time','pol']).values
+    #median = intensity.median(dim=['l','m','time','pol']).values   # one median. not median array.
+    median = np.median(intensity)
 
-    # the median of the absolute deviations from the median
-    medabsdevmed = np.abs(intensity - np.median(intensity)).median(dim=['l','m','time','pol']).values
+    # the median of the absolute deviations from the median    # median value, not median array for each channel
+    #medabsdevmed = np.abs(intensity - np.median(intensity)).median(dim=['l','m','time','pol']).values
+    medabsdevmed = np.median(np.abs(intensity - np.median(intensity)))
 
     # the first quartile
     q1 = intensity.chunk({'chan': -1}).quantile(0.25).values

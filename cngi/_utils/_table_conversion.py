@@ -48,7 +48,7 @@ def convert_time(rawtimes):
 # this will be used to standardize the shape to the largest value of each dimension
 # this does not work on columns with variable dimension lengths (i.e. ndim changes between 2 and 3)
 # columns designated as ignore will be treated as bad
-def compute_dimensions(tbobj, ignore=[]):
+def compute_dimensions(tbobj, ignore=[], batch=1000):
     cshape = {}
     bad_cols = []
     for col in tbobj.colnames():
@@ -67,6 +67,10 @@ def compute_dimensions(tbobj, ignore=[]):
                     bad_cols += [col]
                     continue
                 cshape[col] = np.max([nn for nn in tshape], axis=0)  # store the max dimensionality of this col
+            elif tbobj.coldatatype(col) == 'string':
+                tshape = np.unique(np.hstack([np.unique(np.vectorize(len)(tbobj.getcol(col, sidx, batch))) for sidx in range(0, tbobj.nrows(), batch)]))
+                if len(tshape) == 1: continue
+                cshape[col] = np.max(tshape)
         except Exception:
             bad_cols += [col]
             continue
@@ -81,7 +85,9 @@ def compute_dimensions(tbobj, ignore=[]):
 # dimnames is a list used to override default dimension names
 # timecols is a list of column names to convert to datetimes
 # ignore is a list of columns to ignore
-def convert_simple_table(infile, outfile, subtable='', dimnames=None, timecols=[], ignore=[], compressor=None, chunks=(40000, 20, 1), nofile=False):
+# add_row_id is here because in MSv3 some tables, such as FIELD,
+#     have an explicit key named after the table, such as field_id.
+def convert_simple_table(infile, outfile, subtable='', dimnames=None, timecols=[], ignore=[], compressor=None, chunks=(2000, -1), nofile=False, add_row_id=False):
     
     if compressor is None:
         compressor = Blosc(cname='zstd', clevel=2, shuffle=0)
@@ -99,8 +105,9 @@ def convert_simple_table(infile, outfile, subtable='', dimnames=None, timecols=[
         chunks[0] = tb_tool.nrows()
     
     # master dataset holders
+    dim0 = subtable.lower() + "_id" if add_row_id else 'd0'
     mvars, mcoords = {}, {}
-    mdims = {'d0': tb_tool.nrows()}  # keys are dimension names, values are dimension sizes
+    mdims = {dim0: tb_tool.nrows()}  # keys are dimension names, values are dimension sizes
     cshape, bad_cols = compute_dimensions(tb_tool, ignore)
     
     for start_idx in range(0, tb_tool.nrows(), chunks[0]):
@@ -109,13 +116,15 @@ def convert_simple_table(infile, outfile, subtable='', dimnames=None, timecols=[
             tblname = tb_tool.name().split('/')[-1]
             print('reading %s chunk %s of %s, col %s...%s' % (tblname, str(start_idx // chunks[0]), str(tb_tool.nrows() // chunks[0]), col, ' '*20), end='\r')
             try:
-                if col in cshape:   # if this column has a varying shape, it needs to be normalized
+                if (col in cshape) and (tb_tool.isvarcol(col)):   # if this column has a varying shape, it needs to be normalized
                     data = tb_tool.getvarcol(col, start_idx, chunks[0])
                     tshape = cshape[col]  # grab the max dimensionality of this col
                     # expand the variable shaped column to the maximum size of each dimension
                     # blame the person who devised the tb.getvarcol return structure
                     data = np.array([np.pad(data['r' + str(kk)][..., 0], np.stack((tshape * 0, tshape - data['r' + str(kk)].shape[:-1]), -1)).transpose()
                                      for kk in np.arange(start_idx + 1, start_idx + len(data) + 1)])
+                elif (col in cshape) and (tb_tool.coldatatype(col) == 'string'):
+                    data = tb_tool.getcol(col, start_idx, chunks[0]).transpose().astype('<U'+str(cshape[col]))
                 else:
                     data = tb_tool.getcol(col, start_idx, chunks[0]).transpose()
             except Exception:
@@ -129,13 +138,20 @@ def convert_simple_table(infile, outfile, subtable='', dimnames=None, timecols=[
             if col in timecols:
                 data = convert_time(data)
 
-            # if this column has additional dimensionality, we need to create/reuse placeholder names
-            # then apply any specified names
-            dims = ['d0']
-            for ii, dd in enumerate(data.shape[1:]):
-                if (ii+1 >= len(mdims)) or (dd not in list(mdims.values())[ii+1:]):
-                    mdims['d%i' % len(mdims.keys())] = dd
-                dims += [list(mdims.keys())[ii+1:][list(mdims.values())[ii+1:].index(dd)]]
+            # If this column has additional dimensionality, we need to create/reuse placeholder names from mdims.
+            # Then, apply any specified names from dimnames.
+            dims = [dim0]
+            avail_mdims = mdims.copy()
+            del avail_mdims[dim0] # don't want to pick from the "row" dimension
+            for ii, dd in enumerate(data.shape[1:]): # ii=index, dd=dimension length
+                if dd in avail_mdims.values(): # reuse: there's a matching placeholder name
+                    matching_mdims = filter(lambda dn: avail_mdims[dn] == dd, avail_mdims.keys())
+                    dimname = sorted(list(matching_mdims))[0]
+                    del avail_mdims[dimname]
+                else:                          # create: no matching placeholder names exist
+                    dimname = 'd%i' % len(mdims.keys())
+                    mdims[dimname] = dd
+                dims += [dimname]
             if dimnames is not None: dims = (dimnames[:len(dims)] + dims[len(dims)-len(dimnames)-1:])[:len(dims)]
             
             chunking = [chunks[di] if di < len(chunks) else chunks[-1] for di, dk in enumerate(dims)]
@@ -146,20 +162,32 @@ def convert_simple_table(infile, outfile, subtable='', dimnames=None, timecols=[
                 mcoords[col.lower()] = xarray.DataArray(data, dims=dims)
             else:
                 mvars[col.upper()] = xarray.DataArray(data, dims=dims).chunk(dict(zip(dims, chunking)))
-            
+        
+        # build up the current version of the dataset
+        # do this here to hopefully catch bugs sooner than after the entire table has been built up
         xds = xarray.Dataset(mvars, coords=mcoords)
         if (not nofile) and (start_idx == 0):
             encoding = dict(zip(list(xds.data_vars), cycle([{'compressor': compressor}])))
-            if len(subtable) > 0: xds = xds.assign_attrs({'name': subtable+' table'})
+            if len(subtable) > 0: xds = xds.assign_attrs({'name': subtable + ' table'})
             if len(bad_cols) > 0: xds = xds.assign_attrs({'bad_cols': bad_cols})
-            xds.to_zarr(os.path.join(outfile,subtable), mode='w', encoding=encoding, consolidated=True)
+            xds.to_zarr(os.path.join(outfile, subtable), mode='w', encoding=encoding, consolidated=True)
         elif not nofile:
-            xds.to_zarr(os.path.join(outfile,subtable), mode='a', append_dim='d0', compute=True, consolidated=True)
+            xds.to_zarr(os.path.join(outfile, subtable), mode='a', append_dim=dim0, compute=True, consolidated=True)
     
+    # We're done parsing the table, release the table tool.
     tb_tool.close()
     if not nofile:
-        xds = xarray.open_zarr(os.path.join(outfile,subtable))
-    
+        xds = xarray.open_zarr(os.path.join(outfile, subtable))
+
+    # Now we know how big all the dimensions are, assign explicit coordinates.
+    if add_row_id and (dim0 not in xds.coords):
+        if nofile:
+            xds = xds.assign_coords({dim0: xds[dim0].values})
+        else:
+            aux_xds = xarray.Dataset(coords={dim0:np.arange(xds.dims[dim0])})
+            aux_xds.to_zarr(os.path.join(outfile,subtable), mode='a', compute=True, consolidated=True)
+            xds = xarray.open_zarr(os.path.join(outfile, subtable))
+
     return xds
 
 
@@ -205,6 +233,10 @@ def convert_expanded_table(infile, outfile, keys, subtable='', subsel=None, time
     else:
         tsel = [list(subsel.keys())[0], list(subsel.values())[0]]
         sorted_table = tb_tool.taql('select * from %s where %s = %s ORDERBY %s' % (os.path.join(infile,subtable), tsel[0], tsel[1], ordering))
+        if sorted_table.nrows() == 0:
+            sorted_table.close()
+            tb_tool.close()
+            return xarray.Dataset()
 
     # master dataset holders
     mvars, midxs = {}, {}
