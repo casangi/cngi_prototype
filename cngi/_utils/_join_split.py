@@ -22,14 +22,16 @@
 import xarray as xr
 import typing
 
-def _apply_coord_remap(xds : xr.Dataset, coord_name : str, map_func) -> xr.Dataset:
+def apply_coord_remap(xds : xr.Dataset, coord_name : str, map_func) -> xr.Dataset:
     """Apply the map_func to the values in the given coordinate"""
+    import numpy as np
+
     # get the new values
     old_vals = xds[coord_name].values
-    new_vals = [map_func(x) for x in old_vals]
+    new_vals = np.array([map_func(x) for x in old_vals], old_vals.dtype)
 
     # assign the coordinate
-    if (coord_name in xds.dims):
+    if coord_name in xds.dims:
         # assign as dimensional coordinate
         ret = xds.drop_vars([ coord_name ])
         ret = ret.assign_coords({ coord_name: new_vals })
@@ -41,14 +43,15 @@ def _apply_coord_remap(xds : xr.Dataset, coord_name : str, map_func) -> xr.Datas
         ret = ret.set_coords([ coord_name ]) # promote the new data_var "coord_name" to be a coordinate
     return ret
 
-def _apply_data_var_remap(xds : xr.Dataset, var_name : str, map_func) -> xr.Dataset:
+def apply_data_var_remap(xds : xr.Dataset, var_name : str, map_func) -> xr.Dataset:
     """Apply the map_func to the values in the given data_var"""
     import numpy as np
     def mb(array):
         vals = array.values
-        if (len(vals) > 0):
-            vals = np.vectorize(map_func)(vals)
-        return xr.DataArray(data=vals, coords=array.coords, dims=array.dims, name=array.name, attrs=array.attrs)
+        newvals = np.array([], vals.dtype)
+        if len(vals) > 0:
+            newvals = np.vectorize(map_func, [vals.dtype])(vals)
+        return xr.DataArray(data=newvals, coords=array.coords, dims=array.dims, name=array.name, attrs=array.attrs)
 
     assert (isinstance(xds[var_name], xr.DataArray)), f"######### ERROR: trying to remap the data variable {var_name} which is a {type(xds[var_name])} but a {xr.DataArray} was expected!"
     var_val = xds[var_name].map_blocks(mb)
@@ -93,6 +96,7 @@ def _get_subtable_matching_dimcoords(sub0: xr.Dataset, sub1 : xr.Dataset, subtab
         Keys are the name of the coordinates. Values are dictionaries that map
         from the sub1 coordinate values to the sub0 coordinate values.
     """
+    import warnings
     # check parameters
     assert(isinstance(sub0, xr.Dataset)), f"######### ERROR: subtable {subtable_name} must be a dataset!"
     assert(isinstance(sub1, xr.Dataset)), f"######### ERROR: subtable {subtable_name} must be a dataset!"
@@ -110,7 +114,7 @@ def _get_subtable_matching_dimcoords(sub0: xr.Dataset, sub1 : xr.Dataset, subtab
     ret = {}
     for coord_name in check_coords1:
         # don't worry about dimcoords that aren't in sub0
-        if (coord_name not in check_coords0):
+        if coord_name not in check_coords0:
             continue
 
         # build the dictionary of vals to check
@@ -134,7 +138,7 @@ def _get_subtable_matching_dimcoords(sub0: xr.Dataset, sub1 : xr.Dataset, subtab
                 continue
 
             # get dimensions of the this coordinate/variable
-            # only continue if the dimcoord is the first dimension
+            # stop if the dimcoord is not the first dimension
             vals0 = sub0[name]
             vals1 = sub1[name]
             dims0 = list(vals0.dims)
@@ -143,11 +147,19 @@ def _get_subtable_matching_dimcoords(sub0: xr.Dataset, sub1 : xr.Dataset, subtab
                 continue
             assert(dims0[0] == dimname), f"######### ERROR: subtables structure mismatch! {subtable_name}0.{name}.dims:{dims0}, {subtable_name}1.{name}.dims:{dims1}!"
 
-            # check for equality (should be delayed)
+            # check for equality
             for coord_val in sub1[coord_name].values:
                 if not vals_match[coord_val]:
                     continue # no point in checking
-                vals_match[coord_val] &= vals1[coord_val].broadcast_equals(vals0[coord_val])
+                # Do any necessary computation here to hopefully catch errors
+                # without getting into any messy broadcast_equals code.
+                vals0[coord_val].compute()
+                vals1[coord_val].compute()
+                # not a lot that we can do about the way dask does comparisons
+                # https://stackoverflow.com/questions/40659212/futurewarning-elementwise-comparison-failed-returning-scalar-but-in-the-futur
+                with warnings.catch_warnings():
+                    warnings.simplefilter(action='ignore', category=FutureWarning)
+                    vals_match[coord_val] &= vals1[coord_val].broadcast_equals(vals0[coord_val])
 
         # add all matching dimcoord values to the returned match dictionary
         for coord_val in sub1[coord_name].values:
@@ -308,7 +320,7 @@ def _remap_subtable_coords_and_vals(sub1 : xr.Dataset, subtable_name : str, coor
         map_func = lambda x: x if x not in map_vals else map_vals[x]
 
         # apply the new coordinate
-        sub1 = _apply_coord_remap(sub1, coord_name, map_func)
+        sub1 = apply_coord_remap(sub1, coord_name, map_func)
 
     # apply the relational_ids_map to sub1
     for var_name in relational_ids_map:
@@ -322,13 +334,13 @@ def _remap_subtable_coords_and_vals(sub1 : xr.Dataset, subtable_name : str, coor
 
         # apply the mapping
         if var_name in sub1.coords:
-            sub1 = _apply_coord_remap(sub1, var_name, map_func)
+            sub1 = apply_coord_remap(sub1, var_name, map_func)
         elif var_name in sub1.data_vars:
-            sub1 = _apply_data_var_remap(sub1, var_name, map_func)
+            sub1 = apply_data_var_remap(sub1, var_name, map_func)
 
     return sub1
 
-def _build_mxds_coords(mxds : xr.Dataset, subtables : dict):
+def _build_mxds_coords(mxds : xr.Dataset, subtables : typing.Dict[str, xr.Dataset]):
     from cngi._utils._mxds_ops import get_subtable_primary_key_names
 
     # make a copy of the current coordinates, as a dictionary so that it can be easily updated
@@ -400,9 +412,9 @@ def append_mxds_subtables(mxds0 : xr.Dataset, mxds1 : xr.Dataset, matchtype="exa
     ----------------
     pseudocode: ret = mxds0.append(mxds1.coords).append(mxds1.attrs.sel(!"xds*"))
 
-    This function makes heavy use of append_xds_subtable to append subtables
-    from mxds1 to mxds0 in a sort of round-robin style. The resulting
-    subtables are merged into a new mxds to be returned.
+    This function makes heavy use of _remap_subtable_coords_and_vals to update
+    references from mxds1 to mxds0 in a sort of round-robin style. The
+    resulting subtables are merged into a new mxds to be returned.
 
     The new mxds maintains all dims and coords of mxds0, with possibly expanded
     values for the dimensional coordinates.
@@ -465,8 +477,6 @@ def append_mxds_subtables(mxds0 : xr.Dataset, mxds1 : xr.Dataset, matchtype="exa
     keys_changed = True
     fresh_subs = subs.copy()
     while keys_changed:
-        keys_changed = False
-
         # Get the coordinate remapping for coordinate relationships between mxds1
         # subtables, and check that there are no dimensional coordinates conflicts
         # between any of the subtables in mxds1.
@@ -517,6 +527,27 @@ def append_mxds_subtables(mxds0 : xr.Dataset, mxds1 : xr.Dataset, matchtype="exa
     check_mxds_subtable_ref_ids(ret)
 
     return ret, ids_map
+
+def gen_keyname_variants(keyname : str) -> typing.List[str]:
+    """The dimensional coordinate names and primary coordinate names from the
+    mxds subtables are mangled in their usage in the main xds visibility tables.
+    This function provides all possible mangled versions that can be matched
+    against for doing comparisons.
+
+    Example keynames: antenna_id, beam_id, feed_id, spectral_window_id, ns_ws_station_id
+    Example variants: "pol_id", "spw_id", "ANTENNA1", "ANTENNA2", "ARRAY_ID", "FEED1"
+    """
+    knvariants = []
+
+    knl = keyname.lower()
+    for kn1 in [knl, knl.replace("spectral_window", "spw")]:
+        for kn2 in [kn1, kn1.replace("_id", "")]:
+            for kn3 in [kn2, kn2.upper(), kn2+'s', kn2.upper()+'S']:
+                knvariants.append(kn3)
+            for kn3 in [kn2+'1', kn2+'2', kn2.upper()+'1', kn2.upper()+'2']:
+                knvariants.append(kn3)
+
+    return knvariants
 
 def extract_xds_with_subtables(mxds : xr.Dataset, xds_names : typing.Union[str, typing.List[str]]) -> xr.Dataset:
     """Pull the xds visibilites out with the mxds, preserving only that information in the subtables that is related to the given xds.
@@ -573,14 +604,7 @@ def extract_xds_with_subtables(mxds : xr.Dataset, xds_names : typing.Union[str, 
     for kn in keynames:
         # get a list of variant keynames that could be used in the main tables
         # example variants: "pol_id", "spw_id", "ANTENNA1", "ANTENNA2", "ARRAY_ID", "FEED1"
-        knvariants = []
-        knl = kn.lower()
-        for kn1 in [kn, knl.replace("spectral_window", "spw")]:
-            for kn2 in [kn1, kn1.replace("_id", "")]:
-                for kn3 in [kn2, kn2.upper(), kn2+'s', kn2.upper()+'S']:
-                    knvariants.append(kn3)
-                for kn3 in [kn2+'1', kn2+'2', kn2.upper()+'1', kn2.upper()+'2']:
-                    knvariants.append(kn3)
+        knvariants = gen_keyname_variants(kn)
 
         # find the used values
         used = []
