@@ -14,6 +14,7 @@ from .chan_average import chan_average
 from .chan_smooth import chan_smooth
 from .join_vis import join_vis
 from .join_dataset import join_dataset
+from .split_dataset import split_dataset
 from .phase_shift import phase_shift
 from .reframe import reframe
 from .time_average import time_average
