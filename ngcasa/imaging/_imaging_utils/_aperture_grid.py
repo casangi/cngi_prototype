@@ -33,7 +33,8 @@ def _graph_aperture_grid(vis_dataset,gcf_dataset,grid_parms,sel_parms):
 
     freq_chan = da.from_array(vis_dataset.coords['chan'].values, chunks=(chan_chunk_size))
 
-    n_chunks_in_each_dim = vis_dataset[sel_parms["data_group_in"]["imaging_weight"]].data.numblocks
+    n_chunks_in_each_dim = list(vis_dataset[sel_parms["data_group_in"]["imaging_weight"]].data.numblocks)
+    n_chunks_in_each_dim[3] = 1
     chunk_indx = []
 
     iter_chunks_indx = itertools.product(np.arange(n_chunks_in_each_dim[0]), np.arange(n_chunks_in_each_dim[1]),
@@ -47,7 +48,8 @@ def _graph_aperture_grid(vis_dataset,gcf_dataset,grid_parms,sel_parms):
         n_other_chunks = n_chunks_in_each_dim[0]*n_chunks_in_each_dim[1]*n_chunks_in_each_dim[3]
     
     #n_delayed = np.prod(n_chunks_in_each_dim)
-    chunk_sizes = vis_dataset[sel_parms["data_group_in"]["imaging_weight"]].chunks
+    chunk_sizes = list(vis_dataset[sel_parms["data_group_in"]["imaging_weight"]].chunks)
+    chunk_sizes[3] = (np.sum(chunk_sizes[3]),)
 
     list_of_grids = ndim_list((n_chan_chunks_img,n_other_chunks))
     list_of_sum_weights = ndim_list((n_chan_chunks_img,n_other_chunks))
@@ -62,13 +64,27 @@ def _graph_aperture_grid(vis_dataset,gcf_dataset,grid_parms,sel_parms):
         
         if grid_parms['grid_weights']:
             sub_grid_and_sum_weights = dask.delayed(_aperture_weight_grid_numpy_wrap)(
-            vis_dataset[sel_parms["data_group_in"]["uvw"]].data.partitions[c_time, c_baseline, 0],
-            vis_dataset[sel_parms["data_group_in"]["imaging_weight"]].data.partitions[c_time, c_baseline, c_chan, c_pol],
+            vis_dataset[sel_parms["data_group_in"]["uvw"]].data.partitions[c_time, c_baseline, :],
+            vis_dataset[sel_parms["data_group_in"]["imaging_weight"]].data.partitions[c_time, c_baseline, c_chan, :],
             vis_dataset["FIELD_ID"].data.partitions[c_time,c_baseline],
             gcf_dataset["CF_BASELINE_MAP"].data.partitions[c_baseline],
             gcf_dataset["CF_CHAN_MAP"].data.partitions[c_chan],
-            gcf_dataset["CF_POL_MAP"].data.partitions[c_pol],
+            gcf_dataset["CF_POL_MAP"].data.partitions[:],
             gcf_dataset["WEIGHT_CONV_KERNEL"].data,
+            gcf_dataset["SUPPORT"].data,
+            gcf_dataset["PHASE_GRADIENT"].data,
+            freq_chan.partitions[c_chan],
+            dask.delayed(grid_parms))
+            grid_dtype = np.complex128
+        elif grid_parms['do_psf']:
+            sub_grid_and_sum_weights = dask.delayed(_aperture_psf_grid_numpy_wrap)(
+            vis_dataset[sel_parms["data_group_in"]["uvw"]].data.partitions[c_time, c_baseline, :],
+            vis_dataset[sel_parms["data_group_in"]["imaging_weight"]].data.partitions[c_time, c_baseline, c_chan, :],
+            vis_dataset["FIELD_ID"].data.partitions[c_time,c_baseline],
+            gcf_dataset["CF_BASELINE_MAP"].data.partitions[c_baseline],
+            gcf_dataset["CF_CHAN_MAP"].data.partitions[c_chan],
+            gcf_dataset["CF_POL_MAP"].data.partitions[:],
+            gcf_dataset["CONV_KERNEL"].data,
             gcf_dataset["SUPPORT"].data,
             gcf_dataset["PHASE_GRADIENT"].data,
             freq_chan.partitions[c_chan],
@@ -78,13 +94,13 @@ def _graph_aperture_grid(vis_dataset,gcf_dataset,grid_parms,sel_parms):
             #print('2before  _aperture_grid_numpy_wrap ',sel_parms["data_group_in"])
             
             sub_grid_and_sum_weights = dask.delayed(_aperture_grid_numpy_wrap)(
-            vis_dataset[sel_parms["data_group_in"]["data"]].data.partitions[c_time, c_baseline, c_chan, c_pol],
-            vis_dataset[sel_parms["data_group_in"]["uvw"]].data.partitions[c_time, c_baseline, 0],
-            vis_dataset[sel_parms["data_group_in"]["imaging_weight"]].data.partitions[c_time, c_baseline, c_chan, c_pol],
+            vis_dataset[sel_parms["data_group_in"]["data"]].data.partitions[c_time, c_baseline, c_chan, :],
+            vis_dataset[sel_parms["data_group_in"]["uvw"]].data.partitions[c_time, c_baseline, :],
+            vis_dataset[sel_parms["data_group_in"]["imaging_weight"]].data.partitions[c_time, c_baseline, c_chan, :],
             vis_dataset["FIELD_ID"].data.partitions[c_time,c_baseline],
             gcf_dataset["CF_BASELINE_MAP"].data.partitions[c_baseline],
             gcf_dataset["CF_CHAN_MAP"].data.partitions[c_chan],
-            gcf_dataset["CF_POL_MAP"].data.partitions[c_pol],
+            gcf_dataset["CF_POL_MAP"].data.partitions[:],
             gcf_dataset["CONV_KERNEL"].data,
             gcf_dataset["SUPPORT"].data,
             gcf_dataset["PHASE_GRADIENT"].data,
@@ -313,6 +329,46 @@ def _aperture_grid_numpy_wrap(vis_data,uvw,imaging_weight,field,cf_baseline_map,
 
 
     return grid, sum_weight
+    
+def _aperture_psf_grid_numpy_wrap(uvw,imaging_weight,field,cf_baseline_map,cf_chan_map,cf_pol_map,conv_kernel,weight_support,phase_gradient,freq_chan,grid_parms):
+    #print('imaging_weight ', imaging_weight.shape)
+    import time
+    
+    n_chan = imaging_weight.shape[2]
+    if grid_parms['chan_mode'] == 'cube':
+        n_imag_chan = n_chan
+        chan_map = (np.arange(0, n_chan)).astype(np.int)
+    else:  # continuum
+        n_imag_chan = 1  # Making only one continuum image.
+        chan_map = (np.zeros(n_chan)).astype(np.int)
+
+    n_imag_pol = imaging_weight.shape[3]
+    pol_map = (np.arange(0, n_imag_pol)).astype(np.int)
+
+    n_uv = grid_parms['image_size_padded']
+    delta_lm = grid_parms['cell_size']
+    oversampling = grid_parms['oversampling']
+    
+    
+    if grid_parms['complex_grid']:
+        grid = np.zeros((n_imag_chan, n_imag_pol, n_uv[0], n_uv[1]), dtype=np.complex128)
+    else:
+        grid = np.zeros((n_imag_chan, n_imag_pol, n_uv[0], n_uv[1]), dtype=np.double)
+    sum_weight = np.zeros((n_imag_chan, n_imag_pol), dtype=np.double)
+    
+    do_psf = grid_parms['do_psf']
+    field_id = grid_parms['field_id']
+    
+    #print('vis_data', vis_data.shape , 'grid ', grid.shape, 'sum_weight', sum_weight.shape, 'cf_chan_map ', cf_chan_map.shape, ' cf_baseline_map', cf_baseline_map.shape, 'cf_pol_map', cf_pol_map.shape, ' conv_kernel',  conv_kernel.shape, 'phase_gradient', phase_gradient.shape, 'field', field.shape,  )
+    
+    #start = time.time()
+    _aperture_grid_jit(grid, sum_weight, do_psf, [0.0], uvw, freq_chan, chan_map, pol_map, cf_baseline_map, cf_chan_map, cf_pol_map, imaging_weight, conv_kernel, n_uv, delta_lm, weight_support, oversampling, field, field_id, phase_gradient)
+    #time_to_grid = time.time() - start
+    #print("time to grid ", time_to_grid)
+
+
+    return grid, sum_weight
+            
     
 # Important changes to be made https://github.com/numba/numba/issues/4261
 # debug=True and gdb()
