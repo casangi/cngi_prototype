@@ -182,10 +182,13 @@ def read_vis(
         xds_list = []
         for part in partition:
             if part == 'global': continue
-            if os.path.isdir(os.path.join(infile, str(part))):
-                xds_list += [(part.replace("global/", ""), open_zarr(os.path.join(infile, str(part)), chunks=chunks,
-                                                                     consolidated=consolidated,
-                                                                     overwrite_encoded_chunks=overwrite_encoded_chunks))]
+            try:
+                if os.path.isdir(os.path.join(infile, str(part))):
+                    xds_list += [(part.replace("global/", ""), open_zarr(os.path.join(infile, str(part)), chunks=chunks,
+                                                                         consolidated=consolidated,
+                                                                         overwrite_encoded_chunks=overwrite_encoded_chunks))]
+            except:
+                print('Can not open ', part)
     # build the master xds to return
     xds = xdsio.vis_xds_packager(xds_list)
 

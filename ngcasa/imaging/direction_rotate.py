@@ -15,6 +15,7 @@
 import numpy as np
 import scipy
 import cngi._utils._constants as const
+from scipy import constants
 #from numba import jit
 # silence NumbaPerformanceWarning
 #import warnings
@@ -212,7 +213,7 @@ def apply_phasor(vis_data,uvw, field_id,freq_chan,phase_rotation,rot_field_id,co
     #Broadcast top include values for channels
     phase_direction = np.transpose(np.broadcast_to(phase_direction,((n_chan,)+uvw.shape[0:2])), axes=(1,2,0)) #N_time x N_baseline x N_chan
     
-    phasor = np.exp(2.0*1j*np.pi*phase_direction*np.broadcast_to(freq_chan[0,0,:,0],uvw.shape[0:2]+(n_chan,))/scipy.constants.c) # phasor_ngcasa = - phasor_casa. Sign flip is due to CASA gridders convention sign flip.
+    phasor = np.exp(2.0*1j*np.pi*phase_direction*np.broadcast_to(freq_chan[0,0,:,0],uvw.shape[0:2]+(n_chan,))/constants.c) # phasor_ngcasa = - phasor_casa. Sign flip is due to CASA gridders convention sign flip.
     phasor = np.transpose(np.broadcast_to(phasor,((n_pol,)+vis_data.shape[0:3])), axes=(1,2,3,0))
     vis_data_rot = vis_data*phasor
     

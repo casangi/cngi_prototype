@@ -14,9 +14,10 @@
 """
 this module will be included in the api
 """
+import xarray as xr
 
 ########################
-def join_vis(mxds, vis1, vis2):
+def join_vis(mxds : xr.Dataset, vis1 : str, vis2 : str) -> xr.Dataset:
     """
     Concatenate together two Visibility xds's of compatible shape from the same mxds
 
@@ -118,7 +119,6 @@ def join_vis(mxds, vis1, vis2):
     - joining datasets that had previously been split, operated on, and are now being re-joined
     """
 
-    import xarray as xr
     import xarray.core.merge
     import cngi._utils._specials as specials
     from cngi._utils._io import mxds_copier

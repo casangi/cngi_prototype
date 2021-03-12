@@ -96,7 +96,7 @@ def make_psf(vis_mxds, img_xds, grid_parms, vis_sel_parms, img_sel_parms):
     _check_sel_parms(_vis_xds,_vis_sel_parms)
     
     #Check img data_group
-    _check_sel_parms(_img_xds,_img_sel_parms,new_or_modified_data_variables={'psf_sum_weight':'SUM_WEIGHT','psf':'PSF'},append_to_in_id=True)
+    _check_sel_parms(_img_xds,_img_sel_parms,new_or_modified_data_variables={'sum_weight':'PSF_SUM_WEIGHT','psf':'PSF'},append_to_in_id=True)
 
     ##################################################################################
     
@@ -109,7 +109,7 @@ def make_psf(vis_mxds, img_xds, grid_parms, vis_sel_parms, img_sel_parms):
     
     _grid_parms['complex_grid'] = False
     _grid_parms['do_psf'] = True
-    grids_and_sum_weights = _graph_standard_grid(_vis_xds, cgk_1D, _grid_parms, _vis_sel_parms['data_group_in'])
+    grids_and_sum_weights = _graph_standard_grid(_vis_xds, cgk_1D, _grid_parms, _vis_sel_parms)
     uncorrected_dirty_image = dafft.fftshift(dafft.ifft2(dafft.ifftshift(grids_and_sum_weights[0], axes=(0, 1)), axes=(0, 1)), axes=(0, 1))
     
     #Remove Padding
@@ -148,7 +148,7 @@ def make_psf(vis_mxds, img_xds, grid_parms, vis_sel_parms, img_sel_parms):
     
     
     
-    _img_xds[_img_sel_parms['data_group_out']['psf_sum_weight']] = xr.DataArray(grids_and_sum_weights[1][None,:,:], dims=['time','chan','pol'])
+    _img_xds[_img_sel_parms['data_group_out']['sum_weight']] = xr.DataArray(grids_and_sum_weights[1][None,:,:], dims=['time','chan','pol'])
     _img_xds[_img_sel_parms['data_group_out']['psf']] = xr.DataArray(corrected_dirty_image[:,:,None,:,:], dims=['l', 'm', 'time', 'chan', 'pol'])
     _img_xds.attrs['data_groups'][0] = {**_img_xds.attrs['data_groups'][0],**{_img_sel_parms['data_group_out']['id']:_img_sel_parms['data_group_out']}}
     
