@@ -109,7 +109,7 @@ def make_image(vis_mxds, img_xds, grid_parms,  vis_sel_parms, img_sel_parms):
     
     _grid_parms['complex_grid'] = True
     _grid_parms['do_psf'] = False
-    grids_and_sum_weights = _graph_standard_grid(_vis_xds, cgk_1D, _grid_parms, _vis_sel_parms['data_group_in'])
+    grids_and_sum_weights = _graph_standard_grid(_vis_xds, cgk_1D, _grid_parms, _vis_sel_parms)
     uncorrected_dirty_image = dafft.fftshift(dafft.ifft2(dafft.ifftshift(grids_and_sum_weights[0], axes=(0, 1)), axes=(0, 1)), axes=(0, 1))
     
     #Remove Padding
