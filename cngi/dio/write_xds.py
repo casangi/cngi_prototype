@@ -21,7 +21,7 @@ To Do:
 1. zarr.consolidate_metadata(outfile) is very slow for a zarr group (datatset) with many chunks (there is a python for loop that checks each file). We might have to implement our own version. This is also important for cngi.dio.append_zarr
 '''
 
-def write_xds(dataset, outfile, chunks_return={}, chunks_on_disk={}, compressor=None, graph_name='write_zarr'):
+def write_xds(dataset, outfile, chunks_return={}, chunks_on_disk={}, consolidated=True, compressor=None, graph_name='write_zarr'):
     """
     Write xarray dataset to zarr format on disk. When chunks_on_disk is not specified the chunking in the input dataset is used.
     When chunks_on_disk is specified that dataset is saved using that chunking. The dataset on disk is then opened and rechunked using chunks_return or the chunking of dataset.
@@ -67,7 +67,7 @@ def write_xds(dataset, outfile, chunks_return={}, chunks_on_disk={}, compressor=
     encoding = dict(zip(list(dataset_for_disk.data_vars), cycle([{'compressor': compressor}])))
     start = time.time()
     #Consolidated is set to False so that the timing information is included in the consolidate metadata.
-    xr.Dataset.to_zarr(dataset_for_disk, store=outfile, mode='w', encoding=encoding,consolidated=False)
+    xr.Dataset.to_zarr(dataset_for_disk, store=outfile, mode='w', encoding=encoding,consolidated=consolidated)
     time_to_calc_and_store = time.time() - start
     print('Time to store and execute graph ', graph_name, time_to_calc_and_store)
     
@@ -75,13 +75,14 @@ def write_xds(dataset, outfile, chunks_return={}, chunks_on_disk={}, compressor=
     dataset_group = zarr.open_group(outfile,mode='a')
     dataset_group.attrs[graph_name+'_time'] = time_to_calc_and_store
     
-    #Consolidate metadata
-    zarr.consolidate_metadata(outfile)
+    if consolidated:
+        #Consolidate metadata
+        zarr.consolidate_metadata(outfile)
     
     if bool(chunks_return):
-        return xr.open_zarr(outfile,consolidated=True,overwrite_encoded_chunks=True)
+        return xr.open_zarr(outfile,consolidated=consolidated,overwrite_encoded_chunks=True)
     else:
         #Get input dataset chunking
         for dim_key in dataset.chunks:
             chunks_return[dim_key] = dataset.chunks[dim_key][0]
-        return xr.open_zarr(outfile,chunks=chunks_return,consolidated=True,overwrite_encoded_chunks=True)
+        return xr.open_zarr(outfile,chunks=chunks_return,consolidated=consolidated,overwrite_encoded_chunks=True)

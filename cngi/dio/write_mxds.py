@@ -59,6 +59,7 @@ def write_mxds(mxds, outfile, chunks_return={}, chunks_on_disk={}, compressor=No
         compressor = Blosc(cname='zstd', clevel=2, shuffle=0)
         
     os.system('mkdir ' + outfile)
+    print('3')
         
     for xds_name in mxds.attrs:
         if "xds" in xds_name:
@@ -72,22 +73,25 @@ def write_mxds(mxds, outfile, chunks_return={}, chunks_on_disk={}, compressor=No
             xds_outfile = outfile + '/global/' + xds_name
             xds_for_disk = mxds.attrs[xds_name]
             
-        #Create compression encoding for each datavariable
-        encoding = dict(zip(list(xds_for_disk.data_vars), cycle([{'compressor': compressor}])))
-        start = time.time()
-        #Consolidated is set to False so that the timing information is included in the consolidate metadata.
-        xr.Dataset.to_zarr(xds_for_disk, store=outfile, mode='w', encoding=encoding,consolidated=False)
-        time_to_calc_and_store = time.time() - start
-        print('Time to store and execute graph for ', xds_name, graph_name, time_to_calc_and_store)
-        
-        #Add timing information
-        dataset_group = zarr.open_group(xds_outfile,mode='a')
-        dataset_group.attrs[graph_name+'_time'] = time_to_calc_and_store
-        
-        #Consolidate metadata
-        zarr.consolidate_metadata(xds_outfile)
-
-    from read_vis import read_vis
+        try:
+            #Create compression encoding for each datavariable
+            encoding = dict(zip(list(xds_for_disk.data_vars), cycle([{'compressor': compressor}])))
+            start = time.time()
+            #Consolidated is set to False so that the timing information is included in the consolidate metadata.
+            xr.Dataset.to_zarr(xds_for_disk, store=xds_outfile, mode='w', encoding=encoding,consolidated=False)
+            time_to_calc_and_store = time.time() - start
+            print('Time to store and execute graph for ', xds_name, graph_name, time_to_calc_and_store)
+            
+            #Add timing information
+            dataset_group = zarr.open_group(xds_outfile,mode='a')
+            dataset_group.attrs[graph_name+'_time'] = time_to_calc_and_store
+            
+            #Consolidate metadata
+            zarr.consolidate_metadata(xds_outfile)
+        except:
+            print('Could not save ', xds_name)
+    '''
+    from .read_vis import read_vis
     
     
     if bool(chunks_return):
@@ -97,4 +101,4 @@ def write_mxds(mxds, outfile, chunks_return={}, chunks_on_disk={}, compressor=No
         for dim_key in dataset.chunks:
             chunks_return[dim_key] = dataset.chunks[dim_key][0]
         return read_vis(outfile,chunks=chunks_return,consolidated=True,overwrite_encoded_chunks=True)
-    
+    '''
