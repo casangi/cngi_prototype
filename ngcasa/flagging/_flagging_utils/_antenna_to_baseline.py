@@ -11,8 +11,8 @@ def _antenna_to_baseline(mxds, xds, ant_name):
         return idxs[0][0]
 
     def ant_idx_to_baseline_idxs(xds, ant_idx):
-        baselines_ant1 = np.where(xds.ANTENNA1.isel(time=0).values == ant_idx)
-        baselines_ant2 = np.where(xds.ANTENNA2.isel(time=0).values == ant_idx)
+        baselines_ant1 = np.where(xds.ANTENNA1.values == ant_idx)
+        baselines_ant2 = np.where(xds.ANTENNA2.values == ant_idx)
         baseline_idxs = np.concatenate((baselines_ant1[0], baselines_ant2[0]))
         return baseline_idxs
 
