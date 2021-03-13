@@ -103,7 +103,7 @@ def make_imaging_weight(vis_mxds, imaging_weights_parms, grid_parms, sel_parms):
     #################################################################
     _vis_xds[_sel_parms['data_group_out']['imaging_weight']] = _vis_xds[_sel_parms['data_group_in']['weight']]
     _sel_parms['data_group_in']['imaging_weight'] = _sel_parms['data_group_out']['imaging_weight']
-    calc_briggs_weights(_vis_xds,_imaging_weights_parms,_grid_parms,_sel_parms['data_group_in'])
+    calc_briggs_weights(_vis_xds,_imaging_weights_parms,_grid_parms,_sel_parms)
         
     #print(_vis_xds)
     _vis_xds.attrs['data_groups'][0] = {**_vis_xds.attrs['data_groups'][0], **{_sel_parms['data_group_out']['id']:_sel_parms['data_group_out']}}
@@ -180,6 +180,6 @@ def calc_briggs_weights(vis_xds,imaging_weights_parms,grid_parms,sel_parms):
     
     imaging_weight = _graph_standard_degrid(vis_xds, grid_of_imaging_weights, briggs_factors, cgk_1D, grid_parms, sel_parms)
     
-    vis_xds[sel_parms['imaging_weight']] = xr.DataArray(imaging_weight, dims=vis_xds[sel_parms['data']].dims)
+    vis_xds[sel_parms['data_group_in']['imaging_weight']] = xr.DataArray(imaging_weight, dims=vis_xds[sel_parms['data_group_in']['data']].dims)
     
 
