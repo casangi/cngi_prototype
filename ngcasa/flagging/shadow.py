@@ -4,7 +4,7 @@ this module will be included in the api
 """
 
 
-def quack(vis_dataset, **kwargs):  # args to be defined, storage_parms?):
+def shadow(vis_dataset, **kwargs):  # args to be defined, storage_parms?):
     """
     .. todo::
         This function is not yet implemented
