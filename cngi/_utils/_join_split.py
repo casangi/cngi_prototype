@@ -48,7 +48,7 @@ def apply_data_var_remap(xds : xr.Dataset, var_name : str, map_func) -> xr.Datas
     import numpy as np
     def mb(array):
         vals = array.values
-        newvals = np.array([], vals.dtype)
+        newvals = np.ndarray(vals.shape, vals.dtype)
         if len(vals) > 0:
             newvals = np.vectorize(map_func, [vals.dtype])(vals)
         return xr.DataArray(data=newvals, coords=array.coords, dims=array.dims, name=array.name, attrs=array.attrs)

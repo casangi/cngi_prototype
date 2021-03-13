@@ -56,11 +56,11 @@ def join_dataset(mxds1 : xr.Dataset, mxds2 : xr.Dataset) -> xr.Dataset:
 
     # Find the index of the last visibility, used to rename visibilities from
     # mxds2 to mxds1.
-    visnames1 = filter(lambda x: "xds" in x, mxds1.attrs)
-    visnames2 = filter(lambda x: "xds" in x, mxds2.attrs)
+    visnames1 = list(filter(lambda x: "xds" in x, mxds1.attrs))
+    visnames2 = list(filter(lambda x: "xds" in x, mxds2.attrs))
     numreg = re.compile("[0-9]+")
     lastindex = 0
-    for visname in reversed(sorted(list(visnames1) + list(visnames2))): # type: str
+    for visname in reversed(sorted(visnames1 + visnames2)): # type: str
         if len(numreg.findall(visname)) > 0:
             lastindex = int(numreg.findall(visname)[0])
             break
@@ -75,9 +75,9 @@ def join_dataset(mxds1 : xr.Dataset, mxds2 : xr.Dataset) -> xr.Dataset:
             map_func = lambda x: x if x not in keyname_maps[kn] else keyname_maps[kn]
             for knvariant in gen_keyname_variants(kn):
                 if knvariant in main.coords:
-                    main = apply_coord_remap(main, knvariant, map_func, print_diff=True)
+                    main = apply_coord_remap(main, knvariant, map_func)
                 if knvariant in main.data_vars:
-                    main = apply_data_var_remap(main, knvariant, map_func, print_diff=True)
+                    main = apply_data_var_remap(main, knvariant, map_func)
 
         # Preserve the visibility name where possible.
         if len(numreg.findall(aname)) > 0:
@@ -88,7 +88,7 @@ def join_dataset(mxds1 : xr.Dataset, mxds2 : xr.Dataset) -> xr.Dataset:
         # Insert into the returned xds.
         while f"xds{nextindex}" in mxds.attrs:
             nextindex += 1
-        mxds_copier(mxds, f"xds{nextindex}", main)
+        mxds.attrs[f"xds{nextindex}"] = main
         nextindex += 1
 
     return mxds
