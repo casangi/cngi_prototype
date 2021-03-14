@@ -14,21 +14,19 @@ def manager_remove(vis_dataset, name):
     vis_dataset : xarray.core.dataset.Dataset
         Input dataset
     name : string
-        The flag variable name to remove (FLAG_name)
+        The flag variable name to remove
 
     Returns:
     -------
     xds: xarray.core.dataset.Dataset
         Visibility dataset without the removed flag variable
     """
-    flag_var = 'FLAG'
-    rem_name = '{}_{}'.format(flag_var, name)
-    if rem_name not in vis_dataset.variables:
+    if name not in vis_dataset.variables:
         raise RuntimeError('Flag variable not found in dataset: {}'.
-                           format(rem_name))
+                           format(name))
 
     xds = vis_dataset.copy()
     flags_attr = _ensure_flags_attr(xds)
-    del xds.attrs[flags_attr][rem_name]
+    del xds.attrs[flags_attr][name]
 
     return xds

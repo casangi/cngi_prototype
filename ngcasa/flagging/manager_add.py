@@ -17,7 +17,7 @@ def manager_add(vis_dataset, name, descr, source=None):
     vis_dataset : xarray.core.dataset.Dataset
         Input dataset
     name : string
-        The new flag variable will be named FLAG_name
+        The new flag variable name
     descr : string
         Text description of the flag variable (for example, 'backup_beginning')
     source : name
@@ -29,24 +29,25 @@ def manager_add(vis_dataset, name, descr, source=None):
     xds: xarray.core.dataset.Dataset
         Visibility dataset with updated set of flag variables
     """
-    flag_var = 'FLAG'
-    add_name = '{}_{}'.format(flag_var, name)
-    if add_name in vis_dataset.variables:
+    if not name.startswith('FLAG_'):
+        raise ValueError('Current convention is that flag variables names should '
+                         'start with FLAG_')
+    if name in vis_dataset.variables:
         raise RuntimeError('Flag variable already in dataset: {}'.
-                           format(add_name))
+                           format(name))
 
     # Add variable
-    source_name = '{}_{}'.format(flag_var, source)
-    if source_name in vis_dataset.variables:
-        if source_name not in vis_dataset.variables:
+    flag_var = 'FLAG'
+    if source:
+        if source not in vis_dataset.variables:
             raise RuntimeError('Source variable not found in dataset: {}'.
-                               format(source_name))
+                               format(source))
         xds = vis_dataset.copy()
-        xds[add_name] = vis_dataset[source_name]
+        xds[name] = vis_dataset[source]
     else:
         xds = vis_dataset.copy()
-        xds[add_name] = xr.zeros_like(vis_dataset[flag_var], dtype=bool)
+        xds[name] = xr.zeros_like(vis_dataset[flag_var], dtype=bool)
 
-    _add_descr(xds, add_name, descr)
+    _add_descr(xds, name, descr)
 
     return xds
