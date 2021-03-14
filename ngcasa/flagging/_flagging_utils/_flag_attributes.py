@@ -12,31 +12,23 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
-"""
-this module will be included in the api
-"""
 
 
-def auto_uvbin(vis_dataset, **kwargs):  # args to be defined, storage_parms?):
+def _ensure_flags_attr(xds):
     """
-    .. todo::
-        This function is not yet implemented
-
-    An autoflag algorithm that detects outliers on the gridded spatial frequency
-    plane (Algorithm prototype exists).
-
-    TBD: How can this method call  ngcasa.imaging._make_grid() and also satisfy
-    code structure rules?
-
-    Parameters
-    ----------
-    vis_dataset : xarray.core.dataset.Dataset
-        Input dataset.
-    TBD
-
-    Returns:
-    -------
-    xds: xarray.core.dataset.Dataset
-        Visibility dataset with updated flags
+    Returns the name of the dataset attribute that holds info on flag variables.
     """
-    raise NotImplementedError('This method is not implemented')
+    flag_var = 'FLAG'
+    flags_attr = 'flag_variables'
+    if flags_attr not in xds.attrs:
+        xds.attrs[flags_attr] = {flag_var: 'Default flags variable'}
+    return flags_attr
+
+
+def _add_descr(xds, add_name=None, descr=None):
+    """
+    Adds into the dict of flag variables a new flag variable and its description.
+    """
+    flags_attr = _ensure_flags_attr(xds)
+    if add_name:
+        xds.attrs[flags_attr][add_name] = descr

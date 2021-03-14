@@ -1,3 +1,4 @@
+#   Copyright 2020-21 European Southern Observatory, ALMA partnership
 #   Copyright 2020 AUI, Inc. Washington DC, USA
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,27 +16,24 @@
 this module will be included in the api
 """
 
-def auto_rflag(vis_dataset,auto_rflag_parms, storage_parms):
+
+def auto_rflag(vis_dataset, **kwargs):  # args to be defined, storage_parms?):
     """
     .. todo::
         This function is not yet implemented
-    
+
     An autoflag algorithm that detects outliers via hierarchical MAD statistics
     applied to the visibility data.
-    
-    Inputs :
-    
-    (1) algo parameters
-    (2) array name for output flags. Default = FLAG
-    (3) array name for input flags. Default = FLAG
-    
-    If a new flag_array is picked for the output, save only 'new' flags.
-    They can be merged with pre-existing flags in a separate step
-    
-    If an existing flag_array is picked for the output, merge with logical OR.
-    
-    Returns
-    -------
-    vis_dataset : xarray.core.dataset.Dataset
-    """
 
+    Parameters
+    ----------
+    vis_dataset : xarray.core.dataset.Dataset
+        Input dataset.
+    TBD
+
+    Returns:
+    -------
+    xarray.core.dataset.Dataset
+        Visibility dataset with updated flags
+    """
+    raise NotImplementedError('This method is not implemented')

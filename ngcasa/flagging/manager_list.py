@@ -15,28 +15,30 @@
 """
 this module will be included in the api
 """
+import pandas as pd
+from ._flagging_utils._flag_attributes import _ensure_flags_attr
 
 
-def auto_uvbin(vis_dataset, **kwargs):  # args to be defined, storage_parms?):
+def manager_list(vis_dataset):
     """
-    .. todo::
-        This function is not yet implemented
-
-    An autoflag algorithm that detects outliers on the gridded spatial frequency
-    plane (Algorithm prototype exists).
-
-    TBD: How can this method call  ngcasa.imaging._make_grid() and also satisfy
-    code structure rules?
+    Add a new flag variable to the dataset. All flags in the new variable are
+    set to false, unless a source variable is given in which case the values of
+    the source are copied.
 
     Parameters
     ----------
     vis_dataset : xarray.core.dataset.Dataset
-        Input dataset.
-    TBD
+        Input dataset
 
     Returns:
     -------
-    xds: xarray.core.dataset.Dataset
-        Visibility dataset with updated flags
+    pandas.core.frame.DataFrame
+        Information on flag variables from the input dataset
     """
-    raise NotImplementedError('This method is not implemented')
+    flags_attr = _ensure_flags_attr(vis_dataset)
+
+    res = {'Flag variable name':
+           [key for key in vis_dataset.attrs[flags_attr]],
+           'Description':
+           [val for _key, val in vis_dataset.attrs[flags_attr].items()]}
+    return pd.DataFrame.from_dict(res)

@@ -1,3 +1,4 @@
+#   Copyright 2020-21 European Southern Observatory, ALMA partnership
 #   Copyright 2020 AUI, Inc. Washington DC, USA
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,26 +16,34 @@
 this module will be included in the api
 """
 
-def auto_clip(vis_dataset,auto_clip_parms, storage_parms):
-    """
-    .. todo::
-        This function is not yet implemented
-        
-    An autoflag algorithm that clips the result of a specified expression.
 
-    Inputs :
-    
-    (1) algo parameters
-    (2) array name for output flags. Default = FLAG
-    (3) array name for input flags. Default = FLAG
-    
-    If a new flag_array is picked for the output, save only 'new' flags.
-    They can be merged with pre-existing flags in a separate step
-    
-    If an existing flag_array is picked for the output, merge with logical OR.
-    
-    Returns
-    -------
+def auto_clip(vis_dataset, clip_min, clip_max):  # , storage_parms?):
+    """
+    Apply the clip flagging method. Data with values lower than clip_min
+    or bigger than clip_max are flagged. Values are compared against the abs
+    of the visibility values (no other expression supported at the moment).
+
+    Parameters
+    ----------
     vis_dataset : xarray.core.dataset.Dataset
-    """
+        Input dataset.
+    clip_min : float
+        Minimum below which data should be flagged
+    max_clip : float
+        Maximum above which data should be flagged
 
+    Returns:
+    -------
+    xds: xarray.core.dataset.Dataset
+        Visibility dataset with updated flags
+    """
+    flag_var = 'FLAG'
+    data_var = 'DATA'
+
+    to_clip = (abs(vis_dataset[data_var]) < clip_min) |\
+              (abs(vis_dataset[data_var]) > clip_max)
+    xds = vis_dataset.assign()
+    xds[flag_var] = vis_dataset[flag_var] | to_clip
+
+    # ? return _store(xds, list_xarray_data_variables, _storage_parms)
+    return xds

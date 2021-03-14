@@ -1,3 +1,4 @@
+#   Copyright 2020-21 European Southern Observatory, ALMA partnership
 #   Copyright 2020 AUI, Inc. Washington DC, USA
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,19 +16,23 @@
 this module will be included in the api
 """
 
-def elevation(vis_dataset, elevation_parms, storage_parms):
+
+def elevation(vis_dataset, **kwargs):  # args to be defined, storage_parms?):
     """
     .. todo::
         This function is not yet implemented
-    
+
     Flag data for low elevations
-    
-    Inputs :
-    
-    (1) tolerance
-    (2) array name for output flags. Default = FLAG
-    
-    Returns
-    -------
+
+    Parameters
+    ----------
     vis_dataset : xarray.core.dataset.Dataset
+        Input dataset.
+    TBD - tolerance
+
+    Returns:
+    -------
+    xds: xarray.core.dataset.Dataset
+        Visibility dataset with updated flags
     """
+    raise NotImplementedError('This method is not implemented')

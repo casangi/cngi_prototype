@@ -1,3 +1,4 @@
+#   Copyright 2020-21 European Southern Observatory, ALMA partnership
 #   Copyright 2020 AUI, Inc. Washington DC, USA
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,25 +16,24 @@
 this module will be included in the api
 """
 
-def quack(vis_dataset,quack_parms, storage_parms):
+
+def quack(vis_dataset, **kwargs):  # args to be defined, storage_parms?):
     """
     .. todo::
         This function is not yet implemented
-    
+
     Flag the beginning and/or end of scans to account for observation effects
     such as antenna slewing delays.
-    
-    Inputs :
-    
-    (1) time-width, beginning or end or both
-    (2) array name for output flags. Default = FLAG
-    
-    TBD:
-    
-    Change name ?
-    
-    Returns
-    -------
-    vis_dataset : xarray.core.dataset.Dataset
-    """
 
+    Parameters
+    ----------
+    vis_dataset : xarray.core.dataset.Dataset
+        Input dataset.
+    TBD - time-width, beginning or end or both
+
+    Returns:
+    -------
+    xds: xarray.core.dataset.Dataset
+        Visibility dataset with updated flags
+    """
+    raise NotImplementedError('This method is not implemented')
