@@ -3,8 +3,10 @@
 this module will be included in the api
 """
 import xarray as xr
+from ._flagging_utils._merge_timerange_cmds import _merge_timerange_cmds
 from ._flagging_utils._parse_sel_cmd import _parse_sel_cmd
 from ._flagging_utils._read_flagcmds import _read_flagcmds
+
 
 def manual_flag(mxds, xds_idx, commands=None, cmd_filename=None):
     """
@@ -48,7 +50,7 @@ def manual_flag(mxds, xds_idx, commands=None, cmd_filename=None):
         raise RuntimeError("No valid flagging commands found in inputs. Direct "
                            f"command list is: {commands}. File is: {cmd_filename}")
     xds = mxds.attrs['xds' + '{}'.format(xds_idx)]
-    return _manual_with_reindex_like(mxds, xds, all_cmds)
+    return _manual_with_reindex_like(mxds, xds, _merge_timerange_cmds(all_cmds))
 
 
 def _manual_with_reindex_like(mxds, xds, cmds):
@@ -57,6 +59,7 @@ def _manual_with_reindex_like(mxds, xds, cmds):
     for cmd in cmds:
         selection = _parse_sel_cmd(mxds, xds, cmd)
         fsel = xds[flag_var].sel(selection)
+
         if 0 in fsel.shape:
             print('WARNING: selection results in 0 shape. Sel: {}. Shape: {}'.
                   format(fsel, fsel.shape))
