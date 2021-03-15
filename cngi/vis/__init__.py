@@ -15,11 +15,8 @@ from .chan_smooth import chan_smooth
 from .join_vis import join_vis
 from .join_dataset import join_dataset
 from .split_dataset import split_dataset
-from .phase_shift import phase_shift
 from .reframe import reframe
 from .time_average import time_average
 from .uv_cont_fit import uv_cont_fit
 from .uv_model_fit import uv_model_fit
 from .visplot import visplot
-from .sd_fit import sd_fit
-from .sd_polaverage import sd_polaverage
