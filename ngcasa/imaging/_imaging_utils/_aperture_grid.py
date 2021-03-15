@@ -361,8 +361,9 @@ def _aperture_psf_grid_numpy_wrap(uvw,imaging_weight,field,cf_baseline_map,cf_ch
     
     #print('vis_data', vis_data.shape , 'grid ', grid.shape, 'sum_weight', sum_weight.shape, 'cf_chan_map ', cf_chan_map.shape, ' cf_baseline_map', cf_baseline_map.shape, 'cf_pol_map', cf_pol_map.shape, ' conv_kernel',  conv_kernel.shape, 'phase_gradient', phase_gradient.shape, 'field', field.shape,  )
     
+    vis_data = np.zeros((1, 1, 1, 1), dtype=np.bool)
     #start = time.time()
-    _aperture_grid_jit(grid, sum_weight, do_psf, [0.0], uvw, freq_chan, chan_map, pol_map, cf_baseline_map, cf_chan_map, cf_pol_map, imaging_weight, conv_kernel, n_uv, delta_lm, weight_support, oversampling, field, field_id, phase_gradient)
+    _aperture_grid_jit(grid, sum_weight, do_psf, vis_data, uvw, freq_chan, chan_map, pol_map, cf_baseline_map, cf_chan_map, cf_pol_map, imaging_weight, conv_kernel, n_uv, delta_lm, weight_support, oversampling, field, field_id, phase_gradient)
     #time_to_grid = time.time() - start
     #print("time to grid ", time_to_grid)
 
