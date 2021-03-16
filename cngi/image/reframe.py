@@ -183,7 +183,7 @@ def reframe(
                 measured_velocities = measured_frequencies.to(
                     units.km / units.s, equivalencies=radio_equiv
                 )
-                _ixds = txds.assign_coords(velocity=("chan", measured_velocities.value))
+                _ixds = _ixds.assign_coords(velocity=("chan", measured_velocities.value))
                 _ixds.attrs["units_map"][
                     "Velocity"
                 ] = measured_velocities.unit.to_string()
@@ -235,7 +235,7 @@ def reframe(
     # Apply the function to the data
     # The parallelism happens inside this function
     try:
-        output_ixds = xarray.map_blocks(
+        output_ixds = xr.map_blocks(
             obj=_ixds,
             func=_change_frame,
             args=[],  # no positional args
