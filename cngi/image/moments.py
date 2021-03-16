@@ -22,7 +22,7 @@ import numpy as np
 
 xa.set_options(keep_attrs=True)
 
-def moments(xds, dv = 'IMAGE', moment=None, axis='chan'):
+def moments(xds, dv='IMAGE', moment=None, axis='chan'):
     """
     Collapse an n-dimensional image cube into a moment by taking a linear combination of individual planes
     
