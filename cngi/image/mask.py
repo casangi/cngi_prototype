@@ -51,7 +51,7 @@ def mask(xds, name='MASK1', ra=None, dec=None, pixels=None, pol=-1, channels=-1)
     if not name.strip(): name = 'maskX'
     if ra is None: ra = [0.0, 0.0]
     if dec is None: dec = [0.0, 0.0]
-    if pixels is None: pixels = np.zeros((1,2), dtype=int)-1
+    if pixels is None: pixels = np.zeros((1,2), dtype=int)
     pixels = np.array(pixels, dtype=int)
     if (pixels.ndim != 2) or (pixels.shape[1] != 2):
         print('ERROR: pixels parameter not a (N,2) array')
@@ -63,15 +63,15 @@ def mask(xds, name='MASK1', ra=None, dec=None, pixels=None, pol=-1, channels=-1)
 
     # define mask within ra/dec range
     mask = xr.zeros_like(xds.IMAGE, dtype=bool).where((xds.right_ascension > np.min(ra)) &
-                                                       (xds.right_ascension < np.max(ra)) &
-                                                       (xds.declination > np.min(dec)) &
-                                                       (xds.declination < np.max(dec)), True)
+                                                      (xds.right_ascension < np.max(ra)) &
+                                                      (xds.declination > np.min(dec)) &
+                                                      (xds.declination < np.max(dec)), True)
 
     # AND pixel values with ra/dec values
-    mask = mask & xr.zeros_like(xds.IMAGE, dtype=bool).where((xds.l > np.min(pixels[:, 0])) &
-                                                                (xds.l < np.max(pixels[:, 0])) &
-                                                                (xds.m > np.min(pixels[:, 1])) &
-                                                                (xds.m < np.max(pixels[:, 1])), True)
+    mask = mask & xr.zeros_like(xds.IMAGE, dtype=bool).where((xds.l > xds.l[np.min(pixels[:,0]):np.max(pixels[:,0])+1].min()) &
+                                                             (xds.l < xds.l[np.min(pixels[:,0]):np.max(pixels[:,0])+1].max()) &
+                                                             (xds.m > xds.m[np.min(pixels[:,1]):np.max(pixels[:,1])+1].min()) &
+                                                             (xds.m < xds.m[np.min(pixels[:,1]):np.max(pixels[:,1])+1].max()), True)
 
     # apply polarization and channels selections
     if pol[0] >= 0:
