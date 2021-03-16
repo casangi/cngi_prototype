@@ -73,7 +73,7 @@ def make_psf_with_gcf(mxds, gcf_dataset, img_dataset, grid_parms, norm_parms, vi
     image_dataset : xarray.core.dataset.Dataset
         The image_dataset will contain the image created and the sum of weights.
     """
-    print('######################### Start make_image_with_gcf #########################')
+    print('######################### Start make_psf_with_gcf #########################')
     import numpy as np
     from numba import jit
     import time
@@ -174,7 +174,7 @@ def make_psf_with_gcf(mxds, gcf_dataset, img_dataset, grid_parms, norm_parms, vi
     #list_xarray_data_variables = [img_dataset[_sel_parms['image']],img_dataset[_sel_parms['sum_weight']]]
     #return _store(img_dataset,list_xarray_data_variables,_storage_parms)
     
-    print('#########################  Created graph for make_mosaic_with_gcf #########################')
+    print('#########################  Created graph for make_psf_with_gcf #########################')
     return _img_dataset
     
     

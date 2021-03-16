@@ -14,7 +14,7 @@ setup(
     url='https://github.com/casangi/cngi_prototype',
     license='Apache-2.0',
     packages=find_packages(),
-    install_requires=['bokeh>=1.4.0',
+    install_requires=['bokeh>=2.2.3',
                       'dask>=2.13.0',
                       'distributed>=2.9.3',
                       'graphviz>=0.13.2',

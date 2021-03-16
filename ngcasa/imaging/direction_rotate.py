@@ -18,7 +18,8 @@ import numpy as np
 import scipy
 import cngi._utils._constants as const
 from scipy import constants
-#from numba import jit
+from numba import jit
+import numba
 # silence NumbaPerformanceWarning
 #import warnings
 #from numba.errors import NumbaPerformanceWarning
@@ -66,6 +67,7 @@ def direction_rotate(mxds, rotation_parms, sel_parms):
     import time
     import dask
     
+    #start_time = time.time()
     #Deep copy so that inputs are not modified
     _mxds = mxds.copy(deep=True)
     _sel_parms = copy.deepcopy(sel_parms)
@@ -81,25 +83,33 @@ def direction_rotate(mxds, rotation_parms, sel_parms):
     #{'uvw':'UVW_ROT','data':'DATA_ROT','properties':{'new_phase_center':_rotation_parms['new_phase_center']}
     _check_sel_parms(_vis_dataset,_sel_parms,new_or_modified_data_variables={'uvw':'UVW_ROT','data':'DATA_ROT'})
     #If only uvw is to be modified drop data
+    #print('copy and check',time.time()-start_time)
         
     #################################################################
     
+    #start_time = time.time()
     #Calculate rotation matrices for each field (not parallelized)
     #n_field number of fields in _vis_dataset
     #uvw_rotmat n_field x 3 x 3
     #phase_rotation n_field x 3
     #rot_field_id n_field
     uvw_rotmat, phase_rotation, rot_field_id = calc_rotation_mats(_vis_dataset,_mxds.FIELD,_rotation_parms)
+    #print('calc_rotation_mats',time.time()-start_time)
     
+    #start_time = time.time()
     #Apply rotation matrix to uvw
     #uvw time x baseline x 3
     uvw = da.map_blocks(apply_rotation_matrix,_vis_dataset[_sel_parms['data_group_in']['uvw']].data, _vis_dataset.FIELD_ID.data[:,:,None],uvw_rotmat,rot_field_id,dtype=np.double)
-
+    #print('apply_rotation_matrix',time.time()-start_time)
+    
+    
+    #start_time = time.time()
     #Phase shift vis data
     #vis_rot time x baseline x chan x pol
     chan_chunk_size = _vis_dataset[_sel_parms['data_group_in']['data']].chunks[2]
     freq_chan = da.from_array(_vis_dataset.coords['chan'].values, chunks=(chan_chunk_size))
     vis_rot = da.map_blocks(apply_phasor,_vis_dataset[_sel_parms['data_group_in']['data']].data,uvw[:,:,:,None], _vis_dataset.FIELD_ID.data[:,:,None,None],freq_chan[None,None,:,None],phase_rotation,rot_field_id,_rotation_parms['common_tangent_reprojection'],_rotation_parms['single_precision'],dtype=np.complex)
+    #print('apply_phasor',time.time()-start_time)
     
     #Add new datavariables
     _vis_dataset[_sel_parms['data_group_out']['uvw']] =  xr.DataArray(uvw, dims=_vis_dataset[_sel_parms['data_group_in']['uvw']].dims)
@@ -122,10 +132,14 @@ def calc_rotation_mats(vis_dataset,field_dataset,rotation_parms):
     dec_image = rotation_parms['new_phase_center'][1]
     
     rotmat_new_phase_center = R.from_euler('XZ',[[np.pi/2 - dec_image, - ra_image + np.pi/2]]).as_matrix()[0]
-    new_phase_center_cosine = _directional_cosine([ra_image,dec_image])
+    new_phase_center_cosine = _directional_cosine(np.array([ra_image,dec_image]))
+    
+    #print(field_dataset.field_id)
+    #print(field_dataset.field_id.values)
     
     field_id = np.unique(vis_dataset.FIELD_ID) # Or should the roation matrix be calculated for all fields #field_id = field_dataset.field_id
     field_id  = field_id[field_id != const.INT_NAN] #remove nan
+    #print(field_id)
     
     n_fields = len(field_id)
     uvw_rotmat = np.zeros((n_fields,3,3),np.double)
@@ -140,7 +154,7 @@ def calc_rotation_mats(vis_dataset,field_dataset,rotation_parms):
     
     #Create a rotation matrix for each field
     for i_field in range(n_fields):
-        field_phase_center = fields_phase_center[i_field,:]
+        field_phase_center = np.array(fields_phase_center[i_field,:].values)
         # Define rotation to a coordinate system with pole towards in-direction
         # and X-axis W; by rotating around z-axis over -(90-long); and around
         # x-axis (lat-90).
@@ -154,15 +168,15 @@ def calc_rotation_mats(vis_dataset,field_dataset,rotation_parms):
         phase_rotation[i_field,:] = np.matmul(rotmat_new_phase_center,(new_phase_center_cosine - field_phase_center_cosine))
     
     return uvw_rotmat, phase_rotation, field_id
-    
+
+@jit(nopython=True,cache=True)
 def _directional_cosine(phase_center_in_radians):
    '''
    # In https://arxiv.org/pdf/astro-ph/0207413.pdf see equation 160
    phase_center_in_radians (RA,DEC)
    '''
-   import numpy as np
    
-   phase_center_cosine = np.zeros((3,))
+   phase_center_cosine = np.zeros((3,),dtype=numba.f8)
    phase_center_cosine[0] = np.cos(phase_center_in_radians[0])*np.cos(phase_center_in_radians[1])
    phase_center_cosine[1] = np.sin(phase_center_in_radians[0])*np.cos(phase_center_in_radians[1])
    phase_center_cosine[2] = np.sin(phase_center_in_radians[1])

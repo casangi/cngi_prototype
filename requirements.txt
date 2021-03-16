@@ -4,7 +4,7 @@ sphinx-autoapi==1.5.1
 sphinx-rtd-theme==0.5.0
 recommonmark==0.6.0
 twine>=3.1.1
-bokeh>=1.4.0
+bokeh>=2.2.3
 dask>=2.13.0
 distributed>=2.9.3
 graphviz>=0.13.2
