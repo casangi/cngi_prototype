@@ -19,7 +19,7 @@ this module will be included in the api
 import xarray as xr
 
 ########################
-def join_vis(mxds : xr.Dataset, vis1 : str, vis2 : str) -> xr.Dataset:
+def join_vis(mxds, vis1, vis2):
     """
     Concatenate together two Visibility xds's of compatible shape from the same mxds
 

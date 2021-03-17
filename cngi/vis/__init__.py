@@ -18,5 +18,4 @@ from .split_dataset import split_dataset
 from .reframe import reframe
 from .time_average import time_average
 from .uv_cont_fit import uv_cont_fit
-from .uv_model_fit import uv_model_fit
 from .visplot import visplot

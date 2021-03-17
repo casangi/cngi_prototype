@@ -20,9 +20,6 @@ this module will be included in the api
 ###############################################
 def reframe(mxds, vis, mode='channel', nchan=None, start=0, width=1, interpolation='linear', phasecenter=None, restfreq=None, outframe=None, veltype='radio'):
     """
-    .. todo::
-        This function is not yet implemented
-
     Transform channel labels and visibilities to a spectral reference frame which is appropriate for analysis, e.g. from TOPO to LSRK or to correct for doppler shifts throughout the time of observation
 
     Parameters
@@ -53,113 +50,46 @@ def reframe(mxds, vis, mode='channel', nchan=None, start=0, width=1, interpolati
     xarray.core.dataset.Dataset
         New output multi-xarray Dataset with global data
     """
-    return {}
+    import xarray
+    import datetime
+    import numpy as np
+    from astropy import units as u
+    from astropy.time import Time
+    from astropy.coordinates import EarthLocation, SpectralCoord, SkyCoord
+    
+    xds = mxds.attrs[vis]
 
-def _reference_time(input_xds):
+    fields = xds.FIELD_ID.values.clip(0).flatten()
+    sources = mxds.FIELD.sel(field_id=fields).source_id.values #[[xds.FIELD_ID.values.clip(0)]]
+    unique_sources = np.unique(sources)
+    
+    #directions = mxds.SOURCE.DIRECTION.where(mxds.SOURCE.source_id
+    targets = SkyCoord(directions[...,0], directions[...,1], unit='rad')
+    
+    #location = EarthLocation.of_site(input_xds['OBS_TELESCOPE_NAME']).get_itrs(obstime=Time(reference_time))
+    #location = EarthLocation(input_xds['ANT_POSITION'].mean()).get_itrs(obstime=Time(reference_time))
+    location = EarthLocation.of_site('ALMA')
+    alma = location.get_itrs(obstime=Time(xds.time.values))
+    
+    time = _reference_time(global_xds)
+    place = _reference_location(global_xds, reference_time)
+    source = _target_location(global_xds, ddi)
 
-  import datetime
-
-  # the data variables expected by this function come from the global_xds
-
-  try:
-    reference_time = input_xds['ASDM_startValidTime'][0]
-    reference_time = input_xds.OBS_TIME_RANGE.values[0]
-  except:
-    reference_time = datetime.datetime.now()
-    reference_time = reference_time.strftime("%Y-%m-%dT%H:%M:%S")
-
-  return reference_time
-
-
-def _reference_location(input_xds, reference_time):
-
-  from astropy.coordinates import EarthLocation
-  from astropy.time import Time
-
-  # the data variables expected by this function come from the global_xds
-
-  try:
-    # astropy.time.Time accepts string input of the form '2019-04-24T02:32:10'
-    observer_location = EarthLocation.of_site(input_xds['OBS_TELESCOPE_NAME']).get_itrs(obstime=Time(reference_time))
-  except:
-    # use a crude reference position selection algorithm
-    # could also try accessing the'ASDM_POSITION' data variable
-    observer_location = EarthLocation(input_xds['ANT_POSITION'].mean()).get_itrs(obstime=Time(reference_time))
-
-  return observer_location
-
-def _target_location(input_xds):
-
-  from astropy.coordinates import Angle, SkyCoord
-  from astropy import units as u
-  
-  try:
-    # assuming these direction axes are sensibly and consistently defined in radians
-    # either way, this will be far easier for images
-    radec_string = Angle(input_xds.SRC_DIRECTION * u.rad, input_xds.SRC_DIRECTION * u.rad)
-  except:
-    radec = '04h21m59.43s +19d32m06.4'
-
-  try:
-    # telescope dependent... is this is kept anywhere in the ASDM/MS/image formats?
-    target_frame ='icrs'
-  except:
     # epoch lookup or assume J2000
-    target_frame = 'FK5'
+    #target_frame = 'FK5'
 
-  try:
-    # another assumption lacking coordinate associated with the d2 dimension
-    recession = global_xds.SRC_PROPER_MOTION * u.Hz
-  except:
-    # set a weird assumed default
-    recession = 23.9 * u.km / u.s
-
-  # examples...need to get these from somehwere in the dataset, likely global_xds
-  try:
-    distance = something
-  except:
-    distance = 144.321 * u.pc
-
-  target_location =  SkyCoord(radec, frame=target_frame, radial_velocity=recession, distance=distance)
-
-  return target_location
-
-def _change_frame(input_array, place, source):
-  from astropy import units as u
-  from astropy.coordinates import EarthLocation, SkyCoord, SpectralCoord
-  from astropy.time import Time
-  import xarray
-  import numpy as np
-
-  # the input_array will act on the relevant xr.DataArray
-  SpectralCoord(input_array, 
-                unit=u(img_xds.attrs['rest_frequency'].split('')[:-1]),
-                observer=place, 
-                target=source,
-                #doppler_reference=img_xds.attrs['spectral__reference'], 
-                #doppler_convention=img_xds.attrs['velocity__type'])
-                )
-
-  output_array = input_array.with_observer_stationary_relative_to('lsrk')
-
-  return output_array(axis=-1, keepdims=True)
+    aspc = SpectralCoord(input_array,
+                         unit=u.Hz,
+                         observer=place,
+                         target=source)
+    # doppler_reference=img_xds.attrs['spectral__reference'],
+    # doppler_convention=img_xds.attrs['velocity__type'])
 
 
-def topo_to_lsrk(xds, ddi, reference_time, observer_location, target_location):
-  import xarray
-  from cngi.dio import read_vis
+    output_xds = xarray.apply_ufunc(change_frame, place, source, vis_xds.DATA.chunk({'chan': -1}), input_core_dims=[['chan']],
+                                    dask='parallelized', output_dtypes=[vis_xds.DATA.dtype])
 
-  vis_xds = cngi.dio.read_vis(xds, ddi=ddi)
-  global_xds = cngi.dio.read_vis(xds, ddi='global')
+    # update some properties of global_xds after conversion?
 
-  time = _reference_time(global_xds)
-  place = _reference_location(global_xds, reference_time)
-  source = _target_location(global_xds, ddi)
-
-  output_xds = xarray.apply_ufunc(change_frame, place, source, vis_xds.DATA.chunk({'chan':-1}), input_core_dims=[['chan']], dask='parallelized', output_dtypes=[vis_xds.DATA.dtype])
-
-  # update some properties of global_xds after conversion?
-
-  # ouptut_xds.compute()
-  return output_xds
-
+    # ouptut_xds.compute()
+    return output_xds
