@@ -220,8 +220,13 @@ def convert_ms(infile, outfile=None, ddis=None, ignore=['HISTORY'], compressor=N
         print('Completed subtables  process time {:0.2f} s'.format(time.time() - start_ddi))
     
     # write sw version that did this conversion to zarr directory
+    try:
+        version = importlib_metadata.version('cngi-prototype')
+    except:
+        version = '0.0.0'
+    
     with open(outfile+'/.version', 'w') as fid:
-        fid.write('cngi-protoype ' + importlib_metadata.version('cngi-prototype') + '\n')
+        fid.write('cngi-protoype ' + version + '\n')
     
     # build the master xds to return
     mxds = xdsio.vis_xds_packager(xds_list)

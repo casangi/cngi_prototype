@@ -221,7 +221,12 @@ def convert_image(infile, outfile=None, artifacts=[], compressor=None, chunks=(-
 
     # add attributes from metadata and version tag file
     mxds.to_zarr(outfile, mode='a', compute=True, consolidated=True)
+    try:
+        version = importlib_metadata.version('cngi-prototype')
+    except:
+        version = '0.0.0'
+
     with open(outfile + '/.version', 'w') as fid:   # write sw version that did this conversion to zarr directory
-        fid.write('cngi-protoype ' + importlib_metadata.version('cngi-prototype') + '\n')
+        fid.write('cngi-protoype ' + version + '\n')
 
     return xarray.open_zarr(outfile)
