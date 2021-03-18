@@ -12,7 +12,7 @@ infrastructure of CASA with a parallel, scalable, and largely off-the-shelf solu
    :hidden:
    :maxdepth: 3
 
-   getting_started
+   introduction
    api
    data_structures
    visibilities

@@ -23,7 +23,7 @@ def smooth(xds, dv='IMAGE', kernel='gaussian', size=[1., 1., 30.], current=None,
     """                                                                                                                                                                                                     
     Smooth data along the spatial plane of the image cube.
     
-    Computes a correcting beam to produce defined size when kernel=gaussia and current is defined.  Otherwise the size
+    Computes a correcting beam to produce defined size when kernel=gaussian and current is defined.  Otherwise the size
     or existing beam is used directly.
 
     Parameters
@@ -35,7 +35,8 @@ def smooth(xds, dv='IMAGE', kernel='gaussian', size=[1., 1., 30.], current=None,
     kernel : str
         Type of kernel to use:'boxcar', 'gaussian' or the name of a data var in this xds.  Default is 'gaussian'.
     size : list of floats
-        list of three values corresponding to major and minor axes (in arcseconds) and position angle (in degrees).
+        for gaussian kernel, list of three values corresponding to major and minor axes (in arcseconds) and position angle (in degrees).
+        for boxcar kernel, list of two valuess corresponding to l,m bin width.  Default is [1., 1., 30.] (for a gaussian)
     current : list of floats
         same structure as size, a list of three values corresponding to major and minor axes (in arcseconds) and position
         angle (in degrees) of the current beam applied to the image.  Default is None
@@ -47,7 +48,7 @@ def smooth(xds, dv='IMAGE', kernel='gaussian', size=[1., 1., 30.], current=None,
     Returns                                                                                                                                                                                                 
     -------                                                                                                                                                                                                 
     xarray.core.dataset.Dataset                                                                                                                                                                             
-        output Image                                                                                                                                                                                        
+        output Image
     """
     import xarray
     import dask.array as da

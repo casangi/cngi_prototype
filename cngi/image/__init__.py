@@ -24,5 +24,3 @@ from .spec_fit import spec_fit
 from .statistics import statistics
 from .stokes_to_corr import stokes_to_corr
 from .make_empty_sky_image import make_empty_sky_image
-
-
