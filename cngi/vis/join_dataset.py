@@ -19,7 +19,7 @@ this module will be included in the api
 import xarray as xr
 
 ###############################################
-def join_dataset(mxds1 : xr.Dataset, mxds2 : xr.Dataset) -> xr.Dataset:
+def join_dataset(mxds1, mxds2):
     """
     Join together two visibility zarr directories.
 

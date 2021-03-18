@@ -20,11 +20,8 @@ infrastructure of CASA with a parallel, scalable, and largely off-the-shelf solu
    calibration
    flagging
    imaging
-   simulation
    benchmark
-   external
    verification
-   design
    development
    help
    about
