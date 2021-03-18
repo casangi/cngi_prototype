@@ -11,8 +11,15 @@ utilized and maintained by a global, yet small developer base.  In years past, i
 support the unique needs of radio astronomy science.  Yet as data sizes, performance demands, and conflicting needs of multiple telescopes 
 continue to rise, the overhead of maintaining this infrastructure grows exponentially.
 
+The CASA team has begun exploring options for a new generation of software to meet the growing demands of current and future instruments. 
+This **cngi_prototype** package is a demonstration of the current state of our research efforts.  Its primary purpose is to showcase
+new data structures for MeasurementSet and Image contents built entirely in Python atop the popular technology stack of numpy, dask, 
+and xarray. A selection of core mathematics, manipulation, middleware and analysis functions are shown to demonstrate the simplicity and
+scalability of the technology choices. Finally, the most compute intensive areas of CASA imaging are implemented and benchmarked to
+demonstrate the parallel scalability and raw performance now possible from a pure-Python software stack.
 
-## Background
+
+## Project Background
 The Common Astronomy Support Applications (CASA) package supports a variety of radio astronomy needs by providing mechanisms for data 
 manipulation, analysis, calibration and imaging.  Derivatives of these broad categories include items such as visualization, simulation, 
 conversion, and experimentation.  The primary data products of CASA are the MeasurementSet (MS) and Image file formats.  Additional 
@@ -26,7 +33,7 @@ access and allows for simpler expression of science algorithms.  The top layers 
 science of radio interferometer data reduction.
 
 
-## Goals
+### Goals
 A great deal of the engineering complexity and processing time in CASA stems from the way in which underlying data is accessed and 
 manipulated in the infrastructure layers.  By overhauling these base infrastructure layers, significant savings in complexity and 
 processing time along with dramatic improvements to science development flexibility and potential can be realized.  Here we highlight 
@@ -47,7 +54,7 @@ the main goals and opportunities for improvement within the CASA codebase:
 - Support a variety of use cases and interoperability with other packages by leveraging off-the-shelf standards, tools, and formats
 
 
-## Scope
+### Scope
 A complete top-down overhaul of the entirety of CASA is not feasible as a first (and only) step, as there are no complete and 
 detailed requirements specifications, design documents, architecture or definition of correct output. Instead, the scope of this 
 project is to first condense and replace the CASA data processing software infrastructure and casacore code base only with a new 
@@ -63,7 +70,7 @@ The following diagram illustrates the scope of CNGI and ngCASA, and the ramifica
 ![singlemachinearchitecture](https://raw.githubusercontent.com/casangi/cngi_prototype/master/docs/_media/scope.png)
 
 
-## CASA Next Generation Infrastructure (CNGI)
+### CASA Next Generation Infrastructure (CNGI)
 The CASA Next Generation Infrastructure (CNGI) project will provide a replacement to the infrastructure and middleware layers of CASA 
 using largely off-the-shelf products that are dramatically simpler to use and scalable to a variety of computing environments.  This 
 will take the form of a processing package that includes a programming language, API, and hardware interface drivers.  This package 
@@ -71,7 +78,7 @@ will be functionally equivalent to the MeasurementSet and Image data manipulatio
 replaces, but realized in an entirely new paradigm.
 
 
-## Next Generation CASA (ngCASA) - Future
+### Next Generation CASA (ngCASA) - Future
 The future Next Generation CASA project will use visibility and image manipulation methods from CNGI to implement a data analysis package 
 that replaces the scientific application layer of CASA. This package will provide a set of functions that may be used either as stand-alone 
 building blocks or strung together in a series (internally forming a DAG) to implement operations such as synthesis calibration and image
@@ -79,7 +86,7 @@ reconstruction.  A user of ngCASA may choose to implement their own analysis tas
 or embed ngCASA methods in a custom pipeline DAG.
 
 
-## High Level Separation
+### High Level Separation
 The main purpose behind separating layers of the code base into individual CNGI and ngCASA packages (and then further separating ngCASA 
 with an additional Application layer) is to better support a diverse and wide ranging user base.  Global partnerships and collaborative 
 agreements may be formed over the basic data types and processing engine in CNGI, with more observatory specific tailoring appearing the 
@@ -88,7 +95,7 @@ users, automated pipelines, and other applications wishing to build in CASA capa
 for better tailoring of the user experience to each different category of user.
 
 
-## CNGI_Prototype Demonstration Package
+### CNGI_Prototype Demonstration Package
 This CNGI_Prototype demonstration package is a pilot effort to assess the technology choices made to date for the CNGI Project. It is
 primarily focused on prototyping CNGI-layer functionality to see how well it can work and perform against the goals of the project. A
 second objective is to show how technology choices are likely to satisfy future scientific and engineering needs of the ngCASA project. 
