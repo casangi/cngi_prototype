@@ -94,9 +94,9 @@ def read_vis(
 
         if s3.isdir(s3_url):
             # this conditional is first otherwise there's no point to continue
-            contents_map = s3.listdir(s3_url)[1:]
+            contents_map = s3.listdir(s3_url)
             object_names = [
-                object_dict["name"].split("/")[-1] for object_dict in contents_map[1:]
+                object_dict["name"].split("/")[-1] for object_dict in contents_map
             ]
             if "time" and "baseline" and "chan" and "pol" in object_names:
                 # looks like the input URI was one level too deep or s3_url points to a pre-0.0.65 xds *shivers*
