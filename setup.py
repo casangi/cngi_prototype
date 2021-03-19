@@ -5,7 +5,7 @@ with open('README.md', "r") as fid:   #encoding='utf-8'
 
 setup(
     name='cngi_prototype',
-    version='0.0.78',
+    version='0.0.79',
     description='CASA Next Generation Infrastructure Prototype',
     long_description=long_description,
     long_description_content_type="text/markdown",
