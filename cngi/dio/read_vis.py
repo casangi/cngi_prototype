@@ -115,9 +115,10 @@ def read_vis(
 
             # at this point, s3_url should be compatible and reference top level of a mxds
             if partition is None:
-                contents_map = s3.listdir(s3_url)
+                 # the [1:]s here are both necessary to avoid the .version object
+                contents_map = s3.listdir(s3_url)[1:]
                 object_names = [
-                    object_dict["name"].split("/")[-1] for object_dict in contents_map
+                    object_dict["name"].split("/")[-1] for object_dict in contents_map[1:]
                 ]
                 partition = object_names
                 
