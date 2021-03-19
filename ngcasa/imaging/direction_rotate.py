@@ -169,7 +169,7 @@ def calc_rotation_mats(vis_dataset,field_dataset,rotation_parms):
     
     return uvw_rotmat, phase_rotation, field_id
 
-@jit(nopython=True,cache=True)
+@jit(nopython=True,cache=True,nogil=True)
 def _directional_cosine(phase_center_in_radians):
    '''
    # In https://arxiv.org/pdf/astro-ph/0207413.pdf see equation 160

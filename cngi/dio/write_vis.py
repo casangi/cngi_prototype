@@ -54,6 +54,7 @@ def write_vis(mxds, outfile, chunks_on_disk={}, partition=None, consolidated=Tru
     from numcodecs import Blosc
     from itertools import cycle
     import os
+    import numpy as np
 
     if compressor is None:
         compressor = Blosc(cname='zstd', clevel=2, shuffle=0)

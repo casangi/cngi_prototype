@@ -115,6 +115,8 @@ def _check_norm_parms(norm_parms):
     
     if not(_check_parms(norm_parms, 'single_precision', [bool], default=True)): parms_passed = False
     
+    if not(_check_parms(norm_parms, 'pb_limit', [numbers.Number], default=0.2)): parms_passed = False
+    
     return parms_passed
     
     

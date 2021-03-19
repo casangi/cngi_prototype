@@ -80,10 +80,11 @@ def _normalize(image, sum_weight, img_dataset, gcf_dataset, direction, norm_parm
             normalized_image = da.map_blocks(normalize_image, image, sum_weight[None,None,:,:], normalizing_image, oversampling, correct_oversampling, dtype=np.double)
             #normalized_image = image
         
-        #normalized_image[img_dataset[sel_parms['pb']].data < 0.2] = 0.0
+        if norm_parms['pb_limit'] > 0:
+            normalized_image[img_dataset[sel_parms['data_group_in']['pb']].data[:,:,0,:,:] < norm_parms['pb_limit']] = 0.0
         
         if norm_parms['single_precision']:
-            normalized_image = normalized_image.astype(np.float32)
+            normalized_image = (normalized_image.astype(np.float32)).astype(np.float64)
         
         return normalized_image
     elif direction == 'reverse':

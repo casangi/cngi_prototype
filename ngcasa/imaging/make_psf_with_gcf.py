@@ -95,6 +95,7 @@ def make_psf_with_gcf(mxds, gcf_dataset, img_dataset, grid_parms, norm_parms, vi
     from ._imaging_utils._aperture_grid import _graph_aperture_grid
     from ._imaging_utils._normalize import _normalize
     from cngi.image import make_empty_sky_image
+    from cngi.image import fit_gaussian
     
     
     #Deep copy so that inputs are not modified
@@ -117,7 +118,7 @@ def make_psf_with_gcf(mxds, gcf_dataset, img_dataset, grid_parms, norm_parms, vi
     
     #Check img data_group
  
-    _check_sel_parms(_img_dataset,_img_sel_parms,new_or_modified_data_variables={'sum_weight':'PSF_SUM_WEIGHT','psf':'PSF'},required_data_variables={'pb':'PB','weight_pb':'WEIGHT_PB'},append_to_in_id=False)
+    _check_sel_parms(_img_dataset,_img_sel_parms,new_or_modified_data_variables={'sum_weight':'PSF_SUM_WEIGHT','psf':'PSF','psf_fit':'PSF_FIT'},required_data_variables={'pb':'PB','weight_pb':'WEIGHT_PB'},append_to_in_id=False)
     #'pb':'PB','weight_pb':'WEIGHT_PB',
     #print('did this work',_img_sel_parms)
     
@@ -130,11 +131,13 @@ def make_psf_with_gcf(mxds, gcf_dataset, img_dataset, grid_parms, norm_parms, vi
     uncorrected_dirty_image = dafft.fftshift(dafft.ifft2(dafft.ifftshift(grids_and_sum_weights[0], axes=(0, 1)), axes=(0, 1)), axes=(0, 1))
         
     #Remove Padding
-    print('grid sizes',_grid_parms['image_size_padded'][0], _grid_parms['image_size_padded'][1])
+    #print('grid sizes',_grid_parms['image_size_padded'][0], _grid_parms['image_size_padded'][1])
     uncorrected_dirty_image = _remove_padding(uncorrected_dirty_image,_grid_parms['image_size']).real * (_grid_parms['image_size_padded'][0] * _grid_parms['image_size_padded'][1])
     
     #print(_img_sel_parms)
     normalized_image = _normalize(uncorrected_dirty_image, grids_and_sum_weights[1], img_dataset, gcf_dataset, 'forward', _norm_parms, _img_sel_parms)
+    
+    normalized_image = normalized_image/normalized_image[_grid_parms['image_center'][0],_grid_parms['image_center'][1],:,:]
     
     if _grid_parms['chan_mode'] == 'continuum':
         freq_coords = [da.mean(_vis_dataset.coords['chan'].values)]
@@ -170,10 +173,10 @@ def make_psf_with_gcf(mxds, gcf_dataset, img_dataset, grid_parms, norm_parms, vi
     _img_dataset[_img_sel_parms['data_group_out']['psf']] = xr.DataArray(normalized_image[:,:,None,:,:], dims=['l', 'm', 'time', 'chan', 'pol'])
     _img_dataset.attrs['data_groups'][0] = {**_img_dataset.attrs['data_groups'][0],**{_img_sel_parms['data_group_out']['id']:_img_sel_parms['data_group_out']}}
     
-    
     #list_xarray_data_variables = [img_dataset[_sel_parms['image']],img_dataset[_sel_parms['sum_weight']]]
     #return _store(img_dataset,list_xarray_data_variables,_storage_parms)
-    
+    _img_dataset = fit_gaussian(_img_dataset,dv=_img_sel_parms['data_group_out']['psf'],beam_set_name=_img_sel_parms['data_group_out']['psf_fit'])
+
     print('#########################  Created graph for make_psf_with_gcf #########################')
     return _img_dataset
     

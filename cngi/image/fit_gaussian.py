@@ -18,6 +18,7 @@ this module will be included in the api
 """
 
 import numpy as np
+from numba import jit
 
 ########################
 def fit_gaussian(xds,dv='PSF',beam_set_name='RESTORE_PARMS',npix_window=[9,9],sampling=[9,9],cutoff=0.35):
@@ -41,32 +42,37 @@ def fit_gaussian(xds,dv='PSF',beam_set_name='RESTORE_PARMS',npix_window=[9,9],sa
     import dask.array as da
     from scipy.interpolate import interpn
     
+    _xds = xds.copy(deep=True)
+    
     sampling = np.array(sampling)
     npix_window = np.array(npix_window)
-    delta = np.array(xds.incr[0:2])*3600*180/np.pi
-    chunks = xds[dv].data.chunks[2:] + (3,)
+    delta = np.array([_xds[dv].l[1] - _xds[dv].l[0], _xds[dv].m[1] - _xds[dv].m[0]])*3600*180/np.pi
+    chunks = _xds[dv].data.chunks[2:] + (3,)
     
-
-    ellipse_parms = da.map_blocks(casa_fit, xds[dv].data, npix_window, sampling,cutoff,
-                                  delta, dtype=np.double, drop_axis=[0,1], new_axis=[2], chunks=chunks)
+    ellipse_parms = da.map_blocks(casa_fit, _xds[dv].data, npix_window, sampling,cutoff,
+                                  delta, dtype=np.double, drop_axis=[0,1], new_axis=[3], chunks=chunks)
         
-    xds[beam_set_name] = xr.DataArray(ellipse_parms, dims=['chan','pol','elps_index'])
+    _xds[beam_set_name] = xr.DataArray(ellipse_parms, dims=['time','chan','pol','elps_index'])
     
-    return xds
+    return _xds
     
 
 
 ################################################################
 ########################### casa_fit ###########################
-def gaussian2D(params, sampling):
-    width_x, width_y, rotation = params
+@jit(nopython=True,cache=True,nogil=True)
+def gaussian2D(width_x, width_y, rotation, sampling):
     rotation = 90-rotation
-
     rotation = np.deg2rad(rotation)
-    x, y = np.indices((sampling[0]*2+1,sampling[1]*2+1))
+    #x, y = np.indices((sampling[0]*2+1,sampling[1]*2+1))
+    x_size = sampling[0]*2+1
+    y_size = sampling[1]*2+1
+    
+    x = np.repeat(np.arange(x_size),y_size).reshape((x_size,y_size))
+    y = np.repeat(np.arange(y_size),x_size).reshape((y_size,x_size)).T
+    
     x = x - sampling[0]
     y = y - sampling[1]
-
     xp = x * np.cos(rotation) - y * np.sin(rotation)
     yp = x * np.sin(rotation) + y * np.cos(rotation)
     g = 1.*np.exp(-(((xp)/width_x)**2+((yp)/width_y)**2)/2.)
@@ -74,7 +80,8 @@ def gaussian2D(params, sampling):
 
 def beam_chi2(params, psf, sampling):
     psf_ravel = psf[~np.isnan(psf)]
-    gaussian = gaussian2D(params, sampling)[~np.isnan(psf)]
+    width_x, width_y, rotation = params
+    gaussian = gaussian2D(width_x, width_y, rotation, sampling)[~np.isnan(psf)]
     chi2 = np.sum((gaussian-psf_ravel)**2)
     return chi2
 
@@ -84,7 +91,7 @@ def casa_fit(img_to_fit,npix_window,sampling,cutoff,delta):
     from scipy.interpolate import interpn
     
     #ellipse_parms = np.zeros(img_to_fit.shape[2:4] + (3,),dtype=numba.double)
-    ellipse_parms = np.zeros(img_to_fit.shape[2:4] + (3,))
+    ellipse_parms = np.zeros(img_to_fit.shape[2:5] + (3,))
     
     img_size = np.array(img_to_fit.shape[0:2])
     img_center = img_size//2
@@ -101,24 +108,25 @@ def casa_fit(img_to_fit,npix_window,sampling,cutoff,delta):
     
     #img_to_fit = np.reshape(interpn((d0,d1),img_to_fit[:,:,0,0],points,method="splinef2d"),[sampling[1],sampling[0]]).T
     
-    for chan in range(img_to_fit.shape[2]):
-        for pol in range(img_to_fit.shape[3]):
+    for time in range(img_to_fit.shape[2]):
+        for chan in range(img_to_fit.shape[3]):
+            for pol in range(img_to_fit.shape[4]):
             
-            interp_img_to_fit = np.reshape(interpn((d0,d1),img_to_fit[:,:,chan,pol],points,method="splinef2d"),[sampling[1],sampling[0]]).T
-            
-            interp_img_to_fit[interp_img_to_fit<cutoff] = np.nan
+                interp_img_to_fit = np.reshape(interpn((d0,d1),img_to_fit[:,:,time,chan,pol],points,method="splinef2d"),[sampling[1],sampling[0]]).T
+                
+                interp_img_to_fit[interp_img_to_fit<cutoff] = np.nan
 
-            print(interp_img_to_fit.shape)
-            # Fit a gaussian to the thresholded points
-            p0 = [2.5, 2.5, 0.]
-            res = optimize.minimize(beam_chi2, p0, args=(interp_img_to_fit, sampling//2))
+                #print(interp_img_to_fit.shape)
+                # Fit a gaussian to the thresholded points
+                p0 = [2.5, 2.5, 0.]
+                res = optimize.minimize(beam_chi2, p0, args=(interp_img_to_fit, sampling//2))
 
-            # convert to useful units
-            phi = res.x[2] - 90.
-            if phi < -90.:
-                phi += 180.
+                # convert to useful units
+                phi = res.x[2] - 90.
+                if phi < -90.:
+                    phi += 180.
 
-            ellipse_parms[chan,pol,0] = np.max(np.abs(res.x[0:2]))*np.abs(delta[0])*2.355/(sampling[0]/npix_window[0])
-            ellipse_parms[chan,pol,1] = np.min(np.abs(res.x[0:2]))*np.abs(delta[1])*2.355/(sampling[1]/npix_window[1])
-            ellipse_parms[chan,pol,2] = phi
+                ellipse_parms[time,chan,pol,0] = np.max(np.abs(res.x[0:2]))*np.abs(delta[0])*2.355/(sampling[0]/npix_window[0])
+                ellipse_parms[time,chan,pol,1] = np.min(np.abs(res.x[0:2]))*np.abs(delta[1])*2.355/(sampling[1]/npix_window[1])
+                ellipse_parms[time,chan,pol,2] = -phi
     return ellipse_parms

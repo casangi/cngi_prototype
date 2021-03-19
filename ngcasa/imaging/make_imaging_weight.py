@@ -77,7 +77,6 @@ def make_imaging_weight(vis_mxds, imaging_weights_parms, grid_parms, sel_parms):
     from cngi._utils._check_parms import _check_sel_parms, _check_existence_sel_parms
     from ._imaging_utils._check_imaging_parms import _check_imaging_weights_parms, _check_grid_parms
     
-    
     #Deep copy so that inputs are not modified
     _mxds = vis_mxds.copy(deep=True)
     _imaging_weights_parms =  copy.deepcopy(imaging_weights_parms)
@@ -87,6 +86,8 @@ def make_imaging_weight(vis_mxds, imaging_weights_parms, grid_parms, sel_parms):
     ##############Parameter Checking and Set Defaults##############
     assert('xds' in _sel_parms), "######### ERROR: xds must be specified in sel_parms" #Can't have a default since xds names are not fixed.
     _vis_xds = _mxds.attrs[sel_parms['xds']]
+    
+    assert _vis_xds.dims['pol'] <= 2, "Full polarization is not supported."
     
     _check_sel_parms(_vis_xds,_sel_parms,new_or_modified_data_variables={'imaging_weight':'IMAGING_WEIGHT'},append_to_in_id=True)
     
@@ -113,6 +114,7 @@ def make_imaging_weight(vis_mxds, imaging_weights_parms, grid_parms, sel_parms):
     print('######################### Created graph for make_imaging_weight #########################')
     return _mxds
     
+# void VisImagingWeight::unPolChanWeight(Matrix<Float>& chanRowWt, const Cube<Float>& corrChanRowWt)
     
 '''
 def _match_array_shape(array_to_reshape,array_to_match):
@@ -158,6 +160,39 @@ def calc_briggs_weights(vis_xds,imaging_weights_parms,grid_parms,sel_parms):
     cgk_1D = np.ones((1))
     grid_of_imaging_weights, sum_weight = _graph_standard_grid(vis_xds, cgk_1D, grid_parms, sel_parms)
     
+    #print('#'*100,grid_of_imaging_weights)
+    
+#    import matplotlib.pyplot as plt
+#    print(sum_weight)
+#    plt.figure()
+#    plt.imshow(grid_of_imaging_weights[:,:,84,0])
+#    plt.colorbar()
+#
+#    plt.figure()
+#    plt.imshow(grid_of_imaging_weights[:,:,84,0])
+#    plt.colorbar()
+#
+#    plt.figure()
+#    plt.imshow(grid_of_imaging_weights[:,:,84,0]-grid_of_imaging_weights[:,:,84,1])
+#    plt.colorbar()
+#    plt.show()
+    
+    '''
+    import matplotlib.pyplot as plt
+    print(sum_weight)
+    plt.figure()
+    plt.imshow(grid_of_imaging_weights)
+    plt.plot(sum_weight[:,1])
+    plt.show()
+    '''
+    
+    
+#    import matplotlib.pyplot as plt
+#    print(sum_weight)
+#    plt.figure()
+#    plt.plot(sum_weight[:,0])
+#    plt.plot(sum_weight[:,1])
+#    plt.show()
     
     #############Calculate Briggs parameters#############
     def calculate_briggs_parms(grid_of_imaging_weights, sum_weight, imaging_weights_parms):
@@ -179,6 +214,18 @@ def calc_briggs_weights(vis_xds,imaging_weights_parms,grid_parms,sel_parms):
     
     #Map blocks can be simplified by using new_axis and swapping grid_of_imaging_weights and sum_weight
     briggs_factors = da.map_blocks(calculate_briggs_parms,grid_of_imaging_weights,sum_weight, imaging_weights_parms,chunks=(2,1,1)+sum_weight.chunksize,dtype=np.double)[:,0,0,:,:]
+    
+#    print('helphelphelp',briggs_factors)
+#    import matplotlib.pyplot as plt
+#    plt.figure()
+#    plt.plot(briggs_factors[0,:,0])
+#    plt.plot(briggs_factors[0,:,1]-briggs_factors[0,:,0])
+#    
+#    plt.figure()
+#    plt.plot(briggs_factors[1,:,0])
+#    plt.plot(briggs_factors[1,:,1]-briggs_factors[1,:,0])
+#    plt.show()
+    
     
     imaging_weight = _graph_standard_degrid(vis_xds, grid_of_imaging_weights, briggs_factors, cgk_1D, grid_parms, sel_parms)
     

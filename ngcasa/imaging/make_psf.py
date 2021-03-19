@@ -81,6 +81,7 @@ def make_psf(vis_mxds, img_xds, grid_parms, vis_sel_parms, img_sel_parms):
     from ._imaging_utils._remove_padding import _remove_padding
     from ._imaging_utils._aperture_grid import _graph_aperture_grid
     from cngi.image import make_empty_sky_image
+    from cngi.image import fit_gaussian
     
     #print('****',sel_parms,'****')
     _mxds = vis_mxds.copy(deep=True)
@@ -98,7 +99,7 @@ def make_psf(vis_mxds, img_xds, grid_parms, vis_sel_parms, img_sel_parms):
     _check_sel_parms(_vis_xds,_vis_sel_parms)
     
     #Check img data_group
-    _check_sel_parms(_img_xds,_img_sel_parms,new_or_modified_data_variables={'sum_weight':'PSF_SUM_WEIGHT','psf':'PSF'},append_to_in_id=True)
+    _check_sel_parms(_img_xds,_img_sel_parms,new_or_modified_data_variables={'sum_weight':'PSF_SUM_WEIGHT','psf':'PSF','psf_fit':'PSF_FIT'},append_to_in_id=True)
 
     ##################################################################################
     
@@ -111,6 +112,7 @@ def make_psf(vis_mxds, img_xds, grid_parms, vis_sel_parms, img_sel_parms):
     
     _grid_parms['complex_grid'] = False
     _grid_parms['do_psf'] = True
+    _grid_parms['do_imaging_weight'] = False
     grids_and_sum_weights = _graph_standard_grid(_vis_xds, cgk_1D, _grid_parms, _vis_sel_parms)
     uncorrected_dirty_image = dafft.fftshift(dafft.ifft2(dafft.ifftshift(grids_and_sum_weights[0], axes=(0, 1)), axes=(0, 1)), axes=(0, 1))
     
@@ -154,6 +156,8 @@ def make_psf(vis_mxds, img_xds, grid_parms, vis_sel_parms, img_sel_parms):
     _img_xds[_img_sel_parms['data_group_out']['psf']] = xr.DataArray(corrected_dirty_image[:,:,None,:,:], dims=['l', 'm', 'time', 'chan', 'pol'])
     _img_xds.attrs['data_groups'][0] = {**_img_xds.attrs['data_groups'][0],**{_img_sel_parms['data_group_out']['id']:_img_sel_parms['data_group_out']}}
     
+    _img_xds = fit_gaussian(_img_xds,dv=_img_sel_parms['data_group_out']['psf'],beam_set_name=_img_sel_parms['data_group_out']['psf_fit'])
+
     
     print('######################### Created graph for make_psf #########################')
     return _img_xds

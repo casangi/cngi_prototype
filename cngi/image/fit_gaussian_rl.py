@@ -39,15 +39,17 @@ def fit_gaussian_rl(xds,dv='PSF',beam_set_name='RESTORE_PARMS',fit_method='rm_fi
     import xarray as xr
     import dask.array as da
     
+    _xds = xds.copy(deep=True)
+    
     sampling = np.array(sampling)
     npix_window = np.array(npix_window)
-    delta = np.array(xds.incr[0:2])*3600*180/np.pi
-    chunks = xds[dv].data.chunks[2:] + (3,)
-    ellipse_parms  = da.map_blocks(rm_fit, xds[dv].data, npix_window, sampling, cutoff, cutoff_sensitivity, delta,
-                                   dtype=np.double, drop_axis=[0,1], new_axis=[2], chunks=chunks)
+    delta = np.array([_xds[dv].l[1] - _xds[dv].l[0], _xds[dv].m[1] - _xds[dv].m[0]])*3600*180/np.pi
+    chunks = _xds[dv].data.chunks[2:] + (3,)
+    ellipse_parms  = da.map_blocks(rm_fit, _xds[dv].data, npix_window, sampling, cutoff, cutoff_sensitivity, delta,
+                                   dtype=np.double, drop_axis=[0,1], new_axis=[3], chunks=chunks)
 
-    xds[beam_set_name] = xr.DataArray(ellipse_parms, dims=['chan','pol','elps_index'])
-    return xds
+    _xds[beam_set_name] = xr.DataArray(ellipse_parms, dims=['time','chan','pol','elps_index'])
+    return _xds
     
     
 ##############################################################
@@ -101,7 +103,7 @@ def rm_fit(img_to_fit,npix_window,sampling,cutoff,cutoff_sensitivity,delta):
     from scipy.interpolate import interpn
     
     #ellipse_parms = np.zeros(img_to_fit.shape[2:4] + (3,),dtype=numba.double)
-    ellipse_parms = np.zeros(img_to_fit.shape[2:4] + (3,))
+    ellipse_parms = np.zeros(img_to_fit.shape[2:5] + (3,))
     
     img_size = np.array(img_to_fit.shape[0:2])
     img_center = img_size//2
@@ -118,35 +120,41 @@ def rm_fit(img_to_fit,npix_window,sampling,cutoff,cutoff_sensitivity,delta):
     
     #img_to_fit = np.reshape(interpn((d0,d1),img_to_fit[:,:,0,0],points,method="splinef2d"),[sampling[1],sampling[0]]).T
     
-    for chan in range(img_to_fit.shape[2]):
-        for pol in range(img_to_fit.shape[3]):
-            
-            interp_img_to_fit = np.reshape(interpn((d0,d1),img_to_fit[:,:,chan,pol],points,method="splinef2d"),[sampling[1],sampling[0]]).T
-        
-            ellipse_points = np.argwhere(np.abs(interp_img_to_fit-cutoff) < cutoff_sensitivity)
-            x_mean = np.mean(ellipse_points[:,0])
-            y_mean = np.mean(ellipse_points[:,1])
-            x =  ellipse_points[:,0] - x_mean
-            y =  ellipse_points[:,1] - y_mean
-            
-            a = fit_ellipse(x,y)
-            center = ellipse_center(a)
-            center[0] += x_mean
-            center[1] += y_mean
-            phi = ellipse_angle_of_rotation(a)
-            axes = ellipse_axis_length(a)
-            center, phi, axes
-            
-            # Should we change this to radians?
-            # convert to useful units
-            phi = np.degrees(phi) - 90. # Astronomers use east of north
-            if phi < -90.:
-                phi += 180.
+    for time in range(img_to_fit.shape[2]):
+        for chan in range(img_to_fit.shape[3]):
+            for pol in range(img_to_fit.shape[4]):
                 
-            ellipse_parms[chan,pol,0] = axes[0]/(sampling[0]-1)*(npix_window[0]-1)*np.abs(delta[0])*2
-            ellipse_parms[chan,pol,1] = axes[1]/(sampling[1]-1)*(npix_window[1]-1)*np.abs(delta[1])*2
-            ellipse_parms[chan,pol,2] = phi
+                interp_img_to_fit = np.reshape(interpn((d0,d1),img_to_fit[:,:,time,chan,pol],points,method="splinef2d"),[sampling[1],sampling[0]]).T
             
+                ellipse_points = np.argwhere(np.abs(interp_img_to_fit-cutoff) < cutoff_sensitivity)
+                x_mean = np.mean(ellipse_points[:,0])
+                y_mean = np.mean(ellipse_points[:,1])
+                x =  ellipse_points[:,0] - x_mean
+                y =  ellipse_points[:,1] - y_mean
+                
+                try:
+                    a = fit_ellipse(x,y)
+                    center = ellipse_center(a)
+                    center[0] += x_mean
+                    center[1] += y_mean
+                    phi = ellipse_angle_of_rotation(a)
+                    axes = ellipse_axis_length(a)
+                    center, phi, axes
+
+                    # Should we change this to radians?
+                    # convert to useful units
+                    phi = np.degrees(phi) - 90. # Astronomers use east of north
+                    if phi < -90.:
+                        phi += 180.
+                        
+                    ellipse_parms[time,chan,pol,0] = axes[0]/(sampling[0]-1)*(npix_window[0]-1)*np.abs(delta[0])*2
+                    ellipse_parms[time,chan,pol,1] = axes[1]/(sampling[1]-1)*(npix_window[1]-1)*np.abs(delta[1])*2
+                    ellipse_parms[time,chan,pol,2] = phi
+                except:
+                    print('Could not fit psf for time', time, ' chan ', chan, '  pol ', pol)
+                    
+
+                
     return ellipse_parms
     
 ############################################################################################################################

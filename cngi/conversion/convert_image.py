@@ -182,6 +182,7 @@ def convert_image(infile, outfile=None, artifacts=[], compressor=None, chunks=(-
 
     # if taylor terms are present, the chan axis must be expanded to the length of the terms
     if ttcount > len(mxds.chan): mxds = mxds.pad({'chan': (0, ttcount-len(mxds.chan))}, mode='edge')
+   
     
     chunk_dict = dict(zip(['l','m','time','chan','pol'], chunks[:2]+(1,)+chunks[2:]))
     mxds = mxds.chunk(chunk_dict)
