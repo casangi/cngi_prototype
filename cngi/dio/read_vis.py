@@ -115,18 +115,18 @@ def read_vis(
 
             # at this point, s3_url should be compatible and reference top level of a mxds
             if partition is None:
-                contents_map = s3.listdir(s3_url)[1:]
+                contents_map = s3.listdir(s3_url)
                 object_names = [
-                    object_dict["name"].split("/")[-1] for object_dict in contents_map[1:]
+                    object_dict["name"].split("/")[-1] for object_dict in contents_map
                 ]
                 partition = object_names
                 
             if "global" in partition:
                 # attempt to replicate behavior of os.listdir (i.e., ignore .zattrs etc.)
-                contents_map_global = s3.listdir("/".join([s3_url, "global"]))[1:]
+                contents_map_global = s3.listdir("/".join([s3_url, "global"]))
                 olg_dirs = [
                     odg["name"].split("/")[-1]
-                    for odg in contents_map_global[1:]
+                    for odg in contents_map_global
                     if odg["StorageClass"] == "DIRECTORY"
                 ]
                 global_dirs = sorted(["global/" + od for od in olg_dirs])
