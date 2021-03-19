@@ -13,10 +13,16 @@ continue to rise, the overhead of maintaining this infrastructure grows exponent
 
 The CASA team has begun exploring options for a new generation of software to meet the growing demands of current and future instruments. 
 This **cngi_prototype** package is a demonstration of the current state of our research efforts.  Its primary purpose is to showcase
-new data structures for MeasurementSet and Image contents built entirely in Python atop the popular technology stack of numpy, dask, 
-and xarray. A selection of core mathematics, manipulation, middleware and analysis functions are shown to demonstrate the simplicity and
-scalability of the technology choices. Finally, the most compute intensive areas of CASA imaging are implemented and benchmarked to
-demonstrate the parallel scalability and raw performance now possible from a pure-Python software stack.
+new [data structures](./data_structures.ipynb) for MeasurementSet and Image contents built entirely in Python atop the popular technology 
+stack of numpy, dask, and xarray. A selection of core mathematics, manipulation, middleware and analysis functions are shown in the 
+[Visibility](./visibilities.ipynb) and [Image](./images.ipynb) overview sections to demonstrate the simplicity and scalability of the 
+technology choices. Notional examples of [Calibration](./calibration.ipynb), [Flagging](./flagging.ipynb) and [Imaging](./imaging.rst) 
+are provided to illustrate future design and implementation direction. Finally, the most compute intensive areas of CASA imaging are 
+implemented and [benchmarked](./benchmark.ipynb) to demonstrate the parallel scalability and raw performance now possible from a 
+pure-Python software stack. 
+
+A detailed explanation of technology choices, including the xarray and dask frameworks, the zarr storage format, and the functional 
+design architecture can be found in the [Development](./development.ipynb) section.
 
 
 ## Project Background
@@ -102,10 +108,14 @@ second objective is to show how technology choices are likely to satisfy future 
 As such, some preliminary ngCASA layer components are included to build confidence that the infrastructure framework can handle the 
 performance and complexity demands, and to illustrate how such functionality may look in the future.
 
+A detailed explanation of the design and technology choices, including xarray, dask, zarr, data structure formats, and functional
+programming style can be found in the [Development](./development.ipynb) section
+
 A bottom-up strategy that begins with these prototype building blocks while emphasizing scalability, simplicity and flexibility ensures
 meaningful work can proceed in the absence of a detailed requirements specification of future ngCASA needs. This package is likely to 
 form the starting point for full production development of CNGI and ngCASA at a later date. As such a high degree of code reuse is 
 anticipated.
+
 
 
 ## Installation
