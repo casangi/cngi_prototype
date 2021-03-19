@@ -125,10 +125,10 @@ import scipy.optimize as optimize
 from scipy.interpolate import interpn
 
 def gauss_wrap_fit(img_to_fit,npix_window,sampling,cutoff,delta):
-    import time
-    start_time = time.time()
+    #import time
+    #start_time = time.time()
     ellipse_parms = casa_fit(img_to_fit,npix_window,sampling,cutoff,delta)
-    print('Fit time',time.time()-start_time)
+    #print('Fit time',time.time()-start_time)
     return ellipse_parms
 
 
