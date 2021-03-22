@@ -115,12 +115,16 @@ def read_vis(
 
             # at this point, s3_url should be compatible and reference top level of a mxds
             if partition is None:
-                 # the [1:]s here are both necessary to avoid the .version object
+                 # avoid the .version object
                 contents_map = s3.listdir(s3_url)[1:]
                 object_names = [
-                    object_dict["name"].split("/")[-1] for object_dict in contents_map[1:]
+                    object_dict["name"].split("/")[-1] for object_dict in contents_map
+                ]
+                object_names = [
+                    oname for oname in object_names if not oname.startswith(".")
                 ]
                 partition = object_names
+                print(object_names)
                 
             if "global" in partition:
                 # attempt to replicate behavior of os.listdir (i.e., ignore .zattrs etc.)
@@ -151,7 +155,7 @@ def read_vis(
                         INPUT = s3fs.S3Map(root=uri, s3=s3, check=False)
                         xds_list += [
                             (
-                                uri.replace(s3_url+"/","").replace("global/", ""),
+                                uri.replace(s3_url + "/", "").replace("global/", ""),
                                 open_zarr(
                                     INPUT,
                                     chunks=chunks,
@@ -163,6 +167,7 @@ def read_vis(
                     else:
                         print(f"Requested partition {part} not found in dataset")
             else:
+                # this case should hit only for single str input (unencased by list) to partition kwarg
                 uri = "/".join([s3_url, partition])
                 INPUT = s3fs.S3Map(root=uri, s3=s3, check=False)
                 xds = open_zarr(
