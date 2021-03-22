@@ -124,7 +124,6 @@ def read_vis(
                     oname for oname in object_names if not oname.startswith(".")
                 ]
                 partition = object_names
-                print(object_names)
                 
             if "global" in partition:
                 # attempt to replicate behavior of os.listdir (i.e., ignore .zattrs etc.)
