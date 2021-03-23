@@ -95,12 +95,16 @@ def make_pb(img_xds,pb_parms, grid_parms, sel_parms):
     _pb_parms['center_indx'] = []
 
 
-    chan_chunk_size = _img_xds.chan_width.chunks[0][0]
+    chan_chunk_size = _img_xds.chan_width.chunks[0]
     freq_coords = da.from_array(_img_xds.coords['chan'].values, chunks=(chan_chunk_size))
     
     pol = _img_xds.pol.values #don't want chunking here
 
-    chunksize = (_grid_parms['image_size'][0],_grid_parms['image_size'][1]) + freq_coords.chunksize + (len(pol),) + (len(_pb_parms['list_dish_diameters']),)
+    chunksize = (_grid_parms['image_size'][0],_grid_parms['image_size'][1] , chan_chunk_size , len(pol), len(_pb_parms['list_dish_diameters']))
+    
+    #print(freq_coords.chunksize)
+    #print(chan_chunk_size)
+    #print(chunksize)
     
     pb = da.map_blocks(pb_func, freq_coords, pol, _pb_parms, _grid_parms, chunks=chunksize ,new_axis=[0,1,3,4], dtype=np.double)
     
