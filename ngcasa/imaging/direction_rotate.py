@@ -138,8 +138,8 @@ def calc_rotation_mats(vis_dataset,field_dataset,rotation_parms):
     #print(field_dataset.field_id.values)
     
     field_id = np.unique(vis_dataset.FIELD_ID) # Or should the roation matrix be calculated for all fields #field_id = field_dataset.field_id
-    field_id  = field_id[field_id != const.INT_NAN] #remove nan
-    #print(field_id)
+    field_id  = field_id[field_id > -1] #remove nan
+    #print('field_id',field_id)
     
     n_fields = len(field_id)
     uvw_rotmat = np.zeros((n_fields,3,3),np.double)
@@ -161,10 +161,13 @@ def calc_rotation_mats(vis_dataset,field_dataset,rotation_parms):
         rotmat_field_phase_center = R.from_euler('ZX',[[-np.pi/2 + field_phase_center[0],field_phase_center[1] - np.pi/2]]).as_matrix()[0]
         uvw_rotmat[i_field,:,:] = np.matmul(rotmat_new_phase_center,rotmat_field_phase_center).T
         
+        #print(uvw_rotmat[i_field,:,:])
+        
         if rotation_parms['common_tangent_reprojection'] == True:
             uvw_rotmat[i_field,2,0:2] = 0.0 # (Common tangent rotation needed for joint mosaics, see last part of FTMachine::girarUVW in CASA)
         
         field_phase_center_cosine = _directional_cosine(field_phase_center)
+        #print("i_field, field, new",i_field,field_phase_center_cosine,new_phase_center_cosine)
         phase_rotation[i_field,:] = np.matmul(rotmat_new_phase_center,(new_phase_center_cosine - field_phase_center_cosine))
     
     return uvw_rotmat, phase_rotation, field_id
@@ -191,11 +194,17 @@ def apply_rotation_matrix(uvw, field_id, uvw_rotmat, rot_field_id):
         #uvw[i_time,:,0:2] = -uvw[i_time,:,0:2] this gives the same result as casa (in the ftmachines uvw(negateUV(vb)) is used). In ngcasa we don't do this since the uvw definition in the gridder and vis.zarr are the same.
         field_id_t = field_id[i_time,:,0]
         
-        unique_field_id = np.unique(field_id_t[field_id_t != const.INT_NAN])
+        unique_field_id = np.unique(field_id_t[field_id_t > -1])
+        #print(unique_field_id)
         assert len(unique_field_id)==1, "direction_rotate only supports xds where field_id remains constant over baseline."
         rot_field_indx = np.where(rot_field_id == unique_field_id[0])[0][0] #should be len 1
+        #print('rot_field_indx',rot_field_indx)
         
         uvw_rot[i_time,:,:] = uvw[i_time,:,:] @ uvw_rotmat[rot_field_indx,:,:] #uvw time x baseline x uvw_indx, uvw_rotmat n_field x 3 x 3.  1 x 3 @  3 x 3
+        
+        #print('uvw_rotmat[rot_field_indx,:,:] ',uvw_rotmat[rot_field_indx,:,:] )
+        #print('uvw[i_time,:,:]', uvw[i_time,:,:])
+        #print('uvw_rot[i_time,:,:] ',uvw_rot[i_time,:,:])
         
         #field_id_t = field_id[i_time,0,:]
         #uvw[i_time,:,:] = uvw[i_time,:,:] @ uvw_rotmat[field_id_t,:,:] #uvw time x baseline x uvw_indx, uvw_rotmat n_field x 3 x 3.  1 x 3 @  3 x 3

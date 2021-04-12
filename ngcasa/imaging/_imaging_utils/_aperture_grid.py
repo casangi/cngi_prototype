@@ -171,14 +171,12 @@ def _aperture_weight_grid_numpy_wrap(uvw,imaging_weight,field,cf_baseline_map,cf
     sum_weight = np.zeros((n_imag_chan, n_imag_pol), dtype=np.double)
     
     #print('Pos 2')
-    
     _aperture_weight_grid_jit(grid, sum_weight, uvw, freq_chan, chan_map, pol_map, cf_baseline_map, cf_chan_map, cf_pol_map, imaging_weight, weight_conv_kernel, n_uv, delta_lm, weight_support, oversampling, field, field_id, phase_gradient)
-    
     
 
 
     return grid, sum_weight
-#XXXXXXXX
+
 @jit(nopython=True, cache=True, nogil=True)
 def _aperture_weight_grid_jit(grid, sum_weight, uvw, freq_chan, chan_map, pol_map, cf_baseline_map, cf_chan_map, cf_pol_map, imaging_weight, weight_conv_kernel, n_uv, delta_lm, weight_support, oversampling, field, field_id, phase_gradient):
     c = 299792458.0
@@ -215,7 +213,7 @@ def _aperture_weight_grid_jit(grid, sum_weight, uvw, freq_chan, chan_map, pol_ma
 
         for i_baseline in range(n_baseline):
         
-            if field[i_time,i_baseline] != const.INT_NAN:
+            if field[i_time,i_baseline] > -1:
                 field_indx = np.where(field_id == field[i_time,i_baseline])[0][0]
                 
                 if prev_field != field_indx:
@@ -421,7 +419,7 @@ def _aperture_grid_jit(grid, sum_weight, do_psf, vis_data, uvw, freq_chan, chan_
 #            if field[i_time,i_baseline] == const.INT_NAN:
 #                print('Nan detected')
             
-            if field[i_time,i_baseline] != const.INT_NAN:
+            if field[i_time,i_baseline] > -1:
                 field_indx = np.where(field_id == field[i_time,i_baseline])[0][0]
                 
 #                if field_indx != field[i_time,i_baseline]:
@@ -451,6 +449,7 @@ def _aperture_grid_jit(grid, sum_weight, do_psf, vis_data, uvw, freq_chan, chan_
                             u_center_offset_indx = math.floor(u_offset * oversampling[0] + 0.5) + conv_u_center
                             v_offset = v_center_indx - v_pos
                             v_center_offset_indx = math.floor(v_offset * oversampling[1] + 0.5) + conv_v_center
+                            
                             
                             for i_pol in range(n_pol):
                                 if do_psf:
@@ -506,8 +505,10 @@ def _aperture_grid_jit(grid, sum_weight, do_psf, vis_data, uvw, freq_chan, chan_
                                             
                                             grid[a_chan, a_pol, u_indx, v_indx] = grid[a_chan, a_pol, u_indx, v_indx] +   conv * weighted_data
                                             norm = norm + conv
-                                
-                                    sum_weight[a_chan, a_pol] = sum_weight[a_chan, a_pol] + imaging_weight[i_time, i_baseline, i_chan, i_pol]*np.real(norm**2)#*np.real(norm**2)#* np.real(norm) #np.abs(norm**2) #**2 term is needed since the pb is in the image twice (one naturally and another from the gcf)
+                                    if do_psf:
+                                        sum_weight[a_chan, a_pol] = sum_weight[a_chan, a_pol] + imaging_weight[i_time, i_baseline, i_chan, i_pol]*np.real(norm)
+                                    else:
+                                        sum_weight[a_chan, a_pol] = sum_weight[a_chan, a_pol] + imaging_weight[i_time, i_baseline, i_chan, i_pol]*np.real(norm**2)#*np.real(norm**2)#* np.real(norm) #np.abs(norm**2) #**2 term is needed since the pb is in the image twice (one naturally and another from the gcf)
 
     return
 

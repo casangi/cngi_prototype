@@ -164,6 +164,7 @@ def make_gridding_convolution_function(mxds, gcf_parms, grid_parms, sel_parms):
         cf_baseline_map,pb_ant_pairs = create_cf_baseline_map(_gcf_parms['unique_ant_indx'],_gcf_parms['basline_ant'],n_unique_ant)
 
         cf_chan_map, pb_freq = create_cf_chan_map(_gcf_parms['freq_chan'],_gcf_parms['chan_tolerance_factor'])
+        #print('****',pb_freq)
         pb_freq = da.from_array(pb_freq,chunks=np.ceil(len(pb_freq)/_gcf_parms['a_chan_num_chunk'] ))
 
         cf_pol_map = np.zeros((len(_gcf_parms['pol']),),dtype=int) #create_cf_pol_map(), currently treating all pols the same
@@ -448,6 +449,11 @@ def calc_conv_size(sub_a_term,imsize,support_cut_level,oversampling,max_support)
         assert(support_y < max_support[1]), "######### ERROR: support_cut_level too small or imsize too small." + str(support_y) + ",*," + str(max_support[1])
         
         #print('approx_conv_size_x,approx_conv_size_y',approx_conv_size_x,approx_conv_size_y,support_x,support_y,max_support)
+        #print('support_x, support_y',support_x, support_y)
+        if support_x > support_y:
+            support_y = support_x
+        else:
+            support_x = support_y
         return [support_x, support_y]
         
 ##########################
