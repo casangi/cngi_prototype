@@ -5,7 +5,7 @@ with open('README.md', "r") as fid:   #encoding='utf-8'
 
 setup(
     name='cngi_prototype',
-    version='0.0.83',
+    version='0.0.84',
     description='CASA Next Generation Infrastructure Prototype',
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -28,7 +28,9 @@ setup(
                       'toolz>=0.10.0',
                       'xarray>=0.16.1',
                       'zarr>=2.3.2',
-                      'fsspec>=0.6.2'],
+                      'fsspec>=0.6.2',
+                      'gdown>=3.12.2',
+                      'ipympl>=0.7.0'],
     extras_require={
         'dev': [
             'pytest>=5.3.5',

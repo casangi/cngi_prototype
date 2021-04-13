@@ -20,3 +20,5 @@ xarray>=0.16.1
 zarr>=2.3.2
 fsspec>=0.6.2
 astropy>=4.1
+gdown>=3.12.2
+ipympl>=0.7.0

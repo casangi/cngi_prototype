@@ -215,12 +215,26 @@ def calc_briggs_weights(vis_xds,imaging_weights_parms,grid_parms,sel_parms):
     #Map blocks can be simplified by using new_axis and swapping grid_of_imaging_weights and sum_weight
     briggs_factors = da.map_blocks(calculate_briggs_parms,grid_of_imaging_weights,sum_weight, imaging_weights_parms,chunks=(2,1,1)+sum_weight.chunksize,dtype=np.double)[:,0,0,:,:]
     
-#    print('helphelphelp',briggs_factors)
+#    import matplotlib.pyplot as plt
+#    print(grid_of_imaging_weights)
+#    plt.figure()
+#    plt.imshow(grid_of_imaging_weights[:,:,0,0])
+#
+#    plt.figure()
+#    plt.imshow(grid_of_imaging_weights[:,:,0,1])
+#
+#    print(np.sum(np.abs(grid_of_imaging_weights[:,:,0,0]-grid_of_imaging_weights[:,:,0,1])).compute())
+#    plt.show()
+#    print(briggs_factors)
+#    a =  briggs_factors.compute()
+#    print('helphelphelp',a)
+#    print(a[0,:,0],a[0,:,1])
+#    print(a[0,:,0]-a[0,:,1])
 #    import matplotlib.pyplot as plt
 #    plt.figure()
 #    plt.plot(briggs_factors[0,:,0])
 #    plt.plot(briggs_factors[0,:,1]-briggs_factors[0,:,0])
-#    
+#
 #    plt.figure()
 #    plt.plot(briggs_factors[1,:,0])
 #    plt.plot(briggs_factors[1,:,1]-briggs_factors[1,:,0])
@@ -228,6 +242,15 @@ def calc_briggs_weights(vis_xds,imaging_weights_parms,grid_parms,sel_parms):
     
     
     imaging_weight = _graph_standard_degrid(vis_xds, grid_of_imaging_weights, briggs_factors, cgk_1D, grid_parms, sel_parms)
+    
+    
+#    import matplotlib.pyplot as plt
+#    print(imaging_weight)
+#
+#    plt.figure()
+#    plt.imshow(imaging_weight[:,:,0,0]-imaging_weight[:,:,0,1],aspect='auto')
+#    plt.colorbar()
+#    plt.show()
     
     vis_xds[sel_parms['data_group_in']['imaging_weight']] = xr.DataArray(imaging_weight, dims=vis_xds[sel_parms['data_group_in']['data']].dims)
     

@@ -1,5 +1,5 @@
 """
 Calibration subpackage modules
 """
-from .solve_calibration import solve_calibration
+from .self_cal import self_cal
 from .apply_calibration import apply_calibration

@@ -17,7 +17,7 @@
 this module will be included in the api
 """
 
-def implot(xda, axis=['l','m'], chans=None, pols=None, overplot=False, drawplot=True, tsize=250):
+def implot(xda, axis=['l','m'], chans=None, pols=None, overplot=False, drawplot=True, tsize=250, title=None):
     """
     Plot a preview of Image xarray DataArray contents
     
@@ -99,7 +99,10 @@ def implot(xda, axis=['l','m'], chans=None, pols=None, overplot=False, drawplot=
         collapse = [ii for ii in range(txda.ndim) if txda.dims[ii] not in (txda[axis[0]].dims + txda[axis[1]].dims)]
         if len(collapse) > 0: txda = txda.max(axis=collapse)
         txda.plot.pcolormesh(ax=axes, x=axis[0], y=axis[1])
-
-    plt.title(txda.name)
+    
+    if title is None:
+        plt.title(txda.name)
+    else:
+        plt.title(title)
     if drawplot:
         plt.show()
