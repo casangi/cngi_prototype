@@ -5,18 +5,19 @@ The initial demonstration of calibration in CNGI/ngCASA is centered around a str
 
 The ngCASA selfcal function ingests an appropriately time-chunked xarray dataset including (possibly nominally calibrated) visibility data, weights, flags, and model.   For each dask chunk in the xarray data group, the input visibility data, model, and weights are conditioned for the solve by (a) zeroing the weights for flagged or absent data, (b) slicing out just the parallel-hands, (c) forming the ratio of visibility and model (including weight update), (d) weighted averaging over frequency channels, (e) (optionally) combining the parallel-hand correlations for a single-pol ('T') solution (including weight update), (f) (optionally) weighted averaging of the time axis up to the virtual dask chunking (including weight update), (g) (optionally) dividing by the visibility amplitudes for phase-only solutions (including weight update).   This results in data and weight arrays properly prepared and maximally collapsed for sliced ingestion within the solve loop.    Then, for each timestamp and polarization, the solve loop will: (a) detect the available antenna-based constraints, zeroing the weights for all baselines involving antennas with insufficient data according to minblperant, (b) calculate a first guess for the gains based on the available baselines to the specified reference antenna, (c) perform the scalar gain solve via scipy.optimize.least_squares, supplying a weighted-residual calculation function that embodies the (scalar, for now) multiplicative algebra of the visibilities and gains, (d) derive solution error information, and (e) store the solved-for gains in a (temporary) array.   Upon completion of the solve loop: (a) phase-only gains are enforced to have unit amplitude (if necessary), (b) the user-specified SNR threshold is applied, and (c) the original data arrays (all channels, correlations, times) are corrected.   These results for all dask chunks are then aggregated into a new xarray data group. 
 
-Current limitations:
-o Only per-integration or per-chunk (dask) solution intervals
-o No spw combine for solve (requires higher-level management of xarray datasets).
-o No refantmode support (mostly inconsequential in this context)
-o No amplitude-only solution
-o No robust solving (e.g., L1) support (scipy.optimize.least_squares options in this area not yet exposed)
-o No solution normalization (e.g. to preserve input f.d. scale)
-o No global refant reconcilation (at worst, cross-hand phase uniformity may be compromised for 'G' solving; otherwise this is inconsequential for OTF self-calibration).
-o No solution normalization (e.g. to preserve input f.d. scale)
-o No gain interpolation in the calibration apply (this is inconsequential for per-integration solutions)o No non-trivial solution mapping on apply (e.g., spwmap, etc.)
-o No access to the raw gain solutions (requires design and implementation of a caltable)
-o No prior calibration apply support
+Current notable limitations:
+
+- Only per-integration or per-chunk (dask) solution intervals
+- No spw combine for solve (requires higher-level management of xarray datasets).
+- No refantmode support (mostly inconsequential in this context)
+- No amplitude-only solution
+- No robust solving (e.g., L1) support (scipy.optimize.least_squares options in this area not yet exposed)
+- No solution normalization (e.g. to preserve input f.d. scale)
+- No global refant reconcilation (at worst, cross-hand phase uniformity may be compromised for 'G' solving; otherwise this is inconsequential for OTF self-calibration).
+- No solution normalization (e.g. to preserve input f.d. scale)
+- No gain interpolation in the calibration apply (this is inconsequential for per-integration solutions)o No non-trivial solution mapping on apply (e.g., spwmap, etc.)
+- No access to the raw gain solutions (requires design and implementation of a caltable)
+- No prior calibration apply support
 
 
 
