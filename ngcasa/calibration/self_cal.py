@@ -46,7 +46,10 @@ vis_mxds = convert_ms('sis14_twhya_field_5_lsrk.ms/',chunks=(27,21,32,2))
 
 '''
 
-def self_cal(vis_mxds, cal_xds, solve_parms, sel_parms):
+from numba import jit
+import numba
+
+def self_cal(vis_mxds, solve_parms, sel_parms):
     """
     .. todo::
         This function is not yet implemented
@@ -73,7 +76,7 @@ def self_cal(vis_mxds, cal_xds, solve_parms, sel_parms):
     
     """
 
-    print('######################### Start solve_calibration #########################')
+    print('######################### Start self_cal #########################')
     import numpy as np
     from numba import jit
     import time
@@ -87,24 +90,35 @@ def self_cal(vis_mxds, cal_xds, solve_parms, sel_parms):
     from numcodecs import Blosc
     from itertools import cycle
     import itertools
-    
+    from ._calibration_utils._check_calibration_parms import _check_self_cal
     from cngi._utils._check_parms import _check_sel_parms, _check_existence_sel_parms
 
     _mxds = vis_mxds.copy(deep=True)
-    #_cal_xds = cal_xds.copy(deep=True)
     _sel_parms = copy.deepcopy(sel_parms)
     _solve_parms = copy.deepcopy(solve_parms)
     
     assert('xds' in _sel_parms), "######### ERROR: xds must be specified in sel_parms" #Can't have a default since xds names are not fixed.
     _vis_xds = _mxds.attrs[_sel_parms['xds']]
+    
+    assert(_check_self_cal(_solve_parms)), "######### ERROR: solve_parms checking failed"
 
+    _check_sel_parms(_vis_xds,_sel_parms,new_or_modified_data_variables={'corrected_data':'CORRECTED_DATA','corrected_data_weight':'CORRECTED_DATA_WEIGHT','corrected_flag':'CORRECTED_FLAG','flag_info':'FLAG_INFO'})
+    
+    # data_groups with model_data is not handled correctly by converter.
+    _sel_parms["data_group_in"]["model_data"] = "MODEL_DATA"
+    _sel_parms["data_group_out"]["model_data"] = "MODEL_DATA"
 
-
-    n_chunks_in_each_dim = _vis_xds[sel_parms["data_group_in"]["data"]].data.numblocks
-    chunk_sizes = _vis_xds[sel_parms["data_group_in"]["data"]].chunks
+    chunk_sizes = list(_vis_xds[_sel_parms["data_group_in"]["data"]].chunks)
+    chunk_sizes[1] = (np.sum(chunk_sizes[1]),)
+    chunk_sizes[2] = (np.sum(chunk_sizes[2]),)
+    chunk_sizes[3] = (np.sum(chunk_sizes[3]),)
     n_pol = _vis_xds.dims['pol']
  
-    assert n_chunks_in_each_dim[3] == 1, "Chunking is not allowed on pol dim."
+    #assert n_chunks_in_each_dim[3] == 1, "Chunking is not allowed on pol dim."
+    n_chunks_in_each_dim = list(_vis_xds[_sel_parms["data_group_in"]["data"]].data.numblocks)
+    n_chunks_in_each_dim[1] = 1 #baseline
+    n_chunks_in_each_dim[2] = 1 #chan
+    n_chunks_in_each_dim[3] = 1 #pol
 
     #Iter over time,baseline,chan
     iter_chunks_indx = itertools.product(np.arange(n_chunks_in_each_dim[0]), np.arange(n_chunks_in_each_dim[1]),
@@ -114,16 +128,18 @@ def self_cal(vis_mxds, cal_xds, solve_parms, sel_parms):
     vis_corrected_list = _ndim_list(n_chunks_in_each_dim)
     weight_corrected_list = _ndim_list(n_chunks_in_each_dim)
     flag_corrected_list = _ndim_list(n_chunks_in_each_dim)
+    finfo_list = _ndim_list(n_chunks_in_each_dim)
   
     # Build graph
     for c_time, c_baseline, c_chan, c_pol in iter_chunks_indx:
+        #c_time, c_baseline, c_chan, c_pol
         cal_solution_chunk = dask.delayed(_gain_selfcal_chunk)(
-            _vis_xds[sel_parms["data_group_in"]["data"]].data.partitions[c_time, c_baseline, c_chan, c_pol],
-            _vis_xds[sel_parms["data_group_in"]["model_data"]].data.partitions[c_time, c_baseline, c_chan, c_pol],
-            _vis_xds[sel_parms["data_group_in"]["data_weight"]].data.partitions[c_time, c_baseline, c_chan, c_pol],
-            _vis_xds[sel_parms["data_group_in"]["flag"]].data.partitions[c_time, c_baseline, c_chan, c_pol],
-            _vis_xds["ANTENNA1"].data.partitions[c_baseline],
-            _vis_xds["ANTENNA2"].data.partitions[c_baseline],
+            _vis_xds[_sel_parms["data_group_in"]["data"]].data.partitions[c_time, :, :, :],
+            _vis_xds[_sel_parms["data_group_in"]["model_data"]].data.partitions[c_time, :, :, :],
+            _vis_xds[_sel_parms["data_group_in"]["weight"]].data.partitions[c_time, :, :, :],
+            _vis_xds[_sel_parms["data_group_in"]["flag"]].data.partitions[c_time,  :, :, :],
+            _vis_xds["ANTENNA1"].data.partitions[:],
+            _vis_xds["ANTENNA2"].data.partitions[:],
             dask.delayed(_solve_parms))
             
         
@@ -134,13 +150,21 @@ def self_cal(vis_mxds, cal_xds, solve_parms, sel_parms):
         
         flag_corrected_list[c_time][c_baseline][c_chan][c_pol] = da.from_delayed(cal_solution_chunk[2],(chunk_sizes[0][c_time],chunk_sizes[1][c_baseline],chunk_sizes[2][c_chan],chunk_sizes[3][c_pol]),dtype=np.complex)
         
-    _vis_xds[_sel_parms['data_group_out']['corrected_data']] = xr.DataArray(da.block(vis_corrected_list),dims=_vis_xds[_sel_parms['data_group_in']['data']].dims)
-    _vis_xds[_sel_parms['data_group_out']['corrected_data_weight']] = xr.DataArray(da.block(weight_corrected_list),dims=_vis_xds[_sel_parms['data_group_in']['data']].dims)
-    _vis_xds[_sel_parms['data_group_out']['corrected_flag']] = xr.DataArray(da.block(flag_corrected_list),dims=_vis_xds[_sel_parms['data_group_in']['data_weight']].dims)
+        finfo_list[c_time][c_baseline][c_chan][c_pol] = da.from_delayed(cal_solution_chunk[3],(3,),dtype=np.complex)
+        
+    _vis_xds[_sel_parms['data_group_out']['corrected_data']] = xr.DataArray(da.block(vis_corrected_list),dims=_vis_xds[_sel_parms['data_group_in']['data']].dims).chunk(_vis_xds[_sel_parms["data_group_in"]["data"]].chunks)
+    _vis_xds[_sel_parms['data_group_out']['corrected_data_weight']] = xr.DataArray(da.block(weight_corrected_list),dims=_vis_xds[_sel_parms['data_group_in']['data']].dims).chunk(_vis_xds[_sel_parms["data_group_in"]["data"]].chunks)
+    _vis_xds[_sel_parms['data_group_out']['corrected_flag']] = xr.DataArray(da.block(flag_corrected_list),dims=_vis_xds[_sel_parms['data_group_in']['weight']].dims).chunk(_vis_xds[_sel_parms["data_group_in"]["data"]].chunks)
+    
+    #Will this be added to the data group model?
+    _vis_xds[_sel_parms['data_group_out']['flag_info']] = xr.DataArray(np.sum(da.block(finfo_list),axis=(0,1,2)),dims={'flag_info':3})
+    #_vis_xds.attrs['flag_info'] = xr.DataArray(np.sum(da.block(finfo_list),axis=(0,1,2)),dims={'flag_info':3})
+
     
     #Update data_group
     _vis_xds.attrs['data_groups'][0] = {**_vis_xds.attrs['data_groups'][0], **{_sel_parms['data_group_out']['id']:_sel_parms['data_group_out']}}
-
+    
+    print('######################### Created self_cal graph #########################')
     return _mxds
     
 
@@ -207,8 +231,13 @@ def _gain_selfcal_chunk(cal_data,model_data,weight,flag,antenna1,antenna2,solve_
 
     """
     
-    ginfo={}
-    ginfo['glist'] = []
+    #print(cal_data.shape)
+    
+    if solve_parms['ginfo']:
+        ginfo={}
+        ginfo['glist'] = []
+    else:
+        ginfo=None
 
     t0=time.time()
 
@@ -343,6 +372,7 @@ def _gain_selfcal_chunk(cal_data,model_data,weight,flag,antenna1,antenna2,solve_
             allglist=[]
 
     t1=time.time()
+    #print('t1',t1-t0)
 
 
     # Loop over times and pols, solving for (scalar!) gains in each
@@ -405,11 +435,16 @@ def _gain_selfcal_chunk(cal_data,model_data,weight,flag,antenna1,antenna2,solve_
             # We need float view of g0
             g0_as_float=g0.view(dtype=float)
 
+#            # do the solve!
+#            sol=optimize.least_squares(fun=_residual_for_scalar_gain,
+#                                       x0=g0_as_float,
+#                                       bounds=(logain,higain),
+#                                       args=(thisX,thisXsig,antenna_i,antenna_j,glist))
             # do the solve!
             sol=optimize.least_squares(fun=_residual_for_scalar_gain,
                                        x0=g0_as_float,
                                        bounds=(logain,higain),
-                                       args=(thisX,thisXsig,antenna_i,antenna_j,glist))
+                                       args=(thisX,thisXsig,antenna_i,antenna_j))
 
             # Save the complex solved gains
             Gsol[itime,:,0,ipol]=sol.x.view(dtype=complex)
@@ -461,8 +496,8 @@ def _gain_selfcal_chunk(cal_data,model_data,weight,flag,antenna1,antenna2,solve_
     Gsol[Gflag]=complex(0.0)
 
     t2=time.time()
+    #print('t2',t2-t1)
     
-
     # Apply the calibration to the input data
     vis_corr,wt_corr,fl_corr=_correct_by_gain(cal_data,weight,flag,Gsol,Gflag,antenna_i,antenna_j)
 
@@ -470,6 +505,7 @@ def _gain_selfcal_chunk(cal_data,model_data,weight,flag,antenna1,antenna2,solve_
     outflag=np.sum(flag[np.isfinite(flag)])
 
     t3=time.time()
+    #print('t3',t3-t2)
 
 
 
@@ -497,12 +533,53 @@ def _gain_selfcal_chunk(cal_data,model_data,weight,flag,antenna1,antenna2,solve_
         ginfo['times']['corr']=t3-t2
         if 'glist' in ginfo.keys():
             ginfo['glist']=allglist
-
-    print(ginfo)
+        print(ginfo)
     # Return results
     #return (vis_corr,wt_corr,fl_corr,inflag,outflag,nsample,ginfo)
-    return vis_corr,wt_corr,fl_corr
+    finfo = np.array([inflag,outflag,nsample])
+    
+    return vis_corr,wt_corr,fl_corr,finfo
 
+#@jit(nopython=True, cache=True, nogil=True)
+#def _residual_for_scalar_gain(current_gain_float,vis_over_mod,sqrt_weight,antenna_i,antenna_j):
+#    """
+#    Returns weighted "chi" (residual) for supplied gains and model-normalized visibilities.  Supplied to
+#    optimize.least_squares for gain solving.
+#
+#    Inputs
+#    ------
+#    current_gain : gain values, as float (from optimize.least_squares), shape=[2*Nant], vector of float
+#    vis_over_mod : model-normalized visibilites shape=[Nbl], vector of complex
+#    sqrt_weight : sqrt(weight) corresponding to vis_over_mod shape=[Nbl], vector of float
+#    antenna_i : antenna indices for first antenna in baselines shape=[Nbl]
+#    antenna_j : antenna indices for second antenna in baselines shape=[Nbl]
+#
+#    Returns
+#    -------
+#    R : vector of weighted residuals, cast as float (for optimize.least_squares)
+#
+#    Notes
+#    -----
+#    R = (V-GiGj*)*sqrtwt, such that chi2=sum(RR*)
+#
+#    """
+#
+#    # cast supplied float gain info as complex
+#    #current_gain=current_gain_float.view(numba.complex128)
+#    current_gain=current_gain_float.view(numba.complex64)
+#
+#    # This is 'weighted chi' (the square of which is chi-squared), essentially
+#    R=(vis_over_mod - current_gain[antenna_i]*np.conj(current_gain[antenna_j]))*sqrt_weight
+#
+#    # shouldn't be necessary  (via sqrt_weight=0.0)
+#    #R[sqrt_weight==0.0]=complex(0.0)
+#
+#    # ...as float array (optimize.least_squares works only with float info...)
+#    #Rf=R.view(numba.double)
+#    Rf=R.view(numba.float32)
+#
+#    return Rf
+    
 
 def _residual_for_scalar_gain(current_gain_float,vis_over_mod,sqrt_weight,antenna_i,antenna_j,glist=None):
     """
@@ -542,7 +619,7 @@ def _residual_for_scalar_gain(current_gain_float,vis_over_mod,sqrt_weight,antenn
 
     # ...as float array (optimize.least_squares works only with float info...)
     Rf=R.view(dtype=float)
-    
+
     return Rf
 
 
