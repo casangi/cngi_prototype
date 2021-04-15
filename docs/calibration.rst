@@ -24,4 +24,4 @@ Current notable limitations:
 .. toctree::
    :maxdepth: 1
 
-   calibration/self_calibration_solve
+   calibration/selfcal_demo1
