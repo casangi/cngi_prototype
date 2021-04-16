@@ -5,7 +5,9 @@
 # that will slow down readthedocs
 ################################################
 pip==20.2.4
-nbsphinx==0.7.1
-sphinx-autoapi==1.5.1
+nbsphinx==0.8.3
+sphinx-autoapi==1.8.0
 sphinx-rtd-theme==0.5.0
 recommonmark==0.6.0
+pypandoc==1.5
+Sphinx==3.5.4
