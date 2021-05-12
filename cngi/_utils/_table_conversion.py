@@ -292,6 +292,7 @@ def convert_expanded_table(infile, outfile, keys, subtable='', subsel=None, time
                 else:
                     data = sorted_table.getcol(col, idx_range[0], len(idx_range)).transpose()
                 if np.iscomplexobj(data) is True and np.all(data.imag == 0):
+                    # generate C-contiguous float array from real part of complex data
                     tmp = np.empty_like(data.real)
                     tmp[:] = data.real
                     data = tmp
