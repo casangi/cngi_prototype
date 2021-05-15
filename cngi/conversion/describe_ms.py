@@ -36,8 +36,8 @@ def describe_ms(infile):
     import os
     import pandas as pd
     import numpy as np
-    import cngi._utils._table_conversion as tblconv
-    from casatools import table as tb
+    import cngi._utils._table_conversion2 as tblconv
+    from casacore import tables
     
     infile = os.path.expanduser(infile)  # does nothing if $HOME is unknown
     if not infile.endswith('/'): infile = infile + '/'
@@ -46,9 +46,9 @@ def describe_ms(infile):
     ignorecols = ['FLAG_CATEGORY', 'FLAG_ROW', 'SIGMA', 'WEIGHT_SPECTRUM', 'DATA_DESC_ID']
 
     # figure out characteristics of main table from select subtables (must all be present)
-    spw_xds = tblconv.convert_simple_table(infile, outfile='', subtable='SPECTRAL_WINDOW', ignore=ignorecols, nofile=True)
-    pol_xds = tblconv.convert_simple_table(infile, outfile='', subtable='POLARIZATION', ignore=ignorecols, nofile=True)
-    ddi_xds = tblconv.convert_simple_table(infile, outfile='', subtable='DATA_DESCRIPTION', ignore=ignorecols, nofile=True)
+    spw_xds = tblconv.read_simple_table(infile, subtable='SPECTRAL_WINDOW', ignore=ignorecols, add_row_id=True)
+    pol_xds = tblconv.read_simple_table(infile, subtable='POLARIZATION', ignore=ignorecols)
+    ddi_xds = tblconv.read_simple_table(infile, subtable='DATA_DESCRIPTION', ignore=ignorecols)
     ddis = list(ddi_xds['d0'].values)
 
     summary = pd.DataFrame([])
@@ -56,20 +56,18 @@ def describe_ms(infile):
     pol_ids = ddi_xds.polarization_id.values
     chans = spw_xds.NUM_CHAN.values
     pols = pol_xds.NUM_CORR.values
-    tb_tool = tb()
-    tb_tool.open(infile, nomodify=True, lockoptions={'option': 'usernoread'})  # allow concurrent reads
+
     for ddi in ddis:
         print('processing ddi %i of %i' % (ddi+1, len(ddis)), end='\r')
-        sorted_table = tb_tool.taql('select * from %s where DATA_DESC_ID = %i' % (infile, ddi))
+        sorted_table = tables.taql('select * from %s where DATA_DESC_ID = %i' % (infile, ddi))
         sdf = {'ddi': ddi, 'spw_id': spw_ids[ddi], 'pol_id': pol_ids[ddi], 'rows': sorted_table.nrows(),
                'times': len(np.unique(sorted_table.getcol('TIME'))),
                'baselines': len(np.unique(np.hstack([sorted_table.getcol(rr)[:,None] for rr in ['ANTENNA1', 'ANTENNA2']]), axis=0)),
                'chans': chans[spw_ids[ddi]],
                'pols': pols[pol_ids[ddi]]}
-        sdf['size_MB'] = np.ceil((sdf['times']*sdf['baselines']*sdf['chans']*sdf['pols']*17) / 1024**2).astype(int)
+        sdf['size_MB'] = np.ceil((sdf['times']*sdf['baselines']*sdf['chans']*sdf['pols']*9) / 1024**2).astype(int)
         summary = pd.concat([summary, pd.DataFrame(sdf, index=[str(ddi)])], axis=0, sort=False)
         sorted_table.close()
     print(' '*50, end='\r')
-    tb_tool.close()
-    
+
     return summary.set_index('ddi').sort_index()
