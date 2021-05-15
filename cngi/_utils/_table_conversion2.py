@@ -58,7 +58,7 @@ def read_col_chunk(ts_taql, col, cshape, tidxs, bidxs, didxs, d1, d2):
 
     # full data is the maximum of the data shape and chunk shape dimensions
     fulldata = np.full(cshape, np.nan, dtype=data.dtype)
-    fulldata[tidxs[didxs], bidxs[didxs]] = data[didxs]
+    if len(didxs) > 0: fulldata[tidxs[didxs], bidxs[didxs]] = data[didxs]
     ts_tb.close()
     return fulldata
 
@@ -98,7 +98,7 @@ def read_simple_table(infile, subtable='', timecols=None, ignore=None, add_row_i
             # sometimes the columns are variable, so we need to standardize to the largest sizes
             if len(np.unique([isinstance(rr[col], dict) for rr in tr])) > 1: continue   # can't deal with this case
             mshape = np.array(np.max([np.array(rr[col]).shape for rr in tr], axis=0))
-            data = np.stack([np.pad(rr[col] if len(rr[col]) > 0 else rr[col].reshape(np.arange(len(mshape))*0),
+            data = np.stack([np.pad(rr[col] if len(rr[col]) > 0 else np.array(rr[col]).reshape(np.arange(len(mshape))*0),
                                     [(0, ss) for ss in mshape - np.array(rr[col]).shape], 'constant', constant_values=np.nan) for rr in tr])
 
         if len(data) == 0: continue
@@ -121,7 +121,7 @@ def read_simple_table(infile, subtable='', timecols=None, ignore=None, add_row_i
 
 
 #####################################################################
-def read_main_table(infile, subsel=0, ignore=None, chunks=(100, 100, 20, 2)):
+def read_main_table(infile, subsel=0, ignore=None, chunks=(400, 200, 100, 2)):
     if ignore is None: ignore = []
 
     # select just the specified ddi
