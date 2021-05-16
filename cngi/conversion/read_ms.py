@@ -20,7 +20,7 @@ this module will be included in the api
 
 def read_ms(infile, ddis=None, ignore=None, chunks=(400, 400, 64, 2)):
     """
-    Convert legacy format MS to xarray Visibility Dataset and zarr storage format
+    Read legacy format MS to xarray Visibility Dataset
 
     The CASA MSv2 format is converted to the MSv3 schema per the
     specified definition here: https://drive.google.com/file/d/10TZ4dsFw9CconBc-GFxSeb2caT6wkmza/view?usp=sharing
@@ -34,7 +34,7 @@ def read_ms(infile, ddis=None, ignore=None, chunks=(400, 400, 64, 2)):
     infile : str
         Input MS filename
     ddis : list
-        List of specific DDIs to convert. DDI's are integer values, or use 'global' string for subtables. Leave as None to convert entire MS
+        List of specific DDIs to read. DDI's are integer values, or use 'global' string for subtables. Leave as None to read entire MS
     ignore : list
         List of subtables to ignore (case sensitive and generally all uppercase). This is useful if a particular subtable is causing errors
         or is very large and slowing down reads. Default is None
