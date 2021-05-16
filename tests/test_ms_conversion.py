@@ -100,3 +100,8 @@ mxds = read_ms('data/uid___A002_Xc3032e_X27c3.ms', chunks=(600,100,400,2))
 #xds = read_ms('data/uid___A002_Xc3032e_X27c3.ms', ddis=[25], chunks=(600,100,400,2)).xds25
 print('read complete in %s seconds' % str(time.time()-start))
 write_vis(mxds, 'data/test_conversion.vis.zarr')
+
+
+start = time.time()
+mxds = read_ms(infile, chunks=(1000,64,1000,2))
+print('read complete in %s seconds' % str(time.time()-start))

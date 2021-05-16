@@ -126,6 +126,9 @@ def read_main_table(infile, subsel=0, ignore=None, chunks=(400, 200, 100, 2)):
 
     # select just the specified ddi
     tb_tool = tables.taql('select * from %s where DATA_DESC_ID = %i' % (infile, subsel))
+    if tb_tool.nrows() == 0:
+        tb_tool.close()
+        return xarray.Dataset()
 
     # main table uses time x (antenna1,antenna2)
     ant1, ant2 = tb_tool.getcol('ANTENNA1',0,-1), tb_tool.getcol('ANTENNA2', 0, -1)

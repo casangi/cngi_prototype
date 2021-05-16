@@ -18,36 +18,34 @@ this module will be included in the api
 """
 
 
-def read_ms(infile, ddis=None, ignore=['HISTORY'], chunks=(400, 400, 64, 2)):
+def read_ms(infile, ddis=None, ignore=None, chunks=(400, 400, 64, 2)):
     """
     Convert legacy format MS to xarray Visibility Dataset and zarr storage format
 
     The CASA MSv2 format is converted to the MSv3 schema per the
     specified definition here: https://drive.google.com/file/d/10TZ4dsFw9CconBc-GFxSeb2caT6wkmza/view?usp=sharing
 
-    The MS is partitioned by DDI, which guarantees a fixed data shape per partition. This results in different subdirectories
-    under the main vis.zarr folder.  There is no DDI in MSv3, so this simply serves as a partition id in the zarr directory.
+    The MS is partitioned by DDI, which guarantees a fixed data shape per partition. This results in separate xarray
+    dataset (xds) partitions contained within a main xds (mxds).  There is no DDI in MSv3, so this simply serves as
+    a partition id for each xds.
 
     Parameters
     ----------
     infile : str
         Input MS filename
-    outfile : str
-        Output zarr filename when conversion is desired. Default None reads MS directly to xarray without conversion
     ddis : list
         List of specific DDIs to convert. DDI's are integer values, or use 'global' string for subtables. Leave as None to convert entire MS
     ignore : list
-        List of subtables to ignore (case sensitive and generally all uppercase). This is useful if a particular subtable is causing errors.
-        Default is None. Note: default is now temporarily set to ignore the HISTORY table due a CASA6 issue in the table tool affecting a small
-        set of test cases (set back to None if HISTORY is needed)
+        List of subtables to ignore (case sensitive and generally all uppercase). This is useful if a particular subtable is causing errors
+        or is very large and slowing down reads. Default is None
     chunks: 4-D tuple of ints
-        Shape of desired chunking in the form of (time, baseline, channel, polarization), use -1 for entire axis in one chunk. Default is (100, 400, 20, 1)
-        Note: chunk size is the product of the four numbers, and data is batch processed by time axis, so that will drive memory needed for conversion.
+        Shape of desired chunking in the form of (time, baseline, channel, polarization). Larger values reduce the number of chunks and
+        speed up the reads at the cost of more memory. Chunk size is the product of the four numbers. Default is (400, 400, 64, 2)
 
     Returns
     -------
     xarray.core.dataset.Dataset
-      Master xarray dataset of datasets for this visibility set
+      Main xarray dataset of datasets for this visibility set
     """
     import os
     import xarray
