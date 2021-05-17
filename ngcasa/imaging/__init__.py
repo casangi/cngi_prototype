@@ -22,5 +22,6 @@ from .predict_modelvis_image import predict_modelvis_image
 from .make_sd_psf import make_sd_psf
 from .make_sd_weight_image import make_sd_weight_image
 from .make_sd_image import make_sd_image
+from .synthesis_imaging_cube import synthesis_imaging_cube
 #from .gridding_convolutional_kernels import create_prolate_spheroidal_kernel, create_prolate_spheroidal_kernel_1D,prolate_spheroidal_function
 
