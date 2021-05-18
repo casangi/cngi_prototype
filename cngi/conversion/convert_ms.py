@@ -57,6 +57,7 @@ def convert_ms(infile, outfile=None, ddis=None, ignore=['HISTORY'], compressor=N
     xarray.core.dataset.Dataset
       Master xarray dataset of datasets for this visibility set
     """
+    import itertools
     import os
     import xarray
     import dask.array as da
@@ -97,43 +98,59 @@ def convert_ms(infile, outfile=None, ddis=None, ignore=['HISTORY'], compressor=N
     else: ddis = np.atleast_1d(ddis)
     xds_list = []
     
+    # extra data selection to split autocorr and crosscorr into separate xds
+    # extrasels[0] is for autocorrelation
+    # extrasels[1] is for others (corsscorrelations, correlations between feeds)
+    extrasels = [
+        'ANTENNA1 == ANTENNA2 && FEED1 == FEED2',
+        'ANTENNA1 != ANTENNA2 || FEED1 != FEED2'
+    ]
+
     ####################################################################
     # process each selected DDI from the input MS, assume a fixed shape within the ddi (should always be true)
     # each DDI is written to its own subdirectory under the parent folder
-    for ddi in ddis:
+    for extrasel, ddi in itertools.product(extrasels, ddis):
         if ddi == 'global': continue  # handled afterwards
+
+        extra_sel_index = extrasels.index(extrasel)
+        if extra_sel_index == 0:
+            xds_prefix = 'xdsa'
+        else:
+            xds_prefix = 'xds'
+        xds_name = f'{xds_prefix}{ddi}'
+
         ddi = int(ddi)
-        print('Processing ddi', ddi, end='\r')
+        print('Processing ddi', ddi, f'xds name is {xds_name}', end='\r')
         start_ddi = time.time()
 
         # these columns are different / absent in MSv3 or need to be handled as special cases
         msv2 = ['WEIGHT', 'WEIGHT_SPECTRUM', 'SIGMA', 'SIGMA_SPECTRUM', 'ANTENNA1', 'ANTENNA2', 'UVW']
         
         # convert columns that are common to MSv2 and MSv3
-        xds = tblconv.convert_expanded_table(infile, os.path.join(outfile,'xds'+str(ddi)), keys={'TIME': 'time', ('ANTENNA1', 'ANTENNA2'): 'baseline'},
+        xds = tblconv.convert_expanded_table(infile, os.path.join(outfile,xds_name), keys={'TIME': 'time', ('ANTENNA1', 'ANTENNA2'): 'baseline'},
                                              subsel={'DATA_DESC_ID':ddi}, timecols=['time'], dimnames={'d2':'chan', 'd3':'pol'},
-                                             ignore=ignorecols + msv2, compressor=compressor, chunks=chunks, nofile=False)
+                                             ignore=ignorecols + msv2, compressor=compressor, chunks=chunks, nofile=False, extraselstr=extrasel)
         if len(xds.dims) == 0: continue
         
         # convert and append UVW separately so we can handle its special dimension
         uvw_chunks = (chunks[0],chunks[1],3) #No chunking over uvw_index
         uvw_xds = tblconv.convert_expanded_table(infile, os.path.join(outfile,'tmp'), keys={'TIME': 'time', ('ANTENNA1', 'ANTENNA2'): 'baseline'},
                                                  subsel={'DATA_DESC_ID': ddi}, timecols=['time'], dimnames={'d2': 'uvw_index'},
-                                                 ignore=ignorecols + list(xds.data_vars) + msv2[:-1], compressor=compressor, chunks=uvw_chunks, nofile=False)
-        uvw_xds.to_zarr(os.path.join(outfile, 'xds'+str(ddi)), mode='a', compute=True, consolidated=True)
+                                                 ignore=ignorecols + list(xds.data_vars) + msv2[:-1], compressor=compressor, chunks=uvw_chunks, nofile=False, extraselstr=extrasel)
+        uvw_xds.to_zarr(os.path.join(outfile, xds_name), mode='a', compute=True, consolidated=True)
         
         # convert and append the ANTENNA1 and ANTENNA2 columns separately so we can squash the unnecessary time dimension
         ant_xds = tblconv.convert_expanded_table(infile, os.path.join(outfile, 'tmp'), keys={'TIME': 'time', ('ANTENNA1', 'ANTENNA2'): 'baseline'},
                                                  subsel={'DATA_DESC_ID': ddi}, timecols=['time'], ignore=ignorecols+list(xds.data_vars)+msv2[:4]+['UVW'],
-                                                 compressor=compressor, chunks=chunks[:2], nofile=False)
+                                                 compressor=compressor, chunks=chunks[:2], nofile=False, extraselstr=extrasel)
         ant_xds = ant_xds.assign({'ANTENNA1': ant_xds.ANTENNA1.max(axis=0), 'ANTENNA2': ant_xds.ANTENNA2.max(axis=0)}).drop_dims('time')
-        ant_xds.to_zarr(os.path.join(outfile, 'xds' + str(ddi)), mode='a', compute=True, consolidated=True)
+        ant_xds.to_zarr(os.path.join(outfile, xds_name), mode='a', compute=True, consolidated=True)
 
         # now convert just the WEIGHT and WEIGHT_SPECTRUM (if preset)
         # WEIGHT needs to be expanded to full dimensionality (time, baseline, chan, pol)
         wt_xds = tblconv.convert_expanded_table(infile, os.path.join(outfile,'tmp'), keys={'TIME': 'time', ('ANTENNA1', 'ANTENNA2'): 'baseline'},
                                                 subsel={'DATA_DESC_ID':ddi}, timecols=['time'], dimnames={},
-                                                ignore=ignorecols + list(xds.data_vars) + msv2[-3:], compressor=compressor, chunks=chunks, nofile=False)
+                                                ignore=ignorecols + list(xds.data_vars) + msv2[-3:], compressor=compressor, chunks=chunks, nofile=False, extraselstr=extrasel)
         
         # MSv3 changes to weight/sigma column handling
         # 1. DATA_WEIGHT = 1/sqrt(SIGMA)
@@ -157,7 +174,7 @@ def convert_ms(infile, outfile=None, ddis=None, ignore=['HISTORY'], compressor=N
                 wt_xds = wt_xds.assign({'CORRECTED_DATA_WEIGHT': xarray.DataArray(wt_da, dims=dimorder)})
         
         wt_xds = wt_xds.drop([cc for cc in msv2 if cc in wt_xds.data_vars])
-        wt_xds.to_zarr(os.path.join(outfile, 'xds' + str(ddi)), mode='a', compute=True, consolidated=True)
+        wt_xds.to_zarr(os.path.join(outfile, xds_name), mode='a', compute=True, consolidated=True)
         
         # add in relevant data grouping, spw and polarization attributes
         attrs = {'data_groups':[{}]}
@@ -186,10 +203,10 @@ def convert_ms(infile, outfile=None, ddis=None, ignore=['HISTORY'], compressor=N
                   'chan_width':chan_width, 'effective_bw':effective_bw, 'resolution':resolution}
         aux_xds = xarray.Dataset(coords=coords, attrs=attrs)
 
-        aux_xds.to_zarr(os.path.join(outfile, 'xds'+str(ddi)), mode='a', compute=True, consolidated=True)
-        xds = xarray.open_zarr(os.path.join(outfile,'xds'+str(ddi)))
+        aux_xds.to_zarr(os.path.join(outfile, xds_name), mode='a', compute=True, consolidated=True)
+        xds = xarray.open_zarr(os.path.join(outfile,xds_name))
         
-        xds_list += [('xds'+str(ddi), xds)]
+        xds_list += [(xds_name, xds)]
         print('Completed ddi %i  process time {:0.2f} s'.format(time.time()-start_ddi) % ddi)
 
     # clean up the tmp directory created by the weight conversion to MSv3

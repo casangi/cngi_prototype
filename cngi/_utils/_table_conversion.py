@@ -205,7 +205,7 @@ def convert_simple_table(infile, outfile, subtable='', dimnames=None, timecols=[
 # timecols is a list of column names to convert to datetimes
 # dimnames is a dictionary mapping old to new dimension names for remaining dims (not in keys)
 # ignore is a list of column names to ignore
-def convert_expanded_table(infile, outfile, keys, subtable='', subsel=None, timecols=[], dimnames={}, ignore=[], compressor=None, chunks=(100, 20, 1), nofile=False):
+def convert_expanded_table(infile, outfile, keys, subtable='', subsel=None, timecols=[], dimnames={}, ignore=[], compressor=None, chunks=(100, 20, 1), nofile=False, extraselstr=''):
     
     if compressor is None:
         compressor = Blosc(cname='zstd', clevel=2, shuffle=0)
@@ -230,11 +230,16 @@ def convert_expanded_table(infile, outfile, keys, subtable='', subsel=None, time
     #  3. row_idxs = row numbers where each unique value occurs
     # then compute 1 and 3 for each additional key/dimension and store in midxs dictionary
     ordering = ','.join([np.atleast_1d(key)[ii] for key in keys.keys() for ii in range(len(np.atleast_1d(key)))])
-    if subsel is None:
+    if subsel is None or len(subsel) == 0:
+        selstr = str(extraselstr)
+    else:
+        selstr = '&&'.join([f'{k} = {v}' for k, v in subsel.items()])
+        if len(extraselstr) > 0:
+            selstr = f'({selstr}) && ({extraselstr})'
+    if len(selstr) == 0:
         sorted_table = tb_tool.taql('select * from %s ORDERBY %s' % (os.path.join(infile,subtable), ordering))
     else:
-        tsel = [list(subsel.keys())[0], list(subsel.values())[0]]
-        sorted_table = tb_tool.taql('select * from %s where %s = %s ORDERBY %s' % (os.path.join(infile,subtable), tsel[0], tsel[1], ordering))
+        sorted_table = tb_tool.taql('select * from %s where %s ORDERBY %s' % (os.path.join(infile,subtable), selstr, ordering))
         if sorted_table.nrows() == 0:
             sorted_table.close()
             tb_tool.close()
@@ -291,6 +296,11 @@ def convert_expanded_table(infile, outfile, keys, subtable='', subsel=None, time
                                      for kk in np.arange(start_idx + 1, start_idx + len(data) + 1)])
                 else:
                     data = sorted_table.getcol(col, idx_range[0], len(idx_range)).transpose()
+                if np.iscomplexobj(data) is True and np.all(data.imag == 0):
+                    # generate C-contiguous float array from real part of complex data
+                    tmp = np.empty_like(data.real)
+                    tmp[:] = data.real
+                    data = tmp
             except Exception:
                 bad_cols += [col]
                 continue
