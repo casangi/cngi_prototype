@@ -25,8 +25,10 @@ import copy
 from ._imaging_utils._standard_grid import _standard_grid_psf_numpy_wrap, _standard_imaging_weight_degrid_numpy_wrap, _standard_grid_numpy_wrap
 from ._imaging_utils._gridding_convolutional_kernels import _create_prolate_spheroidal_kernel, _create_prolate_spheroidal_kernel_1D
 from ._imaging_utils._remove_padding import _remove_padding
+from cngi.image.fit_gaussian import casa_fit
 
 def synthesis_imaging_cube(vis_mxds, img_xds, grid_parms, imaging_weights_parms, pb_parms, vis_sel_parms, img_sel_parms):
+    print('v2')
 
     print('######################### Start Synthesis Imaging Cube #########################')
     import numpy as np
@@ -66,7 +68,7 @@ def synthesis_imaging_cube(vis_mxds, img_xds, grid_parms, imaging_weights_parms,
     _check_sel_parms(_vis_xds,_vis_sel_parms)
     
     #Check img data_group
-    _check_sel_parms(_img_xds,_img_sel_parms,new_or_modified_data_variables={'image_sum_weight':'IMAGE_SUM_WEIGHT','image':'IMAGE','psf_sum_weight':'PSF_SUM_WEIGHT','psf':'PSF','pb':'PB'},append_to_in_id=True)
+    _check_sel_parms(_img_xds,_img_sel_parms,new_or_modified_data_variables={'image_sum_weight':'IMAGE_SUM_WEIGHT','image':'IMAGE','psf_sum_weight':'PSF_SUM_WEIGHT','psf':'PSF','pb':'PB','restore_parms':'RESTORE_PARMS'},append_to_in_id=True)
 
     
     parms = {'grid_parms':_grid_parms,'imaging_weights_parms':_imaging_weights_parms,'pb_parms':_pb_parms,'vis_sel_parms':_vis_sel_parms,'img_sel_parms':_img_sel_parms}
@@ -79,7 +81,7 @@ def synthesis_imaging_cube(vis_mxds, img_xds, grid_parms, imaging_weights_parms,
  
     #assert n_chunks_in_each_dim[3] == 1, "Chunking is not allowed on pol dim."
     n_chunks_in_each_dim = list(_vis_xds[_vis_sel_parms["data_group_in"]["data"]].data.numblocks)
-    n_chunks_in_each_dim[0] = 1 #chan
+    n_chunks_in_each_dim[0] = 1 #time
     n_chunks_in_each_dim[1] = 1 #baseline
     n_chunks_in_each_dim[3] = 1 #pol
 
@@ -91,8 +93,11 @@ def synthesis_imaging_cube(vis_mxds, img_xds, grid_parms, imaging_weights_parms,
     image_sum_weight_list = _ndim_list(n_chunks_in_each_dim[2:])
     psf_list = _ndim_list(n_chunks_in_each_dim)
     psf_sum_weight_list = _ndim_list(n_chunks_in_each_dim[2:])
+    
     pb_list = _ndim_list(tuple(n_chunks_in_each_dim) + (1,))
+    ellipse_parms_list = _ndim_list(tuple(n_chunks_in_each_dim[2:]) + (1,))
     n_dish_type = len(_pb_parms['list_dish_diameters'])
+    n_elps = 3
     
     freq_chan = da.from_array(_vis_xds.coords['chan'].values, chunks=(_vis_xds[_vis_sel_parms["data_group_in"]["data"]].chunks[2]))
   
@@ -115,6 +120,9 @@ def synthesis_imaging_cube(vis_mxds, img_xds, grid_parms, imaging_weights_parms,
         psf_sum_weight_list[c_chan][c_pol] = da.from_delayed(synthesis_chunk[3],(chunk_sizes[2][c_chan], chunk_sizes[3][c_pol]),dtype=np.double)
         
         pb_list[c_time][c_baseline][c_chan][c_pol][0] = da.from_delayed(synthesis_chunk[4],(_grid_parms['image_size'][0], _grid_parms['image_size'][1],chunk_sizes[2][c_chan], chunk_sizes[3][c_pol],n_dish_type),dtype=np.double)
+        
+        ellipse_parms_list[c_chan][c_pol][0] = da.from_delayed(synthesis_chunk[5],(chunk_sizes[2][c_chan], chunk_sizes[3][c_pol],n_elps),dtype=np.double)
+        
         
         #return image, image_sum_weight, psf, psf_sum_weight, pb
         
@@ -144,6 +152,10 @@ def synthesis_imaging_cube(vis_mxds, img_xds, grid_parms, imaging_weights_parms,
     
     _img_xds[_img_sel_parms['data_group_out']['image']] = xr.DataArray(da.block(image_list)[:,:,None,:,:], dims=['l', 'm', 'time', 'chan', 'pol'])
     _img_xds[_img_sel_parms['data_group_out']['image_sum_weight']] = xr.DataArray(da.block(image_sum_weight_list)[None,:,:], dims=['time','chan','pol'])
+    
+    print(da.block(ellipse_parms_list))
+    
+    _img_xds[_img_sel_parms['data_group_out']['restore_parms']] = xr.DataArray(da.block(ellipse_parms_list)[None,:,:,:], dims=['time','chan','pol','elps_index'])
     
     _img_xds[_img_sel_parms['data_group_out']['psf']] = xr.DataArray(da.block(psf_list)[:,:,None,:,:], dims=['l', 'm', 'time', 'chan', 'pol'])
     _img_xds[_img_sel_parms['data_group_out']['psf_sum_weight']] = xr.DataArray(da.block(psf_sum_weight_list)[None,:,:], dims=['time','chan','pol'])
@@ -186,7 +198,11 @@ def _synthesis_imaging_cube_std_chunk(vis_data, uvw,data_weight,flag,freq_chan,p
     image, image_sum_weight = _make_image(vis_data, uvw, data_weight, freq_chan, cgk_1D, grid_parms)
     image = correct_image(image, image_sum_weight[None, None, :, :], correcting_cgk_image[:, :, None, None])
     
-    return image, image_sum_weight, psf, psf_sum_weight, pb
+    
+    cell_size = grid_parms['cell_size']
+    ellipse_parms = casa_fit(psf[:,:,None,:,:],npix_window=np.array([9,9]),sampling=np.array([9,9]),cutoff=0.35,delta=np.array(cell_size))[0,:,:,:]
+    
+    return image, image_sum_weight, psf, psf_sum_weight, pb, ellipse_parms
     
 #############Normalize#############
 def correct_image(uncorrected_dirty_image, sum_weights, correcting_cgk):
