@@ -64,7 +64,6 @@ def read_col_chunk(ts_taql, col, cshape, tidxs, bidxs, didxs, d1, d2):
 
 
 
-
 ##################################################################
 # read casacore table format in to memory
 ##################################################################
@@ -321,11 +320,6 @@ def read_pointing_table(infile, chunks=(100, 100, 20, 20)):
     tb_tool.close()
 
     return xds
-
-
-
-
-
 
 
 
