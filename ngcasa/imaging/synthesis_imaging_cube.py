@@ -28,7 +28,7 @@ from ._imaging_utils._remove_padding import _remove_padding
 from cngi.image.fit_gaussian import casa_fit
 
 def synthesis_imaging_cube(vis_mxds, img_xds, grid_parms, imaging_weights_parms, pb_parms, vis_sel_parms, img_sel_parms):
-    print('v2')
+    print('v3')
 
     print('######################### Start Synthesis Imaging Cube #########################')
     import numpy as np
@@ -104,7 +104,7 @@ def synthesis_imaging_cube(vis_mxds, img_xds, grid_parms, imaging_weights_parms,
     # Build graph
     for c_time, c_baseline, c_chan, c_pol in iter_chunks_indx:
         #c_time, c_baseline, c_chan, c_pol
-        #print(c_chan)
+        #print(_vis_xds[_vis_sel_parms["data_group_in"]["data"]].data.partitions[:, :, c_chan, :].shape)
         synthesis_chunk = dask.delayed(_synthesis_imaging_cube_std_chunk)(
             _vis_xds[_vis_sel_parms["data_group_in"]["data"]].data.partitions[:, :, c_chan, :],
             _vis_xds[_vis_sel_parms["data_group_in"]["uvw"]].data.partitions[:, :, :],
@@ -166,24 +166,33 @@ def synthesis_imaging_cube(vis_mxds, img_xds, grid_parms, imaging_weights_parms,
         
     return _img_xds
 
+import time
 
 def _synthesis_imaging_cube_std_chunk(vis_data, uvw,data_weight,flag,freq_chan,parms):
     grid_parms = parms['grid_parms']
     imaging_weights_parms = parms['imaging_weights_parms']
     pb_parms = parms['pb_parms']
 
-    #print('Shapes',vis_data.shape,uvw.shape,data_weight.shape,flag.shape)
+    #print('###########1Shapes',vis_data.shape,uvw.shape,data_weight.shape,flag.shape,flag.dtype)
     #Flag data
-    vis_data[flag] = np.nan
-    
+    #s1 = time.time()
+    #vis_data[flag] = np.nan
+    vis_data[flag==1] = np.nan
+    #print("Flag ", time.time()-s1)
+    #print('###########2Shapes',vis_data.shape,uvw.shape,data_weight.shape,flag.shape)
     #Imaging Weights
-    imaging_weights = _make_imaging_weight_chunk(uvw,data_weight,freq_chan,grid_parms,imaging_weights_parms)
     
+    #s2 = time.time()
+    imaging_weights = _make_imaging_weight_chunk(uvw,data_weight,freq_chan,grid_parms,imaging_weights_parms)
+    #print("Imaging Weights ", time.time()-s2)
     #Make PB
+    #s3 = time.time()
     vis_data_shape = vis_data.shape
     pb = _make_pb(vis_data_shape,freq_chan,pb_parms,grid_parms)
+    #print("Make PB ", time.time()-s3)
     
     # Creating gridding kernel
+    #s4 = time.time()
     grid_parms['oversampling'] = 100
     grid_parms['support'] = 7
     
@@ -191,17 +200,23 @@ def _synthesis_imaging_cube_std_chunk(vis_data, uvw,data_weight,flag,freq_chan,p
     cgk, correcting_cgk_image = _create_prolate_spheroidal_kernel(grid_parms['oversampling'], grid_parms['support'], grid_parms['image_size_padded'])
     cgk_1D = _create_prolate_spheroidal_kernel_1D(grid_parms['oversampling'], grid_parms['support'])
     correcting_cgk_image = _remove_padding(correcting_cgk_image,grid_parms['image_size'])
+    #print("Create GCF", time.time()-s4)
     
+    #s5 = time.time()
     psf, psf_sum_weight = _make_psf(uvw, data_weight, freq_chan, cgk_1D, grid_parms)
     psf = correct_image(psf, psf_sum_weight[None, None, :, :], correcting_cgk_image[:, :, None, None])
+    #print("Make PSF ", time.time()-s5)
     
+    #s6 = time.time()
     image, image_sum_weight = _make_image(vis_data, uvw, data_weight, freq_chan, cgk_1D, grid_parms)
     image = correct_image(image, image_sum_weight[None, None, :, :], correcting_cgk_image[:, :, None, None])
+    #print("Make IMAGE ", time.time()-s6)
     
-    
+    #s7 = time.time()
     cell_size = grid_parms['cell_size']
     ellipse_parms = casa_fit(psf[:,:,None,:,:],npix_window=np.array([9,9]),sampling=np.array([9,9]),cutoff=0.35,delta=np.array(cell_size))[0,:,:,:]
-    
+    #print("Fit PSF ", time.time()-s7)
+        
     return image, image_sum_weight, psf, psf_sum_weight, pb, ellipse_parms
     
 #############Normalize#############
