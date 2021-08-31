@@ -13,13 +13,13 @@
 #
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
-"""
-this module will be included in the api
-"""
+#"""
+#this module will NOT be included in the api
+#"""
 
 
 ##########################################
-def convert_image(infile, outfile=None, artifacts=[], compressor=None, chunks=(-1, -1, 1, 1)):
+def convert_image2(infile, outfile=None, artifacts=[], compressor=None, chunks=(-1, -1, 1, 1)):
     """
     Convert legacy CASA format Image to xarray Image Dataset and zarr storage format
 
