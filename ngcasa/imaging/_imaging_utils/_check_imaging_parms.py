@@ -46,7 +46,7 @@ def _check_gcf_parms(gcf_parms):
     import numbers
     parms_passed = True
     
-    if not(_check_parms(gcf_parms, 'function', [str], acceptable_data=['alma_airy','airy'], default='alma_airy')): parms_passed = False
+    if not(_check_parms(gcf_parms, 'function', [str], acceptable_data=['casa_airy','airy'], default='casa_airy')): parms_passed = False
     if not(_check_parms(gcf_parms, 'freq_chan', [list,np.array],list_acceptable_data_types=[numbers.Number],list_len=-1)): parms_passed = False
     if not(_check_parms(gcf_parms, 'list_dish_diameters', [list,np.array],list_acceptable_data_types=[numbers.Number],list_len=-1)): parms_passed = False
     if not(_check_parms(gcf_parms, 'list_blockage_diameters', [list,np.array],list_acceptable_data_types=[numbers.Number],list_len=-1)): parms_passed = False
@@ -60,7 +60,7 @@ def _check_gcf_parms(gcf_parms):
     if not(_check_parms(gcf_parms, 'support_cut_level', [numbers.Number], default=2.5*10**-2)): parms_passed = False
     if not(_check_parms(gcf_parms, 'a_chan_num_chunk', [np.int], default=3)): parms_passed = False
     
-    if gcf_parms['function'] == 'airy' or gcf_parms['function'] == 'alma_airy':
+    if gcf_parms['function'] == 'airy' or gcf_parms['function'] == 'casa_airy':
         if not(_check_parms(gcf_parms, 'list_dish_diameters', [list,np.array],list_acceptable_data_types=[numbers.Number],list_len=-1)): parms_passed = False
         if not(_check_parms(gcf_parms, 'list_blockage_diameters', [list,np.array],list_acceptable_data_types=[numbers.Number],list_len=-1)): parms_passed = False
     
@@ -152,7 +152,7 @@ def _check_pb_parms(img_dataset, pb_parms):
     
     #if not(_check_parms(pb_parms, 'pb_name', [str], default='PB')): parms_passed = False
     
-    if not(_check_parms(pb_parms, 'function', [str], default='alma_airy')): parms_passed = False
+    if not(_check_parms(pb_parms, 'function', [str], default='casa_airy')): parms_passed = False
     
     if not(_check_parms(pb_parms, 'list_dish_diameters', [list],list_acceptable_data_types=[numbers.Number],list_len=-1)): parms_passed = False
     if not(_check_parms(pb_parms, 'list_blockage_diameters', [list],list_acceptable_data_types=[numbers.Number],list_len=-1)): parms_passed = False

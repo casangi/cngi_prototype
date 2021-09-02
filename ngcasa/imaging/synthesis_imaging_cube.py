@@ -46,7 +46,7 @@ def synthesis_imaging_cube(vis_mxds, img_xds, grid_parms, imaging_weights_parms,
     import itertools
     from cngi._utils._check_parms import _check_sel_parms, _check_existence_sel_parms
     from ._imaging_utils._check_imaging_parms import _check_imaging_weights_parms, _check_grid_parms, _check_pb_parms
-    from ._imaging_utils._make_pb_symmetric import _airy_disk, _alma_airy_disk
+    from ._imaging_utils._make_pb_symmetric import _airy_disk, _casa_airy_disk
     from cngi.image import make_empty_sky_image
 
     _mxds = vis_mxds.copy(deep=True)
@@ -265,9 +265,9 @@ def _make_pb(vis_data_shape,freq_chan,pb_parms,grid_parms):
     if pb_parms['function'] == 'airy':
         from ._imaging_utils._make_pb_symmetric import _airy_disk
         pb_func = _airy_disk
-    elif pb_parms['function'] == 'alma_airy':
-        from ._imaging_utils._make_pb_symmetric import _alma_airy_disk
-        pb_func = _alma_airy_disk
+    elif pb_parms['function'] == 'casa_airy':
+        from ._imaging_utils._make_pb_symmetric import _casa_airy_disk
+        pb_func = _casa_airy_disk
     else:
         print('Only the airy function has been implemented')
     

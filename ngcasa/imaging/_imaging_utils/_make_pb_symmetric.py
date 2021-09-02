@@ -76,7 +76,7 @@ def _airy_disk(freq_chan,pol,pb_parms,grid_parms):
 
 #Formula for obscured airy pattern found in casa6/casa5/code/synthesis/TransformMachines/PBMath1DAiry.cc/h
 # If ipower is 1 the voltage pattern is returned if ipower is 2 the primary beam is returned.
-def _alma_airy_disk(freq_chan,pol,pb_parms,grid_parms):
+def _casa_airy_disk(freq_chan,pol,pb_parms,grid_parms):
     '''
     Does not yet handle beam squint
     dish_diameters : list of int
@@ -184,7 +184,7 @@ def _airy_disk_rorder(freq_chan,pol,pb_parms,grid_parms):
 
 #Formula for obscured airy pattern found in casa6/casa5/code/synthesis/TransformMachines/PBMath1DAiry.cc/h
 # If ipower is 1 the voltage pattern is returned if ipower is 2 the primary beam is returned.
-def _alma_airy_disk_rorder(freq_chan,pol,pb_parms,grid_parms):
+def _casa_airy_disk_rorder(freq_chan,pol,pb_parms,grid_parms):
     '''
     Does not yet handle beam squint
     dish_diameters : list of int
