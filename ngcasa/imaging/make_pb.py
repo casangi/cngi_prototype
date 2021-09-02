@@ -39,7 +39,7 @@ def make_pb(img_xds,pb_parms, grid_parms, sel_parms):
         The list of dish diameters.
     pb_parms['list_blockage_diameters'] = list of number
         The list of blockage diameters for each dish.
-    pb_parms['function'] : {'alma_airy','airy'}, default='alma_airy'
+    pb_parms['function'] : {'casa_airy','airy'}, default='casa_airy'
         Only the airy disk function is currently supported.
     grid_parms : dictionary
     grid_parms['image_size'] : list of int, length = 2
@@ -85,9 +85,9 @@ def make_pb(img_xds,pb_parms, grid_parms, sel_parms):
     if _pb_parms['function'] == 'airy':
         from ._imaging_utils._make_pb_symmetric import _airy_disk
         pb_func = _airy_disk
-    elif _pb_parms['function'] == 'alma_airy':
-        from ._imaging_utils._make_pb_symmetric import _alma_airy_disk
-        pb_func = _alma_airy_disk
+    elif _pb_parms['function'] == 'casa_airy':
+        from ._imaging_utils._make_pb_symmetric import _casa_airy_disk
+        pb_func = _casa_airy_disk
     else:
         print('Only the airy function has been implemented')
     
