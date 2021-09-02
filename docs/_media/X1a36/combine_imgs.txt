@@ -5,27 +5,37 @@
 \margl1440\margr1440\vieww27180\viewh8400\viewkind0
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
 
-\f0\fs28 \cf0 convert \\( node_A001_X133d_X1a36.png  cluster_A001_X133d_X1a36.png -append  \\) \\\
-\\( spu_node_A001_X133d_X1a36.png spu_cluster_A001_X133d_X1a36.png -append \\) +append combined_X1a36.png\
-\
+\f0\fs28 \cf0 \
+convert \\( node_A001_X133d_X1a36.png  cluster_A001_X133d_X1a36.png -append  \\) \\\
+\\( spu_node_A001_X133d_X1a36.png spu_cluster_A001_X133d_X1a36.png -append \\) +append x_combined_X1a36.png\
 \
 convert  aws_A001_X133d_X1a36.png   spu_awsA001_X133d_X1a36.png +append aws_combined_X1a36.png\
 \
+convert  x_combined_X1a36.png   aws_combined_X1a36.png -append combined_X1a36.png\
+\
 ###################\
 convert \\( node_A001_X1273_X2e3.png  cluster_A001_X1273_X2e3.png -append  \\) \\\
-\\( spu_node_A001_X1273_X2e3.png spu_cluster_A001_X1273_X2e3.png -append \\) +append combined_X2e3.png\
+\\( spu_node_A001_X1273_X2e3.png spu_cluster_A001_X1273_X2e3.png -append \\) +append x_combined_X2e3.png\
+\
+convert  aws_A001_X1273_X2e3.png   spu_awsA001_X1273_X2e3.png +append aws_combined_X2e3.png\
+\
+convert  x_combined_X2e3.png   aws_combined_X2e3.png -append combined_X2e3.png\
 \
 \
 ###################\
 convert \\( node_A001_X12a3_X3be.png  cluster_A001_X12a3_X3be.png -append  \\) \\\
-\\( spu_node_A001_X12a3_X3be.png spu_cluster_A001_X12a3_X3be.png -append \\) +append combined_X3be.png\
+\\( spu_node_A001_X12a3_X3be.png spu_cluster_A001_X12a3_X3be.png -append \\) +append x_combined_X3be.png\
 \
 convert  aws_A001_X12a3_X3be.png   spu_awsA001_X12a3_X3be.png +append aws_combined_X3be.png\
+\
+convert  x_combined_X3be.png   aws_combined_X3be.png -append combined_X3be.png\
 \
 ###############\
 \
 \
 convert \\( node_A001_X1273_Xc66.png  cluster_A001_X1273_Xc66.png -append  \\) \\\
-\\( spu_node_A001_X1273_Xc66.png spu_cluster_A001_X1273_Xc66.png -append \\) +append combined_Xc66.png\
+\\( spu_node_A001_X1273_Xc66.png spu_cluster_A001_X1273_Xc66.png -append \\) +append x_combined_Xc66.png\
 \
-}
+convert  aws_A001_X1273_Xc66.png   spu_awsA001_X1273_Xc66.png +append aws_combined_Xc66.png\
+\
+convert  x_combined_Xc66.png   aws_combined_Xc66.png -append combined_Xc66.png}
