@@ -44,7 +44,7 @@ def make_gridding_convolution_function(mxds, gcf_parms, grid_parms, sel_parms):
     vis_dataset : xarray.core.dataset.Dataset
         Input visibility dataset.
     gcf_parms : dictionary
-    gcf_parms['function'] : {'alma_airy'/'airy'}, default = 'alma_airy'
+    gcf_parms['function'] : {'casa_airy'/'airy'}, default = 'casa_airy'
         The primary beam model used (a function of the dish diameter and blockage diameter).
     gcf_parms['list_dish_diameters']  : list of number, units = meter
         A list of unique antenna dish diameters.
@@ -128,11 +128,11 @@ def make_gridding_convolution_function(mxds, gcf_parms, grid_parms, sel_parms):
     if _gcf_parms['function'] == 'airy':
         from ._imaging_utils._make_pb_symmetric import _airy_disk_rorder
         pb_func = _airy_disk_rorder
-    elif _gcf_parms['function'] == 'alma_airy':
-        from ._imaging_utils._make_pb_symmetric import _alma_airy_disk_rorder
-        pb_func = _alma_airy_disk_rorder
+    elif _gcf_parms['function'] == 'casa_airy':
+        from ._imaging_utils._make_pb_symmetric import _casa_airy_disk_rorder
+        pb_func = _casa_airy_disk_rorder
     else:
-        assert(False), "######### ERROR: Only airy and alma_airy function has been implemented"
+        assert(False), "######### ERROR: Only airy and casa_airy function has been implemented"
         
     #For now only a_term works
     _gcf_parms['a_term'] =  True

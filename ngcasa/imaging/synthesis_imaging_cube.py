@@ -46,7 +46,7 @@ def synthesis_imaging_cube(vis_mxds, img_xds, grid_parms, imaging_weights_parms,
     import itertools
     from cngi._utils._check_parms import _check_sel_parms, _check_existence_sel_parms
     from ._imaging_utils._check_imaging_parms import _check_imaging_weights_parms, _check_grid_parms, _check_pb_parms
-    from ._imaging_utils._make_pb_symmetric import _airy_disk, _alma_airy_disk
+    from ._imaging_utils._make_pb_symmetric import _airy_disk, _casa_airy_disk
     from cngi.image import make_empty_sky_image
 
     _mxds = vis_mxds.copy(deep=True)
@@ -265,9 +265,9 @@ def _make_pb(vis_data_shape,freq_chan,pb_parms,grid_parms):
     if pb_parms['function'] == 'airy':
         from ._imaging_utils._make_pb_symmetric import _airy_disk
         pb_func = _airy_disk
-    elif pb_parms['function'] == 'alma_airy':
-        from ._imaging_utils._make_pb_symmetric import _alma_airy_disk
-        pb_func = _alma_airy_disk
+    elif pb_parms['function'] == 'casa_airy':
+        from ._imaging_utils._make_pb_symmetric import _casa_airy_disk
+        pb_func = _casa_airy_disk
     else:
         print('Only the airy function has been implemented')
     
@@ -282,26 +282,28 @@ def _make_pb(vis_data_shape,freq_chan,pb_parms,grid_parms):
 
 
 def _make_imaging_weight_chunk(uvw,data_weight,freq_chan,grid_parms,imaging_weights_parms):
-    #if natural
-    _grid_parms = copy.deepcopy(grid_parms)
-    _grid_parms['image_size_padded'] =  grid_parms['image_size'] #do not need to pad since no fft
-    _grid_parms['oversampling'] = 0
-    _grid_parms['support'] = 1
-    _grid_parms['do_psf'] = True
-    _grid_parms['complex_grid'] = False
-    _grid_parms['do_imaging_weight'] = True
-    
-    cgk_1D = np.ones((1))
+    if imaging_weights_parms['weighting'] == 'natural':
+        imaging_weights = data_weight
+    else:
+        _grid_parms = copy.deepcopy(grid_parms)
+        _grid_parms['image_size_padded'] =  grid_parms['image_size'] #do not need to pad since no fft
+        _grid_parms['oversampling'] = 0
+        _grid_parms['support'] = 1
+        _grid_parms['do_psf'] = True
+        _grid_parms['complex_grid'] = False
+        _grid_parms['do_imaging_weight'] = True
+        
+        cgk_1D = np.ones((1))
 
-    #Grid Weights
-    weight_density_grid, sum_weight = _standard_grid_psf_numpy_wrap(uvw, data_weight, freq_chan, cgk_1D, _grid_parms)
-    
-    #Calculate Briggs
-    briggs_factors = _calculate_briggs_parms(weight_density_grid, sum_weight, imaging_weights_parms) # 2 x chan x pol
-    
-    #Degrid weight density grid
-    weight_density_grid = np.moveaxis(weight_density_grid,(0,1),(2,3)) #Temp need to change def of image coord pos.
-    imaging_weights = _standard_imaging_weight_degrid_numpy_wrap(weight_density_grid, uvw, data_weight, briggs_factors, freq_chan, _grid_parms)
+        #Grid Weights
+        weight_density_grid, sum_weight = _standard_grid_psf_numpy_wrap(uvw, data_weight, freq_chan, cgk_1D, _grid_parms)
+        
+        #Calculate Briggs
+        briggs_factors = _calculate_briggs_parms(weight_density_grid, sum_weight, imaging_weights_parms) # 2 x chan x pol
+        
+        #Degrid weight density grid
+        weight_density_grid = np.moveaxis(weight_density_grid,(0,1),(2,3)) #Temp need to change def of image coord pos.
+        imaging_weights = _standard_imaging_weight_degrid_numpy_wrap(weight_density_grid, uvw, data_weight, briggs_factors, freq_chan, _grid_parms)
     
     return imaging_weights
     
