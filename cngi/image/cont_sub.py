@@ -57,7 +57,6 @@ def cont_sub(xds, dv='IMAGE', fitorder=2, chans=None, linename='LINE', contname=
 
     import xarray as xr
     import numpy as np
-    from cngi._utils import _image_utility as iu
 
     xr.set_options(keep_attrs=True)
 
