@@ -1,4 +1,4 @@
-*The cngi-prototype is no longer being developed and is archived.*
+**The cngi-prototype is no longer being developed and is archived.**
 
 All documentation can be found here: [https://cngi-prototype.readthedocs.io](https://cngi-prototype.readthedocs.io/)
 
