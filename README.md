@@ -1,3 +1,5 @@
+*The cngi-prototype is no longer being developed and is archived.*
+
 All documentation can be found here: [https://cngi-prototype.readthedocs.io](https://cngi-prototype.readthedocs.io/)
 
 Installation section is here: [https://cngi-prototype.readthedocs.io/en/latest/introduction.html#Installation](https://cngi-prototype.readthedocs.io/en/latest/introduction.html#Installation)
