@@ -97,8 +97,11 @@ def read_simple_table(infile, subtable='', timecols=None, ignore=None, add_row_i
             # sometimes the columns are variable, so we need to standardize to the largest sizes
             if len(np.unique([isinstance(rr[col], dict) for rr in tr])) > 1: continue   # can't deal with this case
             mshape = np.array(np.max([np.array(rr[col]).shape for rr in tr], axis=0))
+            const_val = np.nan
+            if isinstance(tr[0][col], np.ndarray) and np.issubdtype(tr[0][col].dtype, np.integer):
+                const_val = -1
             data = np.stack([np.pad(rr[col] if len(rr[col]) > 0 else np.array(rr[col]).reshape(np.arange(len(mshape))*0),
-                                    [(0, ss) for ss in mshape - np.array(rr[col]).shape], 'constant', constant_values=np.nan) for rr in tr])
+                                    [(0, ss) for ss in mshape - np.array(rr[col]).shape], 'constant', constant_values=const_val) for rr in tr])
 
         if len(data) == 0: continue
         if col in timecols: convert_time(data)
